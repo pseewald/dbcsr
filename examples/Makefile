@@ -9,11 +9,11 @@ FCFLAGS    = $(FLAGS) $(INCLUDES) -fno-omit-frame-pointer \
              -funroll-loops -ffree-form -std=f2003 -fimplicit-none
 CXXFLAGS   = $(FLAGS) $(INCLUDES) -std=c++11
 LIBS       = -L$(DBCSRDIR)/lib -ldbcsr
-LIBS      += -L${SCALAPACK_PATH}/lib -lreflapack -lrefblas
+LIBS      += -L'/sw/build/openSUSE/13.1/tool/toolchain_ompi_r18242/install/scalapack-2.0.2/lib' -L'/sw/build/openSUSE/13.1/tool/toolchain_ompi_r18242/install/openblas-0.2.20/lib' -lscalapack -lopenblas
 CLIBS      = $(LIBS) -lgfortran -lmpi_mpifh
 
 # Fortran examples
-all: dbcsr_example_1.x dbcsr_example_2.x dbcsr_example_3.x 
+all: dbcsr_example_1.x dbcsr_example_2.x dbcsr_example_3.x dbcsr_rectangular_example.x
 
 # Include C/C++ examples if the dbcsr.h is installed
 ifneq (,$(wildcard $(DBCSRDIR)/include/dbcsr.h))

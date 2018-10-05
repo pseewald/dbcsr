@@ -13,7 +13,8 @@ endif ()
 
 set(DBCSR_PERF_SRCS
   dbcsr_performance_driver.F
-  dbcsr_performance_multiply.F)
+  dbcsr_performance_multiply.F
+  dbcsr_rectangular_benchmark.F)
 add_executable(dbcsr_perf ${DBCSR_PERF_SRCS})
 target_link_libraries(dbcsr_perf dbcsr)
 
@@ -36,6 +37,7 @@ set(DBCSR_TESTS
   dbcsr_unittest2
   dbcsr_tensor_unittest
   dbcsr_test_csr_conversions
+  dbcsr_rectangular_unittest
   )
 
 # For each test, set a variable testname_SRCS defining the sources of that test
@@ -55,6 +57,8 @@ set(dbcsr_tensor_unittest_SRCS
   dbcsr_tensor_unittest.F)
 set(dbcsr_test_csr_conversions_SRCS
   dbcsr_test_csr_conversions.F)
+set(dbcsr_rectangular_unittest_SRCS
+  dbcsr_rectangular_unittest.F)
 
 foreach (dbcsr_test ${DBCSR_TESTS})
   add_executable(${dbcsr_test} ${${dbcsr_test}_SRCS})

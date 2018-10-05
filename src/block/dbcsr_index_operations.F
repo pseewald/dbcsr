@@ -3,6 +3,8 @@
 !   Copyright (C) 2000 - 2018  CP2K developers group                                               !
 !--------------------------------------------------------------------------------------------------!
 
+#:include '../data/dbcsr.fypp'
+
 ! **************************************************************************************************
 !> \brief   Operations on the DBCSR index
 !> \author  Urban Borstnik
@@ -41,6 +43,8 @@ MODULE dbcsr_index_operations
         dbcsr_slot_nblkcols_local, dbcsr_slot_nblkcols_total, dbcsr_slot_nblkrows_local, &
         dbcsr_slot_nblkrows_total, dbcsr_slot_nblks, dbcsr_slot_nfullcols_local, dbcsr_slot_nze, &
         dbcsr_slot_row_p, dbcsr_slot_size, dbcsr_slot_thr_c, dbcsr_type
+   USE dbcsr_kinds,                           ONLY: int_4,&
+                                              int_8
 #include "base/dbcsr_base_uses.f90"
 
 !$ USE OMP_LIB, ONLY: omp_get_max_threads, omp_get_thread_num, omp_get_num_threads
@@ -81,6 +85,12 @@ MODULE dbcsr_index_operations
    INTERFACE dbcsr_build_row_index
       MODULE PROCEDURE dbcsr_build_row_index_copy, &
          dbcsr_build_row_index_inplace
+   END INTERFACE
+
+   INTERFACE dbcsr_sort_indices
+#:for nametype, kind, type in inst_params_int
+      MODULE PROCEDURE dbcsr_sort_indices_${nametype}$
+#:endfor
    END INTERFACE
 
 CONTAINS
@@ -617,9 +627,12 @@ CONTAINS
 !>      This must be done if they are pointing to valid data, otherwise
 !>      they become invalid.
 ! **************************************************************************************************
-   SUBROUTINE dbcsr_sort_indices(n, row_i, col_i, blk_p, blk_d)
+#:for nametype, kind, type in inst_params_int
+   SUBROUTINE dbcsr_sort_indices_${nametype}$(n, row_i, col_i, blk_p, blk_d)
       INTEGER, INTENT(IN)                                :: n
-      INTEGER, DIMENSION(1:), INTENT(INOUT)              :: row_i, col_i
+      ${type}$, DIMENSION(1:), &
+         INTENT(INOUT)                                   :: row_i, col_i
+      INTEGER, DIMENSION(1:n)                            :: ind_perm
       INTEGER, DIMENSION(1:), INTENT(INOUT), OPTIONAL    :: blk_p, blk_d
 
       CHARACTER(len=*), PARAMETER :: routineN = 'dbcsr_sort_indices', &
@@ -652,33 +665,34 @@ CONTAINS
       !> permutation vector.
       ALLOCATE (sort_keys(n))
       sort_keys(:) = IOR(ISHFT(INT(row_i(1:n), int_8), 32), INT(col_i(1:n), int_8))
-      IF (PRESENT(blk_p)) col_i(1:n) = (/(i, i=1, n)/)
+      !IF (PRESENT(blk_p)) col_i(1:n) = (/(i, i=1, n)/) ! this line is useless since col_i is intent(out) in call to sort
       !> Now do a nice quicksort.
-      CALL sort(sort_keys, n, col_i)
+      CALL sort(sort_keys, n, ind_perm)
       ! Since blk_d is usually not present we can have two loops that
       ! are essentially the same.
       IF (PRESENT(blk_p)) THEN
          DO i = 1, n
-            blk_p(i) = buf(col_i(i))
+            blk_p(i) = buf(ind_perm(i))
          ENDDO
          DEALLOCATE (buf)
       END IF
       IF (PRESENT(blk_d)) THEN
          DO i = 1, n
-            blk_d(i) = buf_d(col_i(i))
+            blk_d(i) = buf_d(ind_perm(i))
          ENDDO
          DEALLOCATE (buf_d)
       ENDIF
       DO i = 1, n
-         col_i(i) = INT(IAND(sort_keys(i), lmask8), int_4)
-         row_i(i) = INT(ISHFT(sort_keys(i), -32), int_4)
+         col_i(i) = INT(IAND(sort_keys(i), lmask8), ${kind}$)
+         row_i(i) = INT(ISHFT(sort_keys(i), -32), ${kind}$)
       ENDDO
       DEALLOCATE (sort_keys)
       IF (debug_mod .AND. PRESENT(blk_p)) &
          WRITE (*, *) routineP//' sort, blk_p =', blk_p
       CALL timestop(error_handle)
 
-   END SUBROUTINE dbcsr_sort_indices
+   END SUBROUTINE dbcsr_sort_indices_${nametype}$
+#:endfor
 
 ! **************************************************************************************************
 !> \brief Removes the deleted blocks from the index.

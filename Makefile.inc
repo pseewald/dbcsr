@@ -8,22 +8,22 @@
 # 4) OpenMP+MPI
 #
 # Except the 1) variant (not useful for real production cases), all others are tested.
-# Variants 2) and 4) requires to add the compiler flag to enable OpenMP, 
+# Variants 2) and 4) requires to add the compiler flag to enable OpenMP,
 # e.g. -fopenmp for GNU and Intel compilers.
 # Variants 3) and 4) requires to use MPI wrappers for the compilation and to specify
 # -D__parallel in the FCFLAGS variable.
 #
-# The 4 variants can be combined with the CUDA compilation. In this case, it further 
+# The 4 variants can be combined with the CUDA compilation. In this case, it further
 # requires:
 # a) set the NVCC variable, e.g. NVCC = nvcc
 # b) specify -D__DBCSR_ACC in FCFLAGS variable
-# c) set the GPUVER variable, e.g. GPUVER = K20 for K20 card 
+# c) set the GPUVER variable, e.g. GPUVER = K20 for K20 card
 #    or GPUVER = P100 for P100 card
-# d) set the NVFLAGS variable, 
+# d) set the NVFLAGS variable,
 #    e.g. NVFLAGS = -O3 -g -w --std=c++11
 #    in the Makefile, the -arch will be appended with the correct compute version
-# e) specify the CUDA include path in the CXXFLAGS variable, 
-#    e.g. CXXFLAGS += -I${CUDA_PATH}/include 
+# e) specify the CUDA include path in the CXXFLAGS variable,
+#    e.g. CXXFLAGS += -I${CUDA_PATH}/include
 # f) specify the corresponding CUDA libraries in the LIBS variable,
 #    e.g. LIBS += -lstdc++ -lcudart -lnvrtc -lcuda
 #
@@ -41,7 +41,7 @@
 # *** LIBXSMM ***
 #
 # Performance of the library can be improved on the CPU execution by using
-# the libxsmm, a library for small matrix multiplications which 
+# the libxsmm, a library for small matrix multiplications which
 # is provided by Intel: https://github.com/hfp/libxsmm/.
 # Add -D__LIBXSMM flag to the FCFLAGS variable and specify the library in the LIBS
 # variable, .e.g LIBS += -L${LIBXSMM_DIR)/lib -lxsmmf -lxsmm -ldl
@@ -49,9 +49,9 @@
 #
 # *** CUBLAS ***
 #
-# For multiplications of dense matrices, it can be beneficial to "densify" the matrices 
+# For multiplications of dense matrices, it can be beneficial to "densify" the matrices
 # and then use DGEMM for the local multiplication. This is the default behavior for the
-# CPU execution, while it requires to link CUBLAS for the GPU execution 
+# CPU execution, while it requires to link CUBLAS for the GPU execution
 # (LIBS += -lcublas) and to specify the macro -D__DBCSR_ACC=2 in the FCFLAGS and NVFLAGS
 # variables.
 #
@@ -101,7 +101,7 @@ FCFLAGS    += -D__parallel
 #
 # Minimal external libraries, i.e. BLAS and LAPACK.
 
-LIBS        = -L${LAPACK_PATH}/lib -llapack -lblas
+LIBS        = -L'/sw/build/openSUSE/13.1/tool/toolchain_ompi_r18242/install/scalapack-2.0.2/lib' -L'/sw/build/openSUSE/13.1/tool/toolchain_ompi_r18242/install/openblas-0.2.20/lib' -lscalapack -lopenblas
 
 #######################################################################################
 #
