@@ -75,11 +75,10 @@ AR          = ar -r
 #
 # Corresponding command flags.
 # Note the -fopenmp flag to have OpenMP parallelization.
-WFLAGS      = -Werror=aliasing -Werror=ampersand -Werror=c-binding-type -Werror=intrinsic-shadow -Werror=intrinsics-std -Werror=line-truncation -Werror=tabs -Werror=realloc-lhs-all -Werror=target-lifetime -Werror=underflow -Werror=unused-but-set-variable -Werror=unused-variable -Werror=unused-dummy-argument -Werror=conversion -Werror=zerotrip -Werror=uninitialized -Wno-maybe-uninitialized -Wuse-without-only
 DEBFLAGS = -march=native -fno-omit-frame-pointer -g -mno-avx -mno-avx2
 OPTFLAGS = -O3 -funroll-loops -ffast-math
 
-FLAGS = $(OPTFLAGS) $(DEBFLAGS) $(WFLAGS)
+FLAGS = $(OPTFLAGS) $(DEBFLAGS)
 
 
 CFLAGS      = $(FLAGS)
