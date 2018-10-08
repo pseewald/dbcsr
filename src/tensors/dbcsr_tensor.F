@@ -241,10 +241,12 @@ CONTAINS
       assert_stmt = dbcsr_t_get_data_type(tensor_1) .EQ. dbcsr_t_get_data_type(tensor_2)
       DBCSR_ASSERT(assert_stmt)
 
+      ! todo: create according to transa / transb if 3 is long matrix
       ndims_2d_3(1) = SIZE(notcontract_1)
       ndims_2d_3(2) = SIZE(notcontract_2)
       data_type = dbcsr_t_get_data_type(tensor_1)
 
+      ! align tensor index with data, tensor data is not modified
       CALL align_tensor(tensor_1, contract_1, notcontract_1, &
                         tensor_tmp_1, contract_1_mod, notcontract_1_mod)
 

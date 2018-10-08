@@ -20,7 +20,7 @@ MODULE dbcsr_rectangular_mm
    USE dbcsr_rectangular_base_types,    ONLY: dbcsr_r_distribution_type,&
                                               dbcsr_r_split_info,&
                                               dbcsr_r_type
-   USE dbcsr_rectangular_global,        ONLY: dbcsr_r_dist_cyclic
+   USE dbcsr_rectangular_global,        ONLY: dbcsr_r_dist_cyclic, dbcsr_r_distribution
    USE dbcsr_rectangular_reshape,       ONLY: dbcsr_r_merge,&
                                               dbcsr_r_replicate,&
                                               dbcsr_r_reshape
@@ -259,15 +259,9 @@ CONTAINS
                      WRITE(io_unit_prv, *) "DBCSR MM Info | reshape B matrix"
                   ENDIF
 
-                  info = dbcsr_r_info(matrix_a)
-                  CALL dbcsr_r_get_info(info, mp_comm=mp_comm)
-                  CALL dbcsr_r_distribution_new(dist_ab_rs, mp_comm, matrix_a%dist%row_dist, &
-                                                matrix_b%dist%col_dist, split_info=info)
-                  CALL dbcsr_r_create(matrix_b_rs, matrix_b%matrix%name, dist_ab_rs, data_type, &
-                                      matrix_b%row_blk_size, matrix_b%col_blk_size)
+                  CALL reshape_mm_compatible(matrix_a, matrix_b, matrix_b_rs)
                   new_b = .TRUE.
 
-                  CALL dbcsr_r_reshape(matrix_b, matrix_b_rs)
                   matrix_a_rs = matrix_a
                ELSE
                   ! redistribute a (a1 <=> b1)
@@ -276,14 +270,9 @@ CONTAINS
                      WRITE(io_unit_prv, *) "DBCSR MM Info | reshape A matrix"
                   ENDIF
 
-                  info = dbcsr_r_info(matrix_b)
-                  CALL dbcsr_r_get_info(info, mp_comm=mp_comm)
-                  CALL dbcsr_r_distribution_new(dist_ab_rs, mp_comm, matrix_b%dist%row_dist, matrix_a%dist%col_dist, &
-                                                split_info=info)
-                  CALL dbcsr_r_create(matrix_a_rs, matrix_a%matrix%name, dist_ab_rs, data_type, &
-                                      matrix_a%row_blk_size, matrix_a%col_blk_size)
+                  CALL reshape_mm_compatible(matrix_b, matrix_a, matrix_a_rs)
+
                   new_a = .TRUE.
-                  CALL dbcsr_r_reshape(matrix_a, matrix_a_rs)
                   matrix_b_rs = matrix_b
                ENDIF
             ENDIF
@@ -303,14 +292,11 @@ CONTAINS
                   IF(io_unit_prv > 0) THEN
                      WRITE(io_unit_prv, *) "DBCSR MM Info | reshape B matrix"
                   ENDIF
-                  info = dbcsr_r_info(matrix_a)
-                  CALL dbcsr_r_get_info(info, mp_comm=mp_comm)
-                  CALL dbcsr_r_distribution_new(dist_ab_rs, mp_comm, matrix_b%dist%row_dist, matrix_a%dist%col_dist, &
-                                                split_info=info)
-                  CALL dbcsr_r_create(matrix_b_rs, matrix_b%matrix%name, dist_ab_rs, data_type, &
-                                      matrix_b%row_blk_size, matrix_b%col_blk_size)
+
+
+                  CALL reshape_mm_compatible(matrix_a, matrix_b, matrix_b_rs)
+
                   new_b = .TRUE.
-                  CALL dbcsr_r_reshape(matrix_b, matrix_b_rs)
                   matrix_a_rs = matrix_a
                ELSE
                   ! redistribute a (a2 <=> b2)
@@ -318,14 +304,10 @@ CONTAINS
                   IF(io_unit_prv > 0) THEN
                      WRITE(io_unit_prv, *) "DBCSR MM Info | reshape A matrix"
                   ENDIF
-                  info = dbcsr_r_info(matrix_b)
-                  CALL dbcsr_r_get_info(info, mp_comm=mp_comm)
-                  CALL dbcsr_r_distribution_new(dist_ab_rs, mp_comm, matrix_a%dist%row_dist, matrix_b%dist%col_dist, &
-                                                split_info=info)
-                  CALL dbcsr_r_create(matrix_a_rs, matrix_a%matrix%name, dist_ab_rs, data_type, &
-                                      matrix_a%row_blk_size, matrix_a%col_blk_size)
+
+                  CALL reshape_mm_compatible(matrix_b, matrix_a, matrix_a_rs)
+
                   new_a = .TRUE.
-                  CALL dbcsr_r_reshape(matrix_a, matrix_a_rs)
                   matrix_b_rs = matrix_b
                ENDIF
             ENDIF
@@ -552,11 +534,9 @@ CONTAINS
       END SELECT
 
       IF (new_a) THEN
-         CALL dbcsr_r_distribution_destroy(dist_ab_rs)
          CALL dbcsr_r_destroy(matrix_a_rs)
       ENDIF
       IF (new_b) THEN
-         CALL dbcsr_r_distribution_destroy(dist_ab_rs)
          CALL dbcsr_r_destroy(matrix_b_rs)
       ENDIF
 
@@ -637,6 +617,45 @@ CONTAINS
          IF (SIZE(arr1) .EQ. SIZE(arr2)) array_eq_i8 = ALL(arr1 == arr2)
 
       END FUNCTION
+
+   END SUBROUTINE
+
+   SUBROUTINE reshape_mm_compatible(template, matrix_in, matrix_out)
+      TYPE(dbcsr_r_type), INTENT(IN) :: template
+      TYPE(dbcsr_r_type), INTENT(INOUT) :: matrix_in
+      TYPE(dbcsr_r_type), INTENT(OUT) :: matrix_out
+      CLASS(dbcsr_r_distribution), ALLOCATABLE :: row_dist, col_dist
+
+      TYPE(dbcsr_r_distribution_type) :: dist_new
+      TYPE(dbcsr_r_split_info) :: info
+      INTEGER :: mp_comm, dim_compatible
+
+      info = dbcsr_r_info(template)
+      dim_compatible = info%split_rowcol
+
+      SELECT CASE(dim_compatible)
+      CASE(1)
+         DBCSR_ASSERT(template%nblkrows == matrix_in%nblkrows)
+      CASE(2)
+         DBCSR_ASSERT(template%nblkcols == matrix_in%nblkcols)
+      END SELECT
+
+      SELECT CASE(dim_compatible)
+      CASE(1)
+         ! todo: don't use distribution of matrix_in, not safe!
+         ALLOCATE(row_dist, source=template%dist%row_dist)
+         ALLOCATE(col_dist, source=matrix_in%dist%col_dist)
+      CASE(2)
+         ALLOCATE(row_dist, source=matrix_in%dist%row_dist)
+         ALLOCATE(col_dist, source=template%dist%col_dist)
+      END SELECT
+
+      CALL dbcsr_r_get_info(info, mp_comm=mp_comm)
+      CALL dbcsr_r_distribution_new(dist_new, mp_comm, row_dist, col_dist, split_info=info)
+      CALL dbcsr_r_create(matrix_out, matrix_in%matrix%name, dist_new, dbcsr_r_get_data_type(matrix_in), &
+                          matrix_in%row_blk_size, matrix_in%col_blk_size, own_dist=.TRUE.)
+
+      CALL dbcsr_r_reshape(matrix_in, matrix_out)
 
    END SUBROUTINE
 
