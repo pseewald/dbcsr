@@ -225,11 +225,11 @@ CONTAINS
          SELECT CASE (transb_prv)
          CASE (dbcsr_no_transpose)
             CALL dbcsr_r_create(matrix_b_rs, matrix_b%matrix%name, dist_ab_rs, data_type, &
-                                matrix_b%row_blk_size, matrix_b%col_blk_size)
+                                matrix_b%row_blk_size, matrix_b%col_blk_size, own_dist=.TRUE.)
             CALL dbcsr_r_reshape(matrix_b, matrix_b_rs, transposed=.FALSE.)
          CASE (dbcsr_transpose)
             CALL dbcsr_r_create(matrix_b_rs, matrix_b%matrix%name, dist_ab_rs, data_type, &
-                                matrix_b%col_blk_size, matrix_b%row_blk_size)
+                                matrix_b%col_blk_size, matrix_b%row_blk_size, own_dist=.TRUE.)
             CALL dbcsr_r_reshape(matrix_b, matrix_b_rs, transposed=.TRUE.)
 
          END SELECT
@@ -340,7 +340,7 @@ CONTAINS
                   tr_case = dbcsr_no_transpose
                ENDIF
                CALL dbcsr_r_create(matrix_b_rs, matrix_b%matrix%name, dist_ab_rs, data_type, &
-                                   matrix_b%col_blk_size, matrix_b%row_blk_size)
+                                   matrix_b%col_blk_size, matrix_b%row_blk_size, own_dist=.TRUE.)
                new_b = .TRUE.
                CALL dbcsr_r_reshape(matrix_b, matrix_b_rs, transposed=.TRUE.)
                matrix_a_rs = matrix_a
@@ -372,7 +372,7 @@ CONTAINS
                   tr_case = dbcsr_transpose
                ENDIF
                CALL dbcsr_r_create(matrix_a_rs, matrix_a%matrix%name, dist_ab_rs, data_type, &
-                                   matrix_a%col_blk_size, matrix_a%row_blk_size)
+                                   matrix_a%col_blk_size, matrix_a%row_blk_size, own_dist=.TRUE.)
                new_a = .TRUE.
                CALL dbcsr_r_reshape(matrix_a, matrix_a_rs, transposed=.TRUE.)
                matrix_b_rs = matrix_b
@@ -416,11 +416,11 @@ CONTAINS
          SELECT CASE (transa_prv)
          CASE (dbcsr_no_transpose)
             CALL dbcsr_r_create(matrix_a_rs, matrix_a%matrix%name, dist_ab_rs, data_type, &
-                                matrix_a%row_blk_size, matrix_a%col_blk_size)
+                                matrix_a%row_blk_size, matrix_a%col_blk_size, own_dist=.TRUE.)
             CALL dbcsr_r_reshape(matrix_a, matrix_a_rs, transposed=.FALSE.)
          CASE (dbcsr_transpose)
             CALL dbcsr_r_create(matrix_a_rs, matrix_a%matrix%name, dist_ab_rs, data_type, &
-                                matrix_a%col_blk_size, matrix_a%row_blk_size)
+                                matrix_a%col_blk_size, matrix_a%row_blk_size, own_dist=.TRUE.)
             CALL dbcsr_r_reshape(matrix_a, matrix_a_rs, transposed=.TRUE.)
 
          END SELECT
