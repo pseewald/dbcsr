@@ -65,21 +65,26 @@
 # LD  => Linker, e.g. gfortran or mpifort
 # AR  => Archive command, e.g. ar -r
 
-CC          = mpicc
-CXX         = mpicxx
-FC          = mpifort
-LD          = mpifort
+CC          = gcc
+CXX         = g++
+FC          = mpif90
+LD          = mpif90
 AR          = ar -r
 
 #######################################################################################
 #
 # Corresponding command flags.
 # Note the -fopenmp flag to have OpenMP parallelization.
+WFLAGS      = -Werror=aliasing -Werror=ampersand -Werror=c-binding-type -Werror=intrinsic-shadow -Werror=intrinsics-std -Werror=line-truncation -Werror=tabs -Werror=realloc-lhs-all -Werror=target-lifetime -Werror=underflow -Werror=unused-but-set-variable -Werror=unused-variable -Werror=unused-dummy-argument -Werror=conversion -Werror=zerotrip -Werror=uninitialized -Wno-maybe-uninitialized -Wuse-without-only
+DEBFLAGS = -march=native -fno-omit-frame-pointer -g -mno-avx -mno-avx2
+OPTFLAGS = -O3 -funroll-loops -ffast-math
 
-OPTFLAGS    = -O3 -g -fno-omit-frame-pointer -funroll-loops
-CFLAGS      = $(OPTFLAGS)
-CXXFLAGS    = $(OPTFLAGS) -std=c++11
-FCFLAGS     = -fopenmp $(OPTFLAGS) \
+FLAGS = $(OPTFLAGS) $(DEBFLAGS) $(WFLAGS)
+
+
+CFLAGS      = $(FLAGS)
+CXXFLAGS    = $(FLAGS) -std=c++11
+FCFLAGS     = $(FLAGS) \
               -std=f2003 -ffree-form -fimplicit-none -ffree-line-length-512
 LDFLAGS     = $(FCFLAGS)
 
@@ -101,6 +106,7 @@ FCFLAGS    += -D__parallel
 #
 # Minimal external libraries, i.e. BLAS and LAPACK.
 
+#LIBS        = -L${LAPACK_PATH}/lib -llapack -lblas
 LIBS        = -L'/sw/build/openSUSE/13.1/tool/toolchain_ompi_r18242/install/scalapack-2.0.2/lib' -L'/sw/build/openSUSE/13.1/tool/toolchain_ompi_r18242/install/openblas-0.2.20/lib' -lscalapack -lopenblas
 
 #######################################################################################
