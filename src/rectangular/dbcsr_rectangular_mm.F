@@ -252,29 +252,7 @@ CONTAINS
                   WRITE(io_unit_prv, *) "DBCSR MM Info | distribution compatible (no reshape)"
                ENDIF
             ELSE
-               IF (PRODUCT(dims_a) .GE. PRODUCT(dims_b)) THEN
-                  ! redistribute b (b1 <=> a1)
-
-                  IF(io_unit_prv > 0) THEN
-                     WRITE(io_unit_prv, *) "DBCSR MM Info | reshape B matrix"
-                  ENDIF
-
-                  CALL reshape_mm_compatible(matrix_a, matrix_b, matrix_b_rs)
-                  new_b = .TRUE.
-
-                  matrix_a_rs = matrix_a
-               ELSE
-                  ! redistribute a (a1 <=> b1)
-
-                  IF(io_unit_prv > 0) THEN
-                     WRITE(io_unit_prv, *) "DBCSR MM Info | reshape A matrix"
-                  ENDIF
-
-                  CALL reshape_mm_compatible(matrix_b, matrix_a, matrix_a_rs)
-
-                  new_a = .TRUE.
-                  matrix_b_rs = matrix_b
-               ENDIF
+               CALL reshape_mm_compatible(matrix_a, matrix_b, matrix_a_rs, matrix_b_rs, new_a, new_b)
             ENDIF
             tr_case = dbcsr_transpose
          ELSEIF (transa_prv .EQ. dbcsr_no_transpose .AND. transb_prv .EQ. dbcsr_transpose) THEN
@@ -287,29 +265,7 @@ CONTAINS
                   WRITE(io_unit_prv, *) "DBCSR MM Info | distribution compatible (no reshape)"
                ENDIF
             ELSE
-               IF (PRODUCT(dims_a) .GE. PRODUCT(dims_b)) THEN
-                  ! redistribute b (b2 <=> a2)
-                  IF(io_unit_prv > 0) THEN
-                     WRITE(io_unit_prv, *) "DBCSR MM Info | reshape B matrix"
-                  ENDIF
-
-
-                  CALL reshape_mm_compatible(matrix_a, matrix_b, matrix_b_rs)
-
-                  new_b = .TRUE.
-                  matrix_a_rs = matrix_a
-               ELSE
-                  ! redistribute a (a2 <=> b2)
-
-                  IF(io_unit_prv > 0) THEN
-                     WRITE(io_unit_prv, *) "DBCSR MM Info | reshape A matrix"
-                  ENDIF
-
-                  CALL reshape_mm_compatible(matrix_b, matrix_a, matrix_a_rs)
-
-                  new_a = .TRUE.
-                  matrix_b_rs = matrix_b
-               ENDIF
+               CALL reshape_mm_compatible(matrix_a, matrix_b, matrix_a_rs, matrix_b_rs, new_a, new_b)
             ENDIF
             tr_case = dbcsr_no_transpose
          ELSE
@@ -620,15 +576,23 @@ CONTAINS
 
    END SUBROUTINE
 
-   SUBROUTINE reshape_mm_compatible(template, matrix_in, matrix_out)
+   SUBROUTINE reshape_mm_template(template, matrix_in, matrix_out, nodata)
       TYPE(dbcsr_r_type), INTENT(IN) :: template
       TYPE(dbcsr_r_type), INTENT(INOUT) :: matrix_in
       TYPE(dbcsr_r_type), INTENT(OUT) :: matrix_out
+      LOGICAL, INTENT(IN), OPTIONAL :: nodata
       CLASS(dbcsr_r_distribution), ALLOCATABLE :: row_dist, col_dist
 
       TYPE(dbcsr_r_distribution_type) :: dist_new
       TYPE(dbcsr_r_split_info) :: info
       INTEGER :: mp_comm, dim_compatible
+      LOGICAL :: nodata_prv
+
+      IF(PRESENT(nodata)) THEN
+         nodata_prv = nodata
+      ELSE
+         nodata_prv = .FALSE.
+      ENDIF
 
       info = dbcsr_r_info(template)
       dim_compatible = info%split_rowcol
@@ -655,7 +619,32 @@ CONTAINS
       CALL dbcsr_r_create(matrix_out, matrix_in%matrix%name, dist_new, dbcsr_r_get_data_type(matrix_in), &
                           matrix_in%row_blk_size, matrix_in%col_blk_size, own_dist=.TRUE.)
 
-      CALL dbcsr_r_reshape(matrix_in, matrix_out)
+      IF(.NOT. nodata_prv) CALL dbcsr_r_reshape(matrix_in, matrix_out)
+
+   END SUBROUTINE
+
+   SUBROUTINE reshape_mm_compatible(matrix1_in, matrix2_in, matrix1_out, matrix2_out, new1, new2)
+      TYPE(dbcsr_r_type), INTENT(INOUT) :: matrix1_in, matrix2_in
+      TYPE(dbcsr_r_type), INTENT(OUT) :: matrix1_out, matrix2_out
+      LOGICAL, INTENT(OUT) :: new1, new2
+      INTEGER(KIND=int_8), DIMENSION(2) :: dims1, dims2
+
+      dims1 = [dbcsr_r_nblkrows_total(matrix1_in), dbcsr_r_nblkcols_total(matrix1_in)]
+      dims2 = [dbcsr_r_nblkrows_total(matrix2_in), dbcsr_r_nblkcols_total(matrix2_in)]
+
+      new1=.FALSE.; new2 = .FALSE.
+
+      IF (PRODUCT(dims1) .GE. PRODUCT(dims2)) THEN
+
+         CALL reshape_mm_template(matrix1_in, matrix2_in, matrix2_out)
+         new2 = .TRUE.
+         matrix1_out = matrix1_in
+      ELSE
+
+         CALL reshape_mm_template(matrix2_in, matrix1_in, matrix1_out)
+         new1 = .TRUE.
+         matrix2_out = matrix2_in
+      ENDIF
 
    END SUBROUTINE
 
