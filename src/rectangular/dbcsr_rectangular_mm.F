@@ -623,10 +623,11 @@ CONTAINS
 
    END SUBROUTINE
 
-   SUBROUTINE reshape_mm_compatible(matrix1_in, matrix2_in, matrix1_out, matrix2_out, new1, new2)
+   SUBROUTINE reshape_mm_compatible(matrix1_in, matrix2_in, matrix1_out, matrix2_out, new1, new2, nodata1, nodata2)
       TYPE(dbcsr_r_type), INTENT(INOUT) :: matrix1_in, matrix2_in
       TYPE(dbcsr_r_type), INTENT(OUT) :: matrix1_out, matrix2_out
       LOGICAL, INTENT(OUT) :: new1, new2
+      LOGICAL, OPTIONAL, INTENT(IN) :: nodata1, nodata2
       INTEGER(KIND=int_8), DIMENSION(2) :: dims1, dims2
 
       dims1 = [dbcsr_r_nblkrows_total(matrix1_in), dbcsr_r_nblkcols_total(matrix1_in)]
@@ -636,12 +637,12 @@ CONTAINS
 
       IF (PRODUCT(dims1) .GE. PRODUCT(dims2)) THEN
 
-         CALL reshape_mm_template(matrix1_in, matrix2_in, matrix2_out)
+         CALL reshape_mm_template(matrix1_in, matrix2_in, matrix2_out, nodata=nodata2)
          new2 = .TRUE.
          matrix1_out = matrix1_in
       ELSE
 
-         CALL reshape_mm_template(matrix2_in, matrix1_in, matrix1_out)
+         CALL reshape_mm_template(matrix2_in, matrix1_in, matrix1_out, nodata=nodata1)
          new1 = .TRUE.
          matrix2_out = matrix2_in
       ENDIF
