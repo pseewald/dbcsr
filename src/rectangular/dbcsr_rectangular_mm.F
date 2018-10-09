@@ -577,11 +577,12 @@ CONTAINS
          CLASS(dbcsr_r_distribution), ALLOCATABLE :: row_dist, col_dist
 
          TYPE(dbcsr_r_distribution_type) :: dist_new
-         TYPE(dbcsr_r_split_info) :: info
-         INTEGER :: mp_comm, dim_compatible
+         TYPE(dbcsr_r_split_info) :: info_template, info_matrix
+         INTEGER :: mp_comm, dim_split_template, dim_split_matrix
          LOGICAL :: nodata_prv
          INTEGER, DIMENSION(2)                              :: pcoord, pdims
          INTEGER :: numnodes
+         LOGICAL :: transposed
 
          IF (PRESENT(nodata)) THEN
             nodata_prv = nodata
@@ -589,33 +590,53 @@ CONTAINS
             nodata_prv = .FALSE.
          ENDIF
 
-         info = dbcsr_r_info(template)
-         dim_compatible = info%split_rowcol
+         info_template = dbcsr_r_info(template)
+         info_matrix = dbcsr_r_info(matrix_in)
 
-         CALL mp_environ(numnodes, pdims, pcoord, info%mp_comm)
+         dim_split_template = info_template%split_rowcol
+         dim_split_matrix = info_template%split_rowcol
 
-         SELECT CASE (dim_compatible)
+         transposed = dim_split_template == dim_split_matrix
+
+         CALL mp_environ(numnodes, pdims, pcoord, info_template%mp_comm)
+
+         !SELECT CASE (dim_split_template)
+         !CASE (1)
+         !   DBCSR_ASSERT(template%nblkrows == matrix_in%nblkrows)
+         !CASE (2)
+         !   DBCSR_ASSERT(template%nblkcols == matrix_in%nblkcols)
+         !END SELECT
+
+         SELECT CASE (dim_split_matrix)
          CASE (1)
-            DBCSR_ASSERT(template%nblkrows == matrix_in%nblkrows)
+            IF(.NOT. transposed) THEN
+               ALLOCATE (row_dist, source=template%dist%row_dist)
+               ALLOCATE (col_dist, source=dbcsr_r_dist_cyclic(1, pdims(2), matrix_in%nblkcols))
+            ELSE
+               ALLOCATE (row_dist, source=template%dist%col_dist)
+               ALLOCATE (col_dist, source=dbcsr_r_dist_cyclic(1, pdims(2), matrix_in%nblkrows))
+            ENDIF
          CASE (2)
-            DBCSR_ASSERT(template%nblkcols == matrix_in%nblkcols)
+            IF(.NOT. transposed) THEN
+               ALLOCATE (row_dist, source=dbcsr_r_dist_cyclic(1, pdims(1), matrix_in%nblkrows))
+               ALLOCATE (col_dist, source=template%dist%col_dist)
+            ELSE
+               ALLOCATE (row_dist, source=dbcsr_r_dist_cyclic(1, pdims(1), matrix_in%nblkcols))
+               ALLOCATE (col_dist, source=template%dist%row_dist)
+            ENDIF
          END SELECT
 
-         SELECT CASE (dim_compatible)
-         CASE (1)
-            ALLOCATE (row_dist, source=template%dist%row_dist)
-            ALLOCATE (col_dist, source=dbcsr_r_dist_cyclic(1, pdims(2), matrix_in%nblkcols))
-         CASE (2)
-            ALLOCATE (row_dist, source=dbcsr_r_dist_cyclic(1, pdims(1), matrix_in%nblkrows))
-            ALLOCATE (col_dist, source=template%dist%col_dist)
-         END SELECT
+         CALL dbcsr_r_get_info(info_template, mp_comm=mp_comm)
+         CALL dbcsr_r_distribution_new(dist_new, mp_comm, row_dist, col_dist, split_info=info_template)
+         IF(.NOT. transposed) THEN ! todo: don't need to call create twice
+            CALL dbcsr_r_create(matrix_out, matrix_in%matrix%name, dist_new, dbcsr_r_get_data_type(matrix_in), &
+                                matrix_in%row_blk_size, matrix_in%col_blk_size, own_dist=.TRUE.)
+         ELSE
+            CALL dbcsr_r_create(matrix_out, matrix_in%matrix%name, dist_new, dbcsr_r_get_data_type(matrix_in), &
+                                matrix_in%col_blk_size, matrix_in%row_blk_size, own_dist=.TRUE.)
+         ENDIF
 
-         CALL dbcsr_r_get_info(info, mp_comm=mp_comm)
-         CALL dbcsr_r_distribution_new(dist_new, mp_comm, row_dist, col_dist, split_info=info)
-         CALL dbcsr_r_create(matrix_out, matrix_in%matrix%name, dist_new, dbcsr_r_get_data_type(matrix_in), &
-                             matrix_in%row_blk_size, matrix_in%col_blk_size, own_dist=.TRUE.)
-
-         IF (.NOT. nodata_prv) CALL dbcsr_r_reshape(matrix_in, matrix_out)
+         IF (.NOT. nodata_prv) CALL dbcsr_r_reshape(matrix_in, matrix_out, transposed=transposed)
 
       END SUBROUTINE
 
