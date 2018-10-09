@@ -124,7 +124,7 @@ CONTAINS
       INTEGER :: numnodes
       INTEGER :: mp_comm
       INTEGER, DIMENSION(2) :: pdims, pcoord
-      TYPE(dbcsr_r_dist_cyclic) :: new_dist_ab, new_row_dist_ab, new_col_dist_ab, new_row_dist_c, new_col_dist_c
+      TYPE(dbcsr_r_dist_cyclic) :: new_row_dist_ab, new_col_dist_ab, new_row_dist_c, new_col_dist_c
       CHARACTER(LEN=1) :: transa_prv, transb_prv
       CHARACTER(LEN=default_string_length) :: name_c
       TYPE(dbcsr_scalar_type) :: zero
@@ -228,75 +228,32 @@ CONTAINS
       CASE (2)
 
          IF (transa_prv .EQ. dbcsr_transpose .AND. transb_prv .EQ. dbcsr_no_transpose) THEN
-            CALL reshape_mm_compatible(matrix_a, matrix_b, matrix_a_rs, matrix_b_rs, new_a, new_b)
             tr_case = dbcsr_transpose
-         ELSEIF (transa_prv .EQ. dbcsr_no_transpose .AND. transb_prv .EQ. dbcsr_transpose) THEN
             CALL reshape_mm_compatible(matrix_a, matrix_b, matrix_a_rs, matrix_b_rs, new_a, new_b)
+         ELSEIF (transa_prv .EQ. dbcsr_no_transpose .AND. transb_prv .EQ. dbcsr_transpose) THEN
             tr_case = dbcsr_no_transpose
+            CALL reshape_mm_compatible(matrix_a, matrix_b, matrix_a_rs, matrix_b_rs, new_a, new_b)
          ELSE
-            IF (PRODUCT(dims_a) .GE. PRODUCT(dims_b)) THEN
-               ! transpose and redistribute b
-
-               IF (io_unit_prv > 0) THEN
-                  WRITE (io_unit_prv, *) "DBCSR MM Info | reshape B matrix"
-               ENDIF
-               info = dbcsr_r_info(matrix_a)
-               CALL dbcsr_r_get_info(info, mp_comm=mp_comm)
-               CALL mp_environ(numnodes, pdims, pcoord, mp_comm)
+            IF(PRODUCT(dims_a) .GE. PRODUCT(dims_b)) THEN
                IF (transb_prv .EQ. dbcsr_transpose) THEN
+                  tr_case = dbcsr_transpose
                   transb_prv = dbcsr_no_transpose
-                  DBCSR_ASSERT(transa_prv .EQ. dbcsr_transpose)
-
-                  new_dist_ab = dbcsr_r_dist_cyclic(1, pdims(2), dims_b(2))
-                  CALL dbcsr_r_distribution_new(dist_ab_rs, mp_comm, matrix_a%dist%row_dist, new_dist_ab, split_info=info)
-
-                  tr_case = dbcsr_transpose
+                  CALL reshape_mm_compatible(matrix_a, matrix_b, matrix_a_rs, matrix_b_rs, new_a, new_b)
                ELSE
+                  tr_case = dbcsr_no_transpose
                   transb_prv = dbcsr_transpose
-                  DBCSR_ASSERT(transa_prv .EQ. dbcsr_no_transpose)
-
-                  new_dist_ab = dbcsr_r_dist_cyclic(1, pdims(1), dims_b(2))
-                  CALL dbcsr_r_distribution_new(dist_ab_rs, mp_comm, new_dist_ab, matrix_a%dist%col_dist, split_info=info)
-
-                  tr_case = dbcsr_no_transpose
+                  CALL reshape_mm_compatible(matrix_a, matrix_b, matrix_a_rs, matrix_b_rs, new_a, new_b)
                ENDIF
-               CALL dbcsr_r_create(matrix_b_rs, matrix_b%matrix%name, dist_ab_rs, data_type, &
-                                   matrix_b%col_blk_size, matrix_b%row_blk_size, own_dist=.TRUE.)
-               new_b = .TRUE.
-               CALL dbcsr_r_reshape(matrix_b, matrix_b_rs, transposed=.TRUE.)
-               matrix_a_rs = matrix_a
             ELSE
-               ! transpose and redistribute a
-
-               IF (io_unit_prv > 0) THEN
-                  WRITE (io_unit_prv, *) "DBCSR MM Info | reshape A matrix"
-               ENDIF
-               info = dbcsr_r_info(matrix_b)
-               CALL dbcsr_r_get_info(info, mp_comm=mp_comm)
-               CALL mp_environ(numnodes, pdims, pcoord, mp_comm)
                IF (transa_prv .EQ. dbcsr_transpose) THEN
-                  transa_prv = dbcsr_no_transpose
-                  DBCSR_ASSERT(transb_prv .EQ. dbcsr_transpose)
-
-                  new_dist_ab = dbcsr_r_dist_cyclic(1, pdims(1), dims_a(1))
-                  CALL dbcsr_r_distribution_new(dist_ab_rs, mp_comm, new_dist_ab, matrix_b%dist%col_dist, split_info=info)
-
                   tr_case = dbcsr_no_transpose
+                  transa_prv = dbcsr_no_transpose
+                  CALL reshape_mm_compatible(matrix_a, matrix_b, matrix_a_rs, matrix_b_rs, new_a, new_b)
                ELSE
-                  transa_prv = dbcsr_transpose
-                  DBCSR_ASSERT(transb_prv .EQ. dbcsr_no_transpose)
-
-                  new_dist_ab = dbcsr_r_dist_cyclic(1, pdims(2), dims_a(1))
-
-                  CALL dbcsr_r_distribution_new(dist_ab_rs, mp_comm, matrix_b%dist%row_dist, new_dist_ab, split_info=info)
-
                   tr_case = dbcsr_transpose
+                  transa_prv = dbcsr_transpose
+                  CALL reshape_mm_compatible(matrix_a, matrix_b, matrix_a_rs, matrix_b_rs, new_a, new_b)
                ENDIF
-               CALL dbcsr_r_create(matrix_a_rs, matrix_a%matrix%name, dist_ab_rs, data_type, &
-                                   matrix_a%col_blk_size, matrix_a%row_blk_size, own_dist=.TRUE.)
-               new_a = .TRUE.
-               CALL dbcsr_r_reshape(matrix_a, matrix_a_rs, transposed=.TRUE.)
-               matrix_b_rs = matrix_b
             ENDIF
          ENDIF
          transc = dbcsr_no_transpose
@@ -594,9 +551,9 @@ CONTAINS
          info_matrix = dbcsr_r_info(matrix_in)
 
          dim_split_template = info_template%split_rowcol
-         dim_split_matrix = info_template%split_rowcol
+         dim_split_matrix = info_matrix%split_rowcol
 
-         transposed = dim_split_template == dim_split_matrix
+         transposed = dim_split_template .NE. dim_split_matrix
 
          CALL mp_environ(numnodes, pdims, pcoord, info_template%mp_comm)
 
@@ -607,13 +564,13 @@ CONTAINS
          !   DBCSR_ASSERT(template%nblkcols == matrix_in%nblkcols)
          !END SELECT
 
-         SELECT CASE (dim_split_matrix)
+         SELECT CASE (dim_split_template)
          CASE (1)
             IF(.NOT. transposed) THEN
                ALLOCATE (row_dist, source=template%dist%row_dist)
                ALLOCATE (col_dist, source=dbcsr_r_dist_cyclic(1, pdims(2), matrix_in%nblkcols))
             ELSE
-               ALLOCATE (row_dist, source=template%dist%col_dist)
+               ALLOCATE (row_dist, source=template%dist%row_dist)
                ALLOCATE (col_dist, source=dbcsr_r_dist_cyclic(1, pdims(2), matrix_in%nblkrows))
             ENDIF
          CASE (2)
@@ -621,8 +578,9 @@ CONTAINS
                ALLOCATE (row_dist, source=dbcsr_r_dist_cyclic(1, pdims(1), matrix_in%nblkrows))
                ALLOCATE (col_dist, source=template%dist%col_dist)
             ELSE
+               !PRINT *, "matrix_in nblkcols", matrix_in%nblkcols, template%nblkrows
                ALLOCATE (row_dist, source=dbcsr_r_dist_cyclic(1, pdims(1), matrix_in%nblkcols))
-               ALLOCATE (col_dist, source=template%dist%row_dist)
+               ALLOCATE (col_dist, source=template%dist%col_dist)
             ENDIF
          END SELECT
 
