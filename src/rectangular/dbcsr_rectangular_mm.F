@@ -60,23 +60,17 @@ CONTAINS
    !   INTEGER :: numproc, iproc
    !   REAL(KIND=real_8) :: s_ideal, s_diff
    !   INTEGER, DIMENSION(3) :: sort_indices
-
    !   INTEGER, DIMENSION(2) :: npdims, myploc
    !   INTEGER :: p1, p2, tmp
    !   INTEGER :: s, mp_comm_cart, pgrid_split_size, igroup
-
    !   IF(nblkrows .GE. nblkcols) THEN
    !      split_rowcol=rowsplit
    !   ELSE
    !      split_rowcol=colsplit
    !   ENDIF
-
    !   mdims(:) = [nblkrows, nblkcols]
-
    !   CALL mp_environ(numproc, iproc, mp_comm)
-
    !   s_ideal = REAL(MAXVAL(mdims), KIND=real_8)/REAL(MINVAL(mdims), KIND=real_8)
-
    !   DO p1 = 1, CEILING(SQRT(REAL(numproc, KIND=real_8)))
    !      IF(MOD(numproc, p1) .EQ. 0) THEN
    !         p2 = numproc/p1
@@ -86,12 +80,9 @@ CONTAINS
    !         ENDIF
    !      ENDIF
    !   ENDDO
-
    !   DBCSR_ASSERT(npdims(1) .GT. npdims(2))
-
    !   s = CEILING(s_ideal)
    !   pgrid_split_size = (p2-1)/s+1
-
    !   SELECT CASE(split_rowcol)
    !   CASE(rowsplit)
    !   CASE(colsplit)
@@ -99,17 +90,13 @@ CONTAINS
    !      npdims(2) = npdims(1)
    !      npdims(1) = tmp
    !   END SELECT
-
    !   CALL mp_cart_create(mp_comm, 2, npdims, myploc, mp_comm_cart)
-
    !   CALL world_to_group_proc_map(iproc, npdims, split_rowcol, pgrid_split_size, igroup)
    !   CALL dbcsr_r_split_rows_or_cols(split_info, mp_comm_cart, s, igroup, split_rowcol)
-
    !END SUBROUTINE
-
    ! create splitting based on matrix dimensions of largest matrix
-
    ! TODO: recursive splitting
+
 ! **************************************************************************************************
 !> \brief ...
 !> \param transa ...
@@ -663,25 +650,19 @@ CONTAINS
    !   INTEGER(KIND=int_8), DIMENSION(2) :: mdims_12, mdims_23, mdims_13
    !   INTEGER :: which_split, s
    !   INTEGER :: nsteps, step
-
    !   !mdims_r(:) = mdims(:)
    !   mdims_s(:) = mdims(:)
-
    !   CALL sort(mdims_s, 3, sort_indices)
    !   DBCSR_ASSERT(ALL(mdims(sort_indices) == mdims_s))
-
    !   psplit_12 = [1,1]
    !   psplit_13 = [1,1]
    !   psplit_23 = [1,1]
-
    !   mdims_12 = [mdims_s(3), mdims_s(2)]
    !   mdims_13 = [mdims_s(3), mdims_s(1)]
    !   mdims_23 = [mdims_s(2), mdims_s(1)]
    !   !nsteps = 10
    !   step = 0
-
    !   !print*, "mdims_12", mdims_12
-
    !   ! do recursive
    !   nsteps = 2
    !   DO
@@ -693,18 +674,14 @@ CONTAINS
    !      s = INT((mdims_s(3) - 1_int_8)/mdims_s(2) + 1_int_8)
    !      s = MIN(s, nproc/PRODUCT(psplit_12))
    !      s = MAX(s, 2)
-
    !      print *, "mdims_s", mdims_s, REAL(mdims_s(3))/REAL(mdims_s(2))
    !      !print *, "s", s
-
    !      !PRINT *, psplit_12, "|", psplit_13, "|", psplit_23
    !      IF(PRODUCT(psplit_12)*s .GT. nproc) THEN
    !         EXIT
    !      ENDIF
-
    !      IF(mdims_s(3) ==1) EXIT
    !      IF(step>nsteps) EXIT
-
    !      SELECT CASE (which_split)
    !      CASE (1)
    !         mdims_12(1) = (mdims_12(1)-1)/s+1
@@ -739,11 +716,8 @@ CONTAINS
    !      END SELECT
    !      PRINT*, "pdims", [MAXVAL(psplit_12), MINVAL(psplit_12)], REAL(MAXVAL(psplit_12))/MINVAL(psplit_12)
    !   ENDDO
-
    !   pdims = [MAXVAL(psplit_12), MINVAL(psplit_12)]
-
    !   !CALL sort(mdims_s, 3 sort_indices)
-
    !END SUBROUTINE
 
 END MODULE
