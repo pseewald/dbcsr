@@ -227,35 +227,8 @@ CONTAINS
 
       CASE (2)
 
-         IF (transa_prv .EQ. dbcsr_transpose .AND. transb_prv .EQ. dbcsr_no_transpose) THEN
-            tr_case = dbcsr_transpose
-            CALL reshape_mm_compatible(matrix_a, matrix_b, matrix_a_rs, matrix_b_rs, new_a, new_b)
-         ELSEIF (transa_prv .EQ. dbcsr_no_transpose .AND. transb_prv .EQ. dbcsr_transpose) THEN
-            tr_case = dbcsr_no_transpose
-            CALL reshape_mm_compatible(matrix_a, matrix_b, matrix_a_rs, matrix_b_rs, new_a, new_b)
-         ELSE
-            IF(PRODUCT(dims_a) .GE. PRODUCT(dims_b)) THEN
-               IF (transb_prv .EQ. dbcsr_transpose) THEN
-                  tr_case = dbcsr_transpose
-                  transb_prv = dbcsr_no_transpose
-                  CALL reshape_mm_compatible(matrix_a, matrix_b, matrix_a_rs, matrix_b_rs, new_a, new_b)
-               ELSE
-                  tr_case = dbcsr_no_transpose
-                  transb_prv = dbcsr_transpose
-                  CALL reshape_mm_compatible(matrix_a, matrix_b, matrix_a_rs, matrix_b_rs, new_a, new_b)
-               ENDIF
-            ELSE
-               IF (transa_prv .EQ. dbcsr_transpose) THEN
-                  tr_case = dbcsr_no_transpose
-                  transa_prv = dbcsr_no_transpose
-                  CALL reshape_mm_compatible(matrix_a, matrix_b, matrix_a_rs, matrix_b_rs, new_a, new_b)
-               ELSE
-                  tr_case = dbcsr_transpose
-                  transa_prv = dbcsr_transpose
-                  CALL reshape_mm_compatible(matrix_a, matrix_b, matrix_a_rs, matrix_b_rs, new_a, new_b)
-               ENDIF
-            ENDIF
-         ENDIF
+         CALL reshape_mm_compatible(matrix_a, matrix_b, matrix_a_rs, matrix_b_rs, new_a, new_b, transa_prv, transb_prv)
+         tr_case = transa_prv
          transc = dbcsr_no_transpose
 
          IF (io_unit_prv > 0) THEN
@@ -422,11 +395,13 @@ CONTAINS
 
    END SUBROUTINE
 
-   SUBROUTINE reshape_mm_compatible(matrix1_in, matrix2_in, matrix1_out, matrix2_out, new1, new2, nodata1, nodata2)
+   SUBROUTINE reshape_mm_compatible(matrix1_in, matrix2_in, matrix1_out, matrix2_out, new1, new2, trans1, trans2, nodata1, nodata2)
       TYPE(dbcsr_r_type), INTENT(INOUT) :: matrix1_in, matrix2_in
       TYPE(dbcsr_r_type), INTENT(OUT) :: matrix1_out, matrix2_out
       LOGICAL, INTENT(OUT) :: new1, new2
+      CHARACTER(LEN=1), INTENT(INOUT) :: trans1, trans2
       LOGICAL, OPTIONAL, INTENT(IN) :: nodata1, nodata2
+
       INTEGER(KIND=int_8), DIMENSION(2) :: dims1, dims2
 
       new1 = .FALSE.; new2 = .FALSE.
@@ -440,11 +415,11 @@ CONTAINS
          dims2 = [dbcsr_r_nblkrows_total(matrix2_in), dbcsr_r_nblkcols_total(matrix2_in)]
 
          IF (PRODUCT(dims1) .GE. PRODUCT(dims2)) THEN
-            CALL reshape_mm_template(matrix1_in, matrix2_in, matrix2_out, nodata=nodata2)
+            CALL reshape_mm_template(matrix1_in, matrix2_in, matrix2_out, trans2, nodata=nodata2)
             new2 = .TRUE.
             matrix1_out = matrix1_in
          ELSE
-            CALL reshape_mm_template(matrix2_in, matrix1_in, matrix1_out, nodata=nodata1)
+            CALL reshape_mm_template(matrix2_in, matrix1_in, matrix1_out, trans1, nodata=nodata1)
             new1 = .TRUE.
             matrix2_out = matrix2_in
          ENDIF
@@ -526,10 +501,11 @@ CONTAINS
 
       END FUNCTION
 
-      SUBROUTINE reshape_mm_template(template, matrix_in, matrix_out, nodata)
+      SUBROUTINE reshape_mm_template(template, matrix_in, matrix_out, trans, nodata)
          TYPE(dbcsr_r_type), INTENT(IN) :: template
          TYPE(dbcsr_r_type), INTENT(INOUT) :: matrix_in
          TYPE(dbcsr_r_type), INTENT(OUT) :: matrix_out
+         CHARACTER(LEN=1), INTENT(INOUT) :: trans
          LOGICAL, INTENT(IN), OPTIONAL :: nodata
          CLASS(dbcsr_r_distribution), ALLOCATABLE :: row_dist, col_dist
 
@@ -554,6 +530,14 @@ CONTAINS
          dim_split_matrix = info_matrix%split_rowcol
 
          transposed = dim_split_template .NE. dim_split_matrix
+         IF(transposed) THEN
+            SELECT CASE(trans)
+            CASE(dbcsr_transpose)
+               trans = dbcsr_no_transpose
+            CASE(dbcsr_no_transpose)
+               trans = dbcsr_transpose
+            END SELECT
+         ENDIF
 
          CALL mp_environ(numnodes, pdims, pcoord, info_template%mp_comm)
 
