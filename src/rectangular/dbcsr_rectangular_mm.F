@@ -587,6 +587,8 @@ CONTAINS
       TYPE(dbcsr_r_split_info) :: info
       INTEGER :: mp_comm, dim_compatible
       LOGICAL :: nodata_prv
+      INTEGER, DIMENSION(2)                              :: pcoord, pdims
+      INTEGER :: numnodes
 
       IF(PRESENT(nodata)) THEN
          nodata_prv = nodata
@@ -597,6 +599,8 @@ CONTAINS
       info = dbcsr_r_info(template)
       dim_compatible = info%split_rowcol
 
+      CALL mp_environ(numnodes, pdims, pcoord, info%mp_comm)
+
       SELECT CASE(dim_compatible)
       CASE(1)
          DBCSR_ASSERT(template%nblkrows == matrix_in%nblkrows)
@@ -606,11 +610,10 @@ CONTAINS
 
       SELECT CASE(dim_compatible)
       CASE(1)
-         ! todo: don't use distribution of matrix_in, not safe!
          ALLOCATE(row_dist, source=template%dist%row_dist)
-         ALLOCATE(col_dist, source=matrix_in%dist%col_dist)
+         ALLOCATE(col_dist, source=dbcsr_r_dist_cyclic(1, pdims(2), matrix_in%nblkcols))
       CASE(2)
-         ALLOCATE(row_dist, source=matrix_in%dist%row_dist)
+         ALLOCATE(row_dist, source=dbcsr_r_dist_cyclic(1, pdims(1), matrix_in%nblkrows))
          ALLOCATE(col_dist, source=template%dist%col_dist)
       END SELECT
 
