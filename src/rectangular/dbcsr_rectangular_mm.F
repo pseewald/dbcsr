@@ -10,35 +10,35 @@
 
 MODULE dbcsr_rectangular_mm
 
-   USE dbcsr_data_methods,              ONLY: dbcsr_scalar_zero
-   USE dbcsr_data_types,                ONLY: dbcsr_scalar_type
-   USE dbcsr_multiply_api,              ONLY: dbcsr_multiply
-   USE dbcsr_rectangular_base,          ONLY: &
-        dbcsr_r_create, dbcsr_r_destroy, dbcsr_r_distribution_destroy, dbcsr_r_distribution_new, &
-        dbcsr_r_finalize, dbcsr_r_get_data_type, dbcsr_r_info, dbcsr_r_nblkcols_total, &
-        dbcsr_r_nblkrows_total
-   USE dbcsr_rectangular_base_types,    ONLY: dbcsr_r_distribution_type,&
-                                              dbcsr_r_split_info,&
-                                              dbcsr_r_type
-   USE dbcsr_rectangular_global,        ONLY: dbcsr_r_dist_cyclic, dbcsr_r_distribution
-   USE dbcsr_rectangular_reshape,       ONLY: dbcsr_r_merge,&
-                                              dbcsr_r_replicate,&
-                                              dbcsr_r_reshape
-   USE dbcsr_rectangular_split,         ONLY: colsplit,&
-                                              dbcsr_r_get_info,&
-                                              dbcsr_r_split,&
-                                              dbcsr_r_split_rows_or_cols,&
-                                              rowsplit,&
-                                              world_to_group_proc_map
-   USE dbcsr_rectangular_util,          ONLY: swap
-   USE dbcsr_types,                     ONLY: dbcsr_no_transpose,&
-                                              dbcsr_transpose
-   USE dbcsr_kinds,                           ONLY: default_string_length,&
-                                              int_8,&
-                                              real_8
-   USE dbcsr_mpiwrap,                 ONLY: mp_cart_create,&
-                                              mp_comm_compare,&
-                                              mp_environ
+   USE dbcsr_data_methods, ONLY: dbcsr_scalar_zero
+   USE dbcsr_data_types, ONLY: dbcsr_scalar_type
+   USE dbcsr_multiply_api, ONLY: dbcsr_multiply
+   USE dbcsr_rectangular_base, ONLY: &
+      dbcsr_r_create, dbcsr_r_destroy, dbcsr_r_distribution_destroy, dbcsr_r_distribution_new, &
+      dbcsr_r_finalize, dbcsr_r_get_data_type, dbcsr_r_info, dbcsr_r_nblkcols_total, &
+      dbcsr_r_nblkrows_total
+   USE dbcsr_rectangular_base_types, ONLY: dbcsr_r_distribution_type, &
+      dbcsr_r_split_info, &
+      dbcsr_r_type
+   USE dbcsr_rectangular_global, ONLY: dbcsr_r_dist_cyclic, dbcsr_r_distribution
+   USE dbcsr_rectangular_reshape, ONLY: dbcsr_r_merge, &
+      dbcsr_r_replicate, &
+      dbcsr_r_reshape
+   USE dbcsr_rectangular_split, ONLY: colsplit, &
+      dbcsr_r_get_info, &
+      dbcsr_r_split, &
+      dbcsr_r_split_rows_or_cols, &
+      rowsplit, &
+      world_to_group_proc_map
+   USE dbcsr_rectangular_util, ONLY: swap
+   USE dbcsr_types, ONLY: dbcsr_no_transpose, &
+      dbcsr_transpose
+   USE dbcsr_kinds, ONLY: default_string_length, &
+      int_8, &
+      real_8
+   USE dbcsr_mpiwrap, ONLY: mp_cart_create, &
+      mp_comm_compare, &
+      mp_environ
 #include "../base/dbcsr_base_uses.f90"
 
    IMPLICIT NONE
@@ -135,7 +135,7 @@ CONTAINS
                                      routineP = moduleN//':'//routineN
       INTEGER :: handle, io_unit_prv
 
-      IF(PRESENT(io_unit)) THEN
+      IF (PRESENT(io_unit)) THEN
          io_unit_prv = io_unit
       ELSE
          io_unit_prv = 0
@@ -155,9 +155,9 @@ CONTAINS
       dims_a = [dbcsr_r_nblkrows_total(matrix_a), dbcsr_r_nblkcols_total(matrix_a)]
       dims_b = [dbcsr_r_nblkrows_total(matrix_b), dbcsr_r_nblkcols_total(matrix_b)]
 
-      IF(io_unit_prv > 0) THEN
-         WRITE(io_unit_prv, *) "DBCSR MM INFO | dims_a", dims_a, "transa ", transa_prv
-         WRITE(io_unit_prv, *) "DBCSR MM INFO | dims_b", dims_b, "transb ", transb_prv
+      IF (io_unit_prv > 0) THEN
+         WRITE (io_unit_prv, *) "DBCSR MM INFO | dims_a", dims_a, "transa ", transa_prv
+         WRITE (io_unit_prv, *) "DBCSR MM INFO | dims_b", dims_b, "transb ", transb_prv
       ENDIF
 
       IF (transa_prv .EQ. dbcsr_transpose) THEN
@@ -180,8 +180,8 @@ CONTAINS
 
       tr_case = ''
 
-      IF(io_unit_prv > 0) THEN
-         WRITE(io_unit_prv, *) "DBCSR MM INFO | mm dims:", dims
+      IF (io_unit_prv > 0) THEN
+         WRITE (io_unit_prv, *) "DBCSR MM INFO | mm dims:", dims
       ENDIF
 
       SELECT CASE (dim_split)
@@ -206,8 +206,8 @@ CONTAINS
 
          CALL dbcsr_r_distribution_new(dist_ab_rs, mp_comm, new_row_dist_ab, new_col_dist_ab, nosplit=.TRUE.)
 
-         IF(io_unit_prv > 0) THEN
-            WRITE(io_unit_prv, *) "DBCSR MM Info | reshape B matrix"
+         IF (io_unit_prv > 0) THEN
+            WRITE (io_unit_prv, *) "DBCSR MM Info | reshape B matrix"
          ENDIF
          SELECT CASE (transb_prv)
          CASE (dbcsr_no_transpose)
@@ -228,32 +228,10 @@ CONTAINS
       CASE (2)
 
          IF (transa_prv .EQ. dbcsr_transpose .AND. transb_prv .EQ. dbcsr_no_transpose) THEN
-            IF(io_unit_prv > 0) THEN
-               WRITE(io_unit_prv, *) "checking compatibility of matrix distribution"
-            ENDIF
-            IF (dist_compatible(matrix_a, matrix_b, io_unit=io_unit_prv)) THEN
-               matrix_a_rs = matrix_a
-               matrix_b_rs = matrix_b
-
-               IF(io_unit_prv > 0) THEN
-                  WRITE(io_unit_prv, *) "DBCSR MM Info | distribution compatible (no reshape)"
-               ENDIF
-            ELSE
-               CALL reshape_mm_compatible(matrix_a, matrix_b, matrix_a_rs, matrix_b_rs, new_a, new_b)
-            ENDIF
+            CALL reshape_mm_compatible(matrix_a, matrix_b, matrix_a_rs, matrix_b_rs, new_a, new_b)
             tr_case = dbcsr_transpose
          ELSEIF (transa_prv .EQ. dbcsr_no_transpose .AND. transb_prv .EQ. dbcsr_transpose) THEN
-            IF (dist_compatible(matrix_a, matrix_b)) THEN
-               matrix_a_rs = matrix_a
-               matrix_b_rs = matrix_b
-
-
-               IF(io_unit_prv > 0) THEN
-                  WRITE(io_unit_prv, *) "DBCSR MM Info | distribution compatible (no reshape)"
-               ENDIF
-            ELSE
-               CALL reshape_mm_compatible(matrix_a, matrix_b, matrix_a_rs, matrix_b_rs, new_a, new_b)
-            ENDIF
+            CALL reshape_mm_compatible(matrix_a, matrix_b, matrix_a_rs, matrix_b_rs, new_a, new_b)
             tr_case = dbcsr_no_transpose
          ELSE
             IF (PRODUCT(dims_a) .GE. PRODUCT(dims_b)) THEN
@@ -485,7 +463,52 @@ CONTAINS
 
       CALL timestop(handle)
 
+   END SUBROUTINE
+
+   SUBROUTINE reshape_mm_compatible(matrix1_in, matrix2_in, matrix1_out, matrix2_out, new1, new2, nodata1, nodata2)
+      TYPE(dbcsr_r_type), INTENT(INOUT) :: matrix1_in, matrix2_in
+      TYPE(dbcsr_r_type), INTENT(OUT) :: matrix1_out, matrix2_out
+      LOGICAL, INTENT(OUT) :: new1, new2
+      LOGICAL, OPTIONAL, INTENT(IN) :: nodata1, nodata2
+      INTEGER(KIND=int_8), DIMENSION(2) :: dims1, dims2
+
+      new1 = .FALSE.; new2 = .FALSE.
+
+      IF (dist_compatible(matrix1_in, matrix2_in)) THEN
+         matrix1_out = matrix1_in
+         matrix2_out = matrix2_in
+      ELSE
+
+         dims1 = [dbcsr_r_nblkrows_total(matrix1_in), dbcsr_r_nblkcols_total(matrix1_in)]
+         dims2 = [dbcsr_r_nblkrows_total(matrix2_in), dbcsr_r_nblkcols_total(matrix2_in)]
+
+         IF (PRODUCT(dims1) .GE. PRODUCT(dims2)) THEN
+            CALL reshape_mm_template(matrix1_in, matrix2_in, matrix2_out, nodata=nodata2)
+            new2 = .TRUE.
+            matrix1_out = matrix1_in
+         ELSE
+            CALL reshape_mm_template(matrix2_in, matrix1_in, matrix1_out, nodata=nodata1)
+            new1 = .TRUE.
+            matrix2_out = matrix2_in
+         ENDIF
+      ENDIF
+
    CONTAINS
+
+! **************************************************************************************************
+!> \brief ...
+!> \param arr1 ...
+!> \param arr2 ...
+!> \return ...
+! **************************************************************************************************
+      PURE FUNCTION array_eq_i8(arr1, arr2)
+         INTEGER(KIND=int_8), DIMENSION(:), INTENT(IN)      :: arr1, arr2
+         LOGICAL                                            :: array_eq_i8
+
+         array_eq_i8 = .FALSE.
+         IF (SIZE(arr1) .EQ. SIZE(arr2)) array_eq_i8 = ALL(arr1 == arr2)
+
+      END FUNCTION
 
 ! **************************************************************************************************
 !> \brief ...
@@ -494,19 +517,19 @@ CONTAINS
 !> \return ...
 ! **************************************************************************************************
       FUNCTION dist_compatible(mat_a, mat_b, io_unit)
-      TYPE(dbcsr_r_type), INTENT(IN)                     :: mat_a, mat_b
-      INTEGER, INTENT(IN), OPTIONAL :: io_unit
-      LOGICAL                                            :: dist_compatible
+         TYPE(dbcsr_r_type), INTENT(IN)                     :: mat_a, mat_b
+         INTEGER, INTENT(IN), OPTIONAL :: io_unit
+         LOGICAL                                            :: dist_compatible
 
-      INTEGER                                            :: res
-      TYPE(dbcsr_r_split_info)                           :: info_a, info_b
-      INTEGER :: io_unit_prv
+         INTEGER                                            :: res
+         TYPE(dbcsr_r_split_info)                           :: info_a, info_b
+         INTEGER :: io_unit_prv
 
-      IF(PRESENT(io_unit)) THEN
-         io_unit_prv = io_unit
-      ELSE
-         io_unit_prv = 0
-      ENDIF
+         IF (PRESENT(io_unit)) THEN
+            io_unit_prv = io_unit
+         ELSE
+            io_unit_prv = 0
+         ENDIF
 
          dist_compatible = .FALSE.
 
@@ -518,124 +541,83 @@ CONTAINS
             RETURN
          ENDIF
 
-         IF(io_unit_prv > 0) THEN
-            WRITE(io_unit_prv, *) "mp comm compatible"
+         IF (io_unit_prv > 0) THEN
+            WRITE (io_unit_prv, *) "mp comm compatible"
          ENDIF
 
          IF (mat_a%dist%info%split_rowcol == mat_b%dist%info%split_rowcol) THEN
 
-            IF(io_unit_prv > 0) THEN
-               WRITE(io_unit_prv, *) "split compatible"
+            IF (io_unit_prv > 0) THEN
+               WRITE (io_unit_prv, *) "split compatible"
             ENDIF
             IF (array_eq_i8(mat_a%dist%local_rowcols, mat_b%dist%local_rowcols)) THEN
-               IF(io_unit_prv > 0) THEN
-                  WRITE(io_unit_prv, *) "local rowcols compatible"
+               IF (io_unit_prv > 0) THEN
+                  WRITE (io_unit_prv, *) "local rowcols compatible"
                ENDIF
                dist_compatible = .TRUE.
             ELSE
-               IF(io_unit_prv > 0) THEN
-                  WRITE(io_unit_prv, *) "local rowcols A", mat_a%dist%local_rowcols
-                  WRITE(io_unit_prv, *) "local rowcols B", mat_b%dist%local_rowcols
+               IF (io_unit_prv > 0) THEN
+                  WRITE (io_unit_prv, *) "local rowcols A", mat_a%dist%local_rowcols
+                  WRITE (io_unit_prv, *) "local rowcols B", mat_b%dist%local_rowcols
                ENDIF
             ENDIF
          ENDIF
 
-         IF(io_unit_prv > 0) THEN
-            WRITE(io_unit_prv, *) "is compatible?", dist_compatible
+         IF (io_unit_prv > 0) THEN
+            WRITE (io_unit_prv, *) "is compatible?", dist_compatible
          ENDIF
 
       END FUNCTION
 
-! **************************************************************************************************
-!> \brief ...
-!> \param arr1 ...
-!> \param arr2 ...
-!> \return ...
-! **************************************************************************************************
-      PURE FUNCTION array_eq_i8(arr1, arr2)
-      INTEGER(KIND=int_8), DIMENSION(:), INTENT(IN)      :: arr1, arr2
-      LOGICAL                                            :: array_eq_i8
+      SUBROUTINE reshape_mm_template(template, matrix_in, matrix_out, nodata)
+         TYPE(dbcsr_r_type), INTENT(IN) :: template
+         TYPE(dbcsr_r_type), INTENT(INOUT) :: matrix_in
+         TYPE(dbcsr_r_type), INTENT(OUT) :: matrix_out
+         LOGICAL, INTENT(IN), OPTIONAL :: nodata
+         CLASS(dbcsr_r_distribution), ALLOCATABLE :: row_dist, col_dist
 
-         array_eq_i8 = .FALSE.
-         IF (SIZE(arr1) .EQ. SIZE(arr2)) array_eq_i8 = ALL(arr1 == arr2)
+         TYPE(dbcsr_r_distribution_type) :: dist_new
+         TYPE(dbcsr_r_split_info) :: info
+         INTEGER :: mp_comm, dim_compatible
+         LOGICAL :: nodata_prv
+         INTEGER, DIMENSION(2)                              :: pcoord, pdims
+         INTEGER :: numnodes
 
-      END FUNCTION
+         IF (PRESENT(nodata)) THEN
+            nodata_prv = nodata
+         ELSE
+            nodata_prv = .FALSE.
+         ENDIF
 
-   END SUBROUTINE
+         info = dbcsr_r_info(template)
+         dim_compatible = info%split_rowcol
 
-   SUBROUTINE reshape_mm_template(template, matrix_in, matrix_out, nodata)
-      TYPE(dbcsr_r_type), INTENT(IN) :: template
-      TYPE(dbcsr_r_type), INTENT(INOUT) :: matrix_in
-      TYPE(dbcsr_r_type), INTENT(OUT) :: matrix_out
-      LOGICAL, INTENT(IN), OPTIONAL :: nodata
-      CLASS(dbcsr_r_distribution), ALLOCATABLE :: row_dist, col_dist
+         CALL mp_environ(numnodes, pdims, pcoord, info%mp_comm)
 
-      TYPE(dbcsr_r_distribution_type) :: dist_new
-      TYPE(dbcsr_r_split_info) :: info
-      INTEGER :: mp_comm, dim_compatible
-      LOGICAL :: nodata_prv
-      INTEGER, DIMENSION(2)                              :: pcoord, pdims
-      INTEGER :: numnodes
+         SELECT CASE (dim_compatible)
+         CASE (1)
+            DBCSR_ASSERT(template%nblkrows == matrix_in%nblkrows)
+         CASE (2)
+            DBCSR_ASSERT(template%nblkcols == matrix_in%nblkcols)
+         END SELECT
 
-      IF(PRESENT(nodata)) THEN
-         nodata_prv = nodata
-      ELSE
-         nodata_prv = .FALSE.
-      ENDIF
+         SELECT CASE (dim_compatible)
+         CASE (1)
+            ALLOCATE (row_dist, source=template%dist%row_dist)
+            ALLOCATE (col_dist, source=dbcsr_r_dist_cyclic(1, pdims(2), matrix_in%nblkcols))
+         CASE (2)
+            ALLOCATE (row_dist, source=dbcsr_r_dist_cyclic(1, pdims(1), matrix_in%nblkrows))
+            ALLOCATE (col_dist, source=template%dist%col_dist)
+         END SELECT
 
-      info = dbcsr_r_info(template)
-      dim_compatible = info%split_rowcol
+         CALL dbcsr_r_get_info(info, mp_comm=mp_comm)
+         CALL dbcsr_r_distribution_new(dist_new, mp_comm, row_dist, col_dist, split_info=info)
+         CALL dbcsr_r_create(matrix_out, matrix_in%matrix%name, dist_new, dbcsr_r_get_data_type(matrix_in), &
+                             matrix_in%row_blk_size, matrix_in%col_blk_size, own_dist=.TRUE.)
 
-      CALL mp_environ(numnodes, pdims, pcoord, info%mp_comm)
+         IF (.NOT. nodata_prv) CALL dbcsr_r_reshape(matrix_in, matrix_out)
 
-      SELECT CASE(dim_compatible)
-      CASE(1)
-         DBCSR_ASSERT(template%nblkrows == matrix_in%nblkrows)
-      CASE(2)
-         DBCSR_ASSERT(template%nblkcols == matrix_in%nblkcols)
-      END SELECT
-
-      SELECT CASE(dim_compatible)
-      CASE(1)
-         ALLOCATE(row_dist, source=template%dist%row_dist)
-         ALLOCATE(col_dist, source=dbcsr_r_dist_cyclic(1, pdims(2), matrix_in%nblkcols))
-      CASE(2)
-         ALLOCATE(row_dist, source=dbcsr_r_dist_cyclic(1, pdims(1), matrix_in%nblkrows))
-         ALLOCATE(col_dist, source=template%dist%col_dist)
-      END SELECT
-
-      CALL dbcsr_r_get_info(info, mp_comm=mp_comm)
-      CALL dbcsr_r_distribution_new(dist_new, mp_comm, row_dist, col_dist, split_info=info)
-      CALL dbcsr_r_create(matrix_out, matrix_in%matrix%name, dist_new, dbcsr_r_get_data_type(matrix_in), &
-                          matrix_in%row_blk_size, matrix_in%col_blk_size, own_dist=.TRUE.)
-
-      IF(.NOT. nodata_prv) CALL dbcsr_r_reshape(matrix_in, matrix_out)
-
-   END SUBROUTINE
-
-   SUBROUTINE reshape_mm_compatible(matrix1_in, matrix2_in, matrix1_out, matrix2_out, new1, new2, nodata1, nodata2)
-      TYPE(dbcsr_r_type), INTENT(INOUT) :: matrix1_in, matrix2_in
-      TYPE(dbcsr_r_type), INTENT(OUT) :: matrix1_out, matrix2_out
-      LOGICAL, INTENT(OUT) :: new1, new2
-      LOGICAL, OPTIONAL, INTENT(IN) :: nodata1, nodata2
-      INTEGER(KIND=int_8), DIMENSION(2) :: dims1, dims2
-
-      dims1 = [dbcsr_r_nblkrows_total(matrix1_in), dbcsr_r_nblkcols_total(matrix1_in)]
-      dims2 = [dbcsr_r_nblkrows_total(matrix2_in), dbcsr_r_nblkcols_total(matrix2_in)]
-
-      new1=.FALSE.; new2 = .FALSE.
-
-      IF (PRODUCT(dims1) .GE. PRODUCT(dims2)) THEN
-
-         CALL reshape_mm_template(matrix1_in, matrix2_in, matrix2_out, nodata=nodata2)
-         new2 = .TRUE.
-         matrix1_out = matrix1_in
-      ELSE
-
-         CALL reshape_mm_template(matrix2_in, matrix1_in, matrix1_out, nodata=nodata1)
-         new1 = .TRUE.
-         matrix2_out = matrix2_in
-      ENDIF
+      END SUBROUTINE
 
    END SUBROUTINE
 
