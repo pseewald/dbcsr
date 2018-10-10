@@ -29,7 +29,8 @@ PROGRAM dbcsr_rectangular_unittest
                                               dbcsr_r_destroy,&
                                               dbcsr_r_info,&
                                               dbcsr_r_nblkcols_total,&
-                                              dbcsr_r_nblkrows_total
+                                              dbcsr_r_nblkrows_total,&
+                                              dbcsr_r_create
    USE dbcsr_rectangular_base_types,    ONLY: dbcsr_r_type
    USE dbcsr_rectangular_mm,            ONLY: dbcsr_r_multiply
    USE dbcsr_rectangular_split,         ONLY: dbcsr_r_get_info,&
@@ -59,7 +60,7 @@ PROGRAM dbcsr_rectangular_unittest
    IMPLICIT NONE
 
    INTEGER(KIND=int_8), PARAMETER :: m = 100, k = 20, n = 10
-   TYPE(dbcsr_r_type) :: A, B, C, At, Bt, Ct
+   TYPE(dbcsr_r_type) :: A, B, C, At, Bt, Ct, A_out, B_out, C_out, At_out, Bt_out, Ct_out
    INTEGER, DIMENSION(m) :: bsize_m
    INTEGER, DIMENSION(n) :: bsize_n
    INTEGER, DIMENSION(k) :: bsize_k
@@ -90,6 +91,13 @@ PROGRAM dbcsr_rectangular_unittest
    CALL dbcsr_r_setup_test_matrix(C, mp_comm_C, mp_comm, k, n, bsize_k, bsize_n, [5, 7], "C", sparsity)
    CALL dbcsr_r_setup_test_matrix(Ct, mp_comm_Ct, mp_comm, n, k, bsize_n, bsize_k, [1, 1], "C^t", sparsity)
 
+   CALL dbcsr_r_create(A, A_out)
+   CALL dbcsr_r_create(At, At_out)
+   CALL dbcsr_r_create(B, B_out)
+   CALL dbcsr_r_create(Bt, Bt_out)
+   CALL dbcsr_r_create(C, C_out)
+   CALL dbcsr_r_create(Ct, Ct_out)
+
    IF (mynode == 0) WRITE (io_unit, '(A, 1X, A, 1X, A, I10, 1X, A, 1X, I10)') "DBCSR RECT |", "split info for matrix", &
       TRIM(A%matrix%name), dbcsr_r_nblkrows_total(A), 'X', dbcsr_r_nblkcols_total(A)
    CALL dbcsr_r_print_info(dbcsr_r_info(A))
@@ -109,20 +117,34 @@ PROGRAM dbcsr_rectangular_unittest
       TRIM(Ct%matrix%name), dbcsr_r_nblkrows_total(Ct), 'X', dbcsr_r_nblkcols_total(Ct)
    CALL dbcsr_r_print_info(dbcsr_r_info(Ct))
 
-   CALL test_mm('N', 'N', B, A, default_output_unit)
-   CALL test_mm('T', 'N', Bt, A, default_output_unit)
-   CALL test_mm('N', 'T', B, At, default_output_unit)
-   CALL test_mm('T', 'T', Bt, At, default_output_unit)
+   CALL test_mm('N', 'N', 'N', B, A, Ct_out, default_output_unit)
+   CALL test_mm('T', 'N', 'N', Bt, A, Ct_out, default_output_unit)
+   CALL test_mm('N', 'T', 'N', B, At, Ct_out, default_output_unit)
+   CALL test_mm('T', 'T', 'N', Bt, At, Ct_out, default_output_unit)
+   CALL test_mm('N', 'N', 'T', B, A, C_out, default_output_unit)
+   CALL test_mm('T', 'N', 'T', Bt, A, C_out, default_output_unit)
+   CALL test_mm('N', 'T', 'T', B, At, C_out, default_output_unit)
+   CALL test_mm('T', 'T', 'T', Bt, At, C_out, default_output_unit)
 
-   CALL test_mm('N', 'N', A, C, default_output_unit)
-   CALL test_mm('T', 'N', At, C, default_output_unit)
-   CALL test_mm('N', 'T', A, Ct, default_output_unit)
-   CALL test_mm('T', 'T', At, Ct, default_output_unit)
+   CALL test_mm('N', 'N', 'N', A, C, Bt_out, default_output_unit)
+   CALL test_mm('T', 'N', 'N', At, C, Bt_out, default_output_unit)
+   CALL test_mm('N', 'T', 'N', A, Ct, Bt_out, default_output_unit)
+   CALL test_mm('T', 'T', 'N', At, Ct, Bt_out, default_output_unit)
 
-   CALL test_mm('N', 'N', C, B, default_output_unit)
-   CALL test_mm('T', 'N', Ct, B, default_output_unit)
-   CALL test_mm('N', 'T', C, Bt, default_output_unit)
-   CALL test_mm('T', 'T', Ct, Bt, default_output_unit)
+   CALL test_mm('N', 'N', 'T', A, C, B_out, default_output_unit)
+   CALL test_mm('T', 'N', 'T', At, C, B_out, default_output_unit)
+   CALL test_mm('N', 'T', 'T', A, Ct, B_out, default_output_unit)
+   CALL test_mm('T', 'T', 'T', At, Ct, B_out, default_output_unit)
+
+   CALL test_mm('N', 'N', 'N', C, B, At_out, default_output_unit)
+   CALL test_mm('T', 'N', 'N', Ct, B, At_out, default_output_unit)
+   CALL test_mm('N', 'T', 'N', C, Bt, At_out, default_output_unit)
+   CALL test_mm('T', 'T', 'N', Ct, Bt, At_out, default_output_unit)
+
+   CALL test_mm('N', 'N', 'T', C, B, A_out, default_output_unit)
+   CALL test_mm('T', 'N', 'T', Ct, B, A_out, default_output_unit)
+   CALL test_mm('N', 'T', 'T', C, Bt, A_out, default_output_unit)
+   CALL test_mm('T', 'T', 'T', Ct, Bt, A_out, default_output_unit)
 
    CALL dbcsr_r_destroy(A)
    CALL dbcsr_r_destroy(At)
@@ -130,6 +152,12 @@ PROGRAM dbcsr_rectangular_unittest
    CALL dbcsr_r_destroy(Bt)
    CALL dbcsr_r_destroy(C)
    CALL dbcsr_r_destroy(Ct)
+   CALL dbcsr_r_destroy(A_out)
+   CALL dbcsr_r_destroy(At_out)
+   CALL dbcsr_r_destroy(B_out)
+   CALL dbcsr_r_destroy(Bt_out)
+   CALL dbcsr_r_destroy(C_out)
+   CALL dbcsr_r_destroy(Ct_out)
 
    CALL mp_comm_free(mp_comm_A)
    CALL mp_comm_free(mp_comm_At)
@@ -152,12 +180,12 @@ CONTAINS
 !> \param matrix_b ...
 !> \param unit_nr ...
 ! **************************************************************************************************
-   SUBROUTINE test_mm(transa, transb, matrix_a, matrix_b, unit_nr)
-      CHARACTER(LEN=1), INTENT(IN)                       :: transa, transb
-      TYPE(dbcsr_r_type), INTENT(INOUT)                  :: matrix_a, matrix_b
+   SUBROUTINE test_mm(transa, transb, transc, matrix_a, matrix_b, matrix_c, unit_nr)
+      CHARACTER(LEN=1), INTENT(IN)                       :: transa, transb, transc
+      TYPE(dbcsr_r_type), INTENT(INOUT)                  :: matrix_a, matrix_b, matrix_c
       INTEGER, INTENT(IN)                                :: unit_nr
 
-      CHARACTER(LEN=1)                                   :: transa_prv, transb_prv, transc
+      CHARACTER(LEN=1)                                   :: transa_prv, transb_prv
       INTEGER                                            :: comm_dbcsr, io_unit, mp_comm, mynode, &
                                                             numnodes
       INTEGER, DIMENSION(2)                              :: myploc, npdims
@@ -165,7 +193,6 @@ CONTAINS
       REAL(KIND=real_8)                                  :: norm, rc_cs, sq_cs
       TYPE(dbcsr_distribution_obj)                       :: dist_a, dist_b, dist_c
       TYPE(dbcsr_mp_obj)                                 :: mp_environ_tmp
-      TYPE(dbcsr_r_type)                                 :: matrix_c
       TYPE(dbcsr_type)                                   :: dbcsr_a, dbcsr_a_mm, dbcsr_b, &
                                                             dbcsr_b_mm, dbcsr_c, dbcsr_c_mm, &
                                                             dbcsr_c_mm_check
@@ -266,8 +293,6 @@ CONTAINS
       CALL dbcsr_distribution_release(dist_a)
       CALL dbcsr_distribution_release(dist_b)
       CALL dbcsr_distribution_release(dist_c)
-
-      CALL dbcsr_r_destroy(matrix_c)
 
       CALL mp_comm_free(comm_dbcsr)
 
