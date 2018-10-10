@@ -79,12 +79,35 @@ MODULE dbcsr_tensor_types
       TYPE(array_list)              :: nd_dist
    END TYPE
 
+   TYPE, EXTENDS(dbcsr_r_distribution) :: dbcsr_r_dist_t
+      !INTEGER :: dims_nd ! tensor rank
+      INTEGER, DIMENSION(:), ALLOCATABLE :: index_map ! which nd-indices map to matrix index of this distribution object
+      INTEGER, DIMENSION(:), ALLOCATABLE :: dims ! tensor dimensions only for this matrix dimensions
+      INTEGER, DIMENSION(:), ALLOCATABLE :: dims_grid ! grid dimensions only for this matrix dimension
+      !TYPE(nd_to_2d_mapping) :: map_blks, map_grid
+      TYPE(array_list)       :: nd_dist ! dist only for tensor dimensions belonging to this matrix dimension
+   CONTAINS
+      PROCEDURE :: dist => r_dist_t
+      PROCEDURE :: rowcols => r_rowcols_t
+   END TYPE
+
    INTERFACE dbcsr_t_create
       MODULE PROCEDURE dbcsr_t_create_new
       MODULE PROCEDURE dbcsr_t_create_template
    END INTERFACE
 
 CONTAINS
+
+   FUNCTION r_dist_t(t, rowcol)
+      CLASS(dbcsr_r_dist_t), INTENT(IN) :: t
+      INTEGER(KIND=int_8), INTENT(IN) :: rowcol
+      INTEGER(KIND=int_8), DIMENSION(SIZE(t%dims)) :: ind_blk, dist
+      INTEGER :: r_dist_t
+
+      ind_blk(:) = split_index(rowcol, t%dims, base=1, col_major=.TRUE.)
+      dist(:) = get_array_elements(t%nd_dist, ind_blk)
+      r_dist_t = combine_index(dist, t%dims_grid, base=0, col_major=.FALSE.)
+   END FUNCTION
 
 ! **************************************************************************************************
 !> \brief Create a default nd process topology that is consistent with a given 2d topology.
@@ -136,7 +159,7 @@ CONTAINS
 ! **************************************************************************************************
    SUBROUTINE dbcsr_t_nd_mp_free(mp_comm)
      INTEGER, INTENT(INOUT)                               :: mp_comm
-     
+
      CALL mp_comm_free(mp_comm)
    END SUBROUTINE dbcsr_t_nd_mp_free
 

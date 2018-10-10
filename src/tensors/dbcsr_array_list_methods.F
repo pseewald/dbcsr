@@ -116,6 +116,23 @@ CONTAINS
 
    END SUBROUTINE
 
+   FUNCTION array_sublist(list, i_selected)
+      TYPE(array_list), INTENT(IN)                           :: list
+      INTEGER, DIMENSION(:), INTENT(IN)                      :: i_selected
+      TYPE(array_list)                                       :: array_sublist
+      INTEGER :: ndata
+      INTEGER, ALLOCATABLE, DIMENSION(:) :: ${varlist("data")}$
+
+      ndata = SIZE(i_selected)
+
+#:for dim in range(1, maxdim+1)
+      IF (ndata == ${dim}$) THEN
+         CALL get_arrays(list, ${varlist("data", nmax=dim)}$, i_selected)
+         CALL create_array_list(array_sublist, ndata, ${varlist("data", nmax=dim)}$)
+      ENDIF
+#:endfor
+   END FUNCTION
+
 ! **************************************************************************************************
 !> \brief destroy array list.
 !> \param list ...
