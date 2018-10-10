@@ -39,6 +39,7 @@ MODULE dbcsr_rectangular_mm
    USE dbcsr_mpiwrap, ONLY: mp_cart_create, &
       mp_comm_compare, &
       mp_environ
+   USE dbcsr_io, ONLY: dbcsr_print
 #include "../base/dbcsr_base_uses.f90"
 
    IMPLICIT NONE
@@ -108,13 +109,12 @@ CONTAINS
 !> \param matrix_c ...
 ! **************************************************************************************************
    SUBROUTINE dbcsr_r_multiply(transa, transb, transc, alpha, matrix_a, matrix_b, matrix_c, io_unit)
-      CHARACTER(LEN=1), INTENT(IN)                       :: transa, transb
+      CHARACTER(LEN=1), INTENT(IN)                       :: transa, transb, transc
       TYPE(dbcsr_scalar_type), INTENT(IN) :: alpha
-      TYPE(dbcsr_r_type), INTENT(INOUT) :: matrix_a, matrix_b
-      TYPE(dbcsr_r_type) :: matrix_b_rs, matrix_a_rs, matrix_c_rep, matrix_b_rep, matrix_a_rep
-      TYPE(dbcsr_r_distribution_type) :: dist_c_rs
-      CHARACTER(LEN=1), INTENT(OUT) :: transc
-      TYPE(dbcsr_r_type), INTENT(OUT) :: matrix_c
+      TYPE(dbcsr_r_type), TARGET, INTENT(INOUT) :: matrix_a, matrix_b
+      TYPE(dbcsr_r_type), POINTER :: matrix_b_rs => NULL(), matrix_a_rs => NULL(), matrix_c_rs => NULL()
+      TYPE(dbcsr_r_type) :: matrix_c_rep, matrix_b_rep, matrix_a_rep
+      TYPE(dbcsr_r_type), TARGET, INTENT(INOUT) :: matrix_c
       INTEGER(KIND=int_8), DIMENSION(2) :: dims_a, dims_b, dims_c
       INTEGER(KIND=int_8), DIMENSION(3) :: dims
       INTEGER, OPTIONAL, INTENT(IN) :: io_unit
@@ -124,11 +124,9 @@ CONTAINS
       INTEGER :: numnodes
       INTEGER :: mp_comm
       INTEGER, DIMENSION(2) :: pdims, pcoord
-      TYPE(dbcsr_r_dist_cyclic) :: new_row_dist_c, new_col_dist_c
-      CHARACTER(LEN=1) :: transa_prv, transb_prv
-      CHARACTER(LEN=default_string_length) :: name_c
+      CHARACTER(LEN=1) :: transa_prv, transb_prv, transc_prv
       TYPE(dbcsr_scalar_type) :: zero
-      LOGICAL :: new_a, new_b
+      LOGICAL :: new_a, new_b, new_c
       TYPE(dbcsr_r_split_info) :: info
       INTEGER :: numproc, iproc
       CHARACTER(LEN=*), PARAMETER :: routineN = 'dbcsr_r_multiply', &
@@ -149,8 +147,7 @@ CONTAINS
 
       data_type = dbcsr_r_get_data_type(matrix_a)
 
-      transa_prv = transa; transb_prv = transb
-      new_a = .FALSE.; new_b = .FALSE.
+      transa_prv = transa; transb_prv = transb; transc_prv = transc
 
       dims_a = [dbcsr_r_nblkrows_total(matrix_a), dbcsr_r_nblkcols_total(matrix_a)]
       dims_b = [dbcsr_r_nblkrows_total(matrix_b), dbcsr_r_nblkcols_total(matrix_b)]
@@ -187,8 +184,6 @@ CONTAINS
       SELECT CASE (dim_split)
       CASE (1)
 
-         tr_case = transa_prv
-         transc = transa_prv
 
          IF (io_unit_prv > 0) THEN
             IF (tr_case == 'N') THEN
@@ -198,19 +193,27 @@ CONTAINS
             ENDIF
          ENDIF
 
-         CALL dbcsr_r_get_info(dbcsr_r_info(matrix_a), mp_comm=mp_comm)
+         CALL reshape_mm_compatible(matrix_a, matrix_c, matrix_a_rs, matrix_c_rs, &
+            new_a, new_c, transa_prv, transc_prv, nodata2 = .TRUE.)
 
-         CALL reshape_mm_small(mp_comm, matrix_b, matrix_b_rs, transb_prv==dbcsr_transpose)
+         CALL dbcsr_r_get_info(dbcsr_r_info(matrix_a_rs), mp_comm=mp_comm)
 
-         matrix_a_rs = matrix_a
-
+         ALLOCATE(matrix_b_rs)
+         CALL reshape_mm_small(mp_comm, matrix_b, matrix_b_rs, transb_prv==dbcsr_transpose, transb_prv)
          new_b = .TRUE.
+         tr_case = transa_prv
+
 
       CASE (2)
 
          CALL reshape_mm_compatible(matrix_a, matrix_b, matrix_a_rs, matrix_b_rs, new_a, new_b, transa_prv, transb_prv)
+
+         CALL dbcsr_r_get_info(dbcsr_r_info(matrix_a_rs), mp_comm=mp_comm)
+
+         ALLOCATE(matrix_c_rs)
+         CALL reshape_mm_small(mp_comm, matrix_c, matrix_c_rs, transc_prv==dbcsr_transpose, transc_prv, nodata=.TRUE.)
+         new_c = .TRUE.
          tr_case = transa_prv
-         transc = dbcsr_no_transpose
 
          IF (io_unit_prv > 0) THEN
             IF (tr_case == 'N') THEN
@@ -221,9 +224,6 @@ CONTAINS
          ENDIF
 
       CASE (3)
-         tr_case = transb_prv
-         transc = transb_prv
-
          IF (io_unit_prv > 0) THEN
             IF (tr_case == 'N') THEN
                WRITE (io_unit_prv, *) "DBCSR MM INFO | mm case:", "o x -- = --"
@@ -232,13 +232,14 @@ CONTAINS
             ENDIF
          ENDIF
 
-         CALL dbcsr_r_get_info(dbcsr_r_info(matrix_b), mp_comm=mp_comm)
+         CALL reshape_mm_compatible(matrix_b, matrix_c, matrix_b_rs, matrix_c_rs, new_b, new_c, transb_prv, transc_prv, nodata2=.TRUE.)
 
-         CALL reshape_mm_small(mp_comm, matrix_a, matrix_a_rs, transa_prv==dbcsr_transpose)
+         CALL dbcsr_r_get_info(dbcsr_r_info(matrix_b_rs), mp_comm=mp_comm)
 
-         matrix_b_rs = matrix_b
-
+         ALLOCATE(matrix_a_rs)
+         CALL reshape_mm_small(mp_comm, matrix_a, matrix_a_rs, transa_prv==dbcsr_transpose, transa_prv)
          new_a = .TRUE.
+         tr_case = transb_prv
 
       END SELECT
 
@@ -250,62 +251,6 @@ CONTAINS
       CALL dbcsr_r_get_info(info, mp_comm=mp_comm)
       CALL mp_environ(numnodes, pdims, pcoord, mp_comm)
 
-      name_c = TRIM(matrix_a_rs%matrix%name)//" X "//TRIM(matrix_b_rs%matrix%name)
-      SELECT CASE (dim_split)
-      CASE (1)
-         ! use split from a
-         SELECT CASE (tr_case)
-         CASE (dbcsr_transpose)
-            new_row_dist_c = dbcsr_r_dist_cyclic(1, pdims(1), dims_c(2))
-            CALL dbcsr_r_distribution_new(dist_c_rs, mp_comm, &
-                                          new_row_dist_c, matrix_a_rs%dist%col_dist, &
-                                          split_info=dbcsr_r_info(matrix_a_rs))
-            CALL dbcsr_r_create(matrix_c, name_c, dist_c_rs, data_type, &
-                                matrix_b_rs%col_blk_size, matrix_a_rs%col_blk_size, own_dist=.TRUE.)
-
-         CASE (dbcsr_no_transpose)
-            new_col_dist_c = dbcsr_r_dist_cyclic(1, pdims(2), dims_c(2))
-            CALL dbcsr_r_distribution_new(dist_c_rs, mp_comm, &
-                                          matrix_a_rs%dist%row_dist, new_col_dist_c, &
-                                          split_info=dbcsr_r_info(matrix_a_rs))
-            CALL dbcsr_r_create(matrix_c, name_c, dist_c_rs, data_type, &
-                                matrix_a_rs%row_blk_size, matrix_b_rs%col_blk_size, own_dist=.TRUE.)
-
-         END SELECT
-      CASE (2)
-         new_row_dist_c = dbcsr_r_dist_cyclic(1, pdims(1), dims_c(1))
-         new_col_dist_c = dbcsr_r_dist_cyclic(1, pdims(2), dims_c(2))
-         CALL dbcsr_r_distribution_new(dist_c_rs, mp_comm, new_row_dist_c, new_col_dist_c, nosplit=.TRUE.)
-         SELECT CASE (tr_case)
-         CASE (dbcsr_transpose)
-            CALL dbcsr_r_create(matrix_c, name_c, dist_c_rs, data_type, &
-                                matrix_a_rs%col_blk_size, matrix_b_rs%col_blk_size, own_dist=.TRUE.)
-         CASE (dbcsr_no_transpose)
-            CALL dbcsr_r_create(matrix_c, name_c, dist_c_rs, data_type, &
-                                matrix_a_rs%row_blk_size, matrix_b_rs%row_blk_size, own_dist=.TRUE.)
-
-         END SELECT
-      CASE (3)
-         ! use split from b
-         SELECT CASE (tr_case)
-         CASE (dbcsr_transpose)
-            new_col_dist_c = dbcsr_r_dist_cyclic(1, pdims(2), dims_c(1))
-            CALL dbcsr_r_distribution_new(dist_c_rs, mp_comm, &
-                                          matrix_b_rs%dist%row_dist, new_col_dist_c, &
-                                          split_info=dbcsr_r_info(matrix_b_rs))
-            CALL dbcsr_r_create(matrix_c, name_c, dist_c_rs, data_type, &
-                                matrix_b_rs%row_blk_size, matrix_a_rs%row_blk_size, own_dist=.TRUE.)
-         CASE (dbcsr_no_transpose)
-            new_row_dist_c = dbcsr_r_dist_cyclic(1, pdims(1), dims_c(1))
-            CALL dbcsr_r_distribution_new(dist_c_rs, mp_comm, &
-                                          new_row_dist_c, matrix_b_rs%dist%col_dist, &
-                                          split_info=dbcsr_r_info(matrix_b_rs))
-            CALL dbcsr_r_create(matrix_c, name_c, dist_c_rs, data_type, &
-                                matrix_a_rs%row_blk_size, matrix_b_rs%col_blk_size, own_dist=.TRUE.)
-         END SELECT
-      END SELECT
-      CALL dbcsr_r_finalize(matrix_c)
-
       zero = dbcsr_scalar_zero(data_type)
       SELECT CASE (dim_split)
       CASE (1)
@@ -314,20 +259,20 @@ CONTAINS
          CASE (dbcsr_no_transpose)
             CALL mp_environ(numproc, iproc, mp_comm)
             CALL dbcsr_multiply(transa=dbcsr_no_transpose, transb=dbcsr_no_transpose, alpha=alpha, &
-                                matrix_a=matrix_a_rs%matrix, matrix_b=matrix_b_rep%matrix, beta=zero, matrix_c=matrix_c%matrix)
+                                matrix_a=matrix_a_rs%matrix, matrix_b=matrix_b_rep%matrix, beta=zero, matrix_c=matrix_c_rs%matrix)
          CASE (dbcsr_transpose)
             CALL dbcsr_multiply(transa=dbcsr_transpose, transb=dbcsr_no_transpose, alpha=alpha, &
-                                matrix_a=matrix_b_rep%matrix, matrix_b=matrix_a_rs%matrix, beta=zero, matrix_c=matrix_c%matrix)
+                                matrix_a=matrix_b_rep%matrix, matrix_b=matrix_a_rs%matrix, beta=zero, matrix_c=matrix_c_rs%matrix)
          END SELECT
          CALL dbcsr_r_distribution_destroy(matrix_b_rep%dist)
          CALL dbcsr_r_destroy(matrix_b_rep)
       CASE (2)
-         CALL dbcsr_r_replicate(matrix_c%matrix, dbcsr_r_info(matrix_a_rs), matrix_c_rep, nodata=.TRUE.)
+         CALL dbcsr_r_replicate(matrix_c_rs%matrix, dbcsr_r_info(matrix_a_rs), matrix_c_rep, nodata=.TRUE.)
 
          CALL dbcsr_multiply(transa=transa_prv, transb=transb_prv, alpha=alpha, matrix_a=matrix_a_rs%matrix, &
                              matrix_b=matrix_b_rs%matrix, beta=zero, matrix_c=matrix_c_rep%matrix)
 
-         CALL dbcsr_r_merge(matrix_c%matrix, matrix_c_rep)
+         CALL dbcsr_r_merge(matrix_c_rs%matrix, matrix_c_rep)
          CALL dbcsr_r_distribution_destroy(matrix_c_rep%dist)
          CALL dbcsr_r_destroy(matrix_c_rep)
       CASE (3)
@@ -335,10 +280,10 @@ CONTAINS
          SELECT CASE (tr_case)
          CASE (dbcsr_no_transpose)
             CALL dbcsr_multiply(transa=dbcsr_no_transpose, transb=dbcsr_no_transpose, alpha=alpha, &
-                                matrix_a=matrix_a_rep%matrix, matrix_b=matrix_b_rs%matrix, beta=zero, matrix_c=matrix_c%matrix)
+                                matrix_a=matrix_a_rep%matrix, matrix_b=matrix_b_rs%matrix, beta=zero, matrix_c=matrix_c_rs%matrix)
          CASE (dbcsr_transpose)
             CALL dbcsr_multiply(transa=dbcsr_no_transpose, transb=dbcsr_transpose, alpha=alpha, &
-                                matrix_a=matrix_b_rs%matrix, matrix_b=matrix_a_rep%matrix, beta=zero, matrix_c=matrix_c%matrix)
+                                matrix_a=matrix_b_rs%matrix, matrix_b=matrix_a_rep%matrix, beta=zero, matrix_c=matrix_c_rs%matrix)
          END SELECT
          CALL dbcsr_r_distribution_destroy(matrix_a_rep%dist)
          CALL dbcsr_r_destroy(matrix_a_rep)
@@ -350,16 +295,21 @@ CONTAINS
       IF (new_b) THEN
          CALL dbcsr_r_destroy(matrix_b_rs)
       ENDIF
+      IF (new_c) THEN
+         CALL dbcsr_r_reshape(matrix_c_rs, matrix_c, transc_prv/=transc)
+         CALL dbcsr_r_destroy(matrix_c_rs)
+      ENDIF
 
       CALL timestop(handle)
 
    END SUBROUTINE
 
-   SUBROUTINE reshape_mm_small(mp_comm, matrix_in, matrix_out, transposed, nodata)
+   SUBROUTINE reshape_mm_small(mp_comm, matrix_in, matrix_out, transposed, trans, nodata)
       INTEGER, INTENT(IN) :: mp_comm
       TYPE(dbcsr_r_type), INTENT(INOUT) :: matrix_in
       TYPE(dbcsr_r_type), INTENT(OUT) :: matrix_out
       LOGICAL, INTENT(IN) :: transposed
+      CHARACTER(LEN=1) :: trans
       LOGICAL, INTENT(IN), OPTIONAL :: nodata
       INTEGER :: numnodes
       INTEGER(KIND=int_8), DIMENSION(2) :: dims
@@ -372,6 +322,15 @@ CONTAINS
          nodata_prv = nodata
       ELSE
          nodata_prv = .FALSE.
+      ENDIF
+
+      IF(transposed) THEN
+         SELECT CASE(trans)
+         CASE(dbcsr_transpose)
+            trans = dbcsr_no_transpose
+         CASE(dbcsr_no_transpose)
+            trans = dbcsr_transpose
+         END SELECT
       ENDIF
 
       CALL mp_environ(numnodes, pdims, pcoord, mp_comm)
@@ -398,8 +357,8 @@ CONTAINS
 
 
    SUBROUTINE reshape_mm_compatible(matrix1_in, matrix2_in, matrix1_out, matrix2_out, new1, new2, trans1, trans2, nodata1, nodata2)
-      TYPE(dbcsr_r_type), INTENT(INOUT) :: matrix1_in, matrix2_in
-      TYPE(dbcsr_r_type), INTENT(OUT) :: matrix1_out, matrix2_out
+      TYPE(dbcsr_r_type), TARGET, INTENT(INOUT) :: matrix1_in, matrix2_in
+      TYPE(dbcsr_r_type), POINTER, INTENT(OUT) :: matrix1_out, matrix2_out
       LOGICAL, INTENT(OUT) :: new1, new2
       CHARACTER(LEN=1), INTENT(INOUT) :: trans1, trans2
       LOGICAL, OPTIONAL, INTENT(IN) :: nodata1, nodata2
@@ -409,21 +368,23 @@ CONTAINS
       new1 = .FALSE.; new2 = .FALSE.
 
       IF (dist_compatible(matrix1_in, matrix2_in)) THEN
-         matrix1_out = matrix1_in
-         matrix2_out = matrix2_in
+         matrix1_out => matrix1_in
+         matrix2_out => matrix2_in
       ELSE
 
          dims1 = [dbcsr_r_nblkrows_total(matrix1_in), dbcsr_r_nblkcols_total(matrix1_in)]
          dims2 = [dbcsr_r_nblkrows_total(matrix2_in), dbcsr_r_nblkcols_total(matrix2_in)]
 
          IF (PRODUCT(dims1) .GE. PRODUCT(dims2)) THEN
+            ALLOCATE(matrix2_out)
             CALL reshape_mm_template(matrix1_in, matrix2_in, matrix2_out, trans2, nodata=nodata2)
             new2 = .TRUE.
-            matrix1_out = matrix1_in
+            matrix1_out => matrix1_in
          ELSE
+            ALLOCATE(matrix1_out)
             CALL reshape_mm_template(matrix2_in, matrix1_in, matrix1_out, trans1, nodata=nodata1)
             new1 = .TRUE.
-            matrix2_out = matrix2_in
+            matrix2_out => matrix2_in
          ENDIF
       ENDIF
 

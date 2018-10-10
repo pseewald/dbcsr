@@ -135,16 +135,14 @@ CONTAINS
 !> \param matrix_a ...
 !> \param matrix_b ...
 ! **************************************************************************************************
-   SUBROUTINE dbcsr_r_benchmark_mm(transa, transb, matrix_a, matrix_b, compare_dbcsr, io_unit)
-      CHARACTER(LEN=1), INTENT(IN)                       :: transa, transb
-      TYPE(dbcsr_r_type), INTENT(INOUT)                  :: matrix_a, matrix_b
+   SUBROUTINE dbcsr_r_benchmark_mm(transa, transb, transc, matrix_a, matrix_b, matrix_c, compare_dbcsr, io_unit)
+      CHARACTER(LEN=1), INTENT(IN)                       :: transa, transb, transc
+      TYPE(dbcsr_r_type), INTENT(INOUT)                  :: matrix_a, matrix_b, matrix_c
 
       INTEGER, INTENT(IN), OPTIONAL                      :: io_unit
       LOGICAL, INTENT(IN) :: compare_dbcsr
 
-      CHARACTER(LEN=1)                                   :: transc
       INTEGER                                            :: handle1, handle2
-      TYPE(dbcsr_r_type)                                 :: matrix_c
       TYPE(dbcsr_type)                                   :: dbcsr_a, dbcsr_b, dbcsr_c
 
       CALL timeset("benchmark_rectangular_mm", handle1)
@@ -166,7 +164,6 @@ CONTAINS
          CALL dbcsr_release(dbcsr_c)
       ENDIF
 
-      CALL dbcsr_r_destroy(matrix_c)
    END SUBROUTINE
 
 ! **************************************************************************************************

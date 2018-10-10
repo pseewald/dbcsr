@@ -206,6 +206,8 @@ CONTAINS
       CALL dbcsr_finalize(matrix%matrix)
 
       CALL dbcsr_r_copy_distribution(matrix_in%dist, matrix%dist)
+      ALLOCATE(matrix%row_blk_size, source=matrix_in%row_blk_size)
+      ALLOCATE(matrix%col_blk_size, source=matrix_in%col_blk_size)
       matrix%nblkrows = matrix_in%nblkrows
       matrix%nblkcols = matrix_in%nblkcols
       matrix%nblkrowscols_split = matrix_in%nblkrowscols_split
