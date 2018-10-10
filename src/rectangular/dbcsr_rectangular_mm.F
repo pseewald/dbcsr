@@ -184,15 +184,6 @@ CONTAINS
       SELECT CASE (dim_split)
       CASE (1)
 
-
-         IF (io_unit_prv > 0) THEN
-            IF (tr_case == 'N') THEN
-               WRITE (io_unit_prv, *) "DBCSR MM INFO | mm case:", "| x o = |"
-            ELSE
-               WRITE (io_unit_prv, *) "DBCSR MM INFO | mm case:", "--T x o = --T"
-            ENDIF
-         ENDIF
-
          CALL reshape_mm_compatible(matrix_a, matrix_c, matrix_a_rs, matrix_c_rs, &
             new_a, new_c, transa_prv, transc_prv, nodata2 = .TRUE.)
 
@@ -203,6 +194,13 @@ CONTAINS
          new_b = .TRUE.
          tr_case = transa_prv
 
+         IF (io_unit_prv > 0) THEN
+            IF (tr_case == 'N') THEN
+               WRITE (io_unit_prv, *) "DBCSR MM INFO | mm case:", "| x o = |"
+            ELSE
+               WRITE (io_unit_prv, *) "DBCSR MM INFO | mm case:", "--T x o = --T"
+            ENDIF
+         ENDIF
 
       CASE (2)
 
@@ -224,15 +222,9 @@ CONTAINS
          ENDIF
 
       CASE (3)
-         IF (io_unit_prv > 0) THEN
-            IF (tr_case == 'N') THEN
-               WRITE (io_unit_prv, *) "DBCSR MM INFO | mm case:", "o x -- = --"
-            ELSE
-               WRITE (io_unit_prv, *) "DBCSR MM INFO | mm case:", "o x |T = |T"
-            ENDIF
-         ENDIF
 
-         CALL reshape_mm_compatible(matrix_b, matrix_c, matrix_b_rs, matrix_c_rs, new_b, new_c, transb_prv, transc_prv, nodata2=.TRUE.)
+         CALL reshape_mm_compatible(matrix_b, matrix_c, matrix_b_rs, matrix_c_rs, new_b, new_c, transb_prv, &
+            transc_prv, nodata2=.TRUE.)
 
          CALL dbcsr_r_get_info(dbcsr_r_info(matrix_b_rs), mp_comm=mp_comm)
 
@@ -240,6 +232,14 @@ CONTAINS
          CALL reshape_mm_small(mp_comm, matrix_a, matrix_a_rs, transa_prv==dbcsr_transpose, transa_prv)
          new_a = .TRUE.
          tr_case = transb_prv
+
+         IF (io_unit_prv > 0) THEN
+            IF (tr_case == 'N') THEN
+               WRITE (io_unit_prv, *) "DBCSR MM INFO | mm case:", "o x -- = --"
+            ELSE
+               WRITE (io_unit_prv, *) "DBCSR MM INFO | mm case:", "o x |T = |T"
+            ENDIF
+         ENDIF
 
       END SELECT
 
