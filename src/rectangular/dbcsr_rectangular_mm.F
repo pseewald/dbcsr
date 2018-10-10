@@ -291,13 +291,16 @@ CONTAINS
 
       IF (new_a) THEN
          CALL dbcsr_r_destroy(matrix_a_rs)
+         DEALLOCATE(matrix_a_rs)
       ENDIF
       IF (new_b) THEN
          CALL dbcsr_r_destroy(matrix_b_rs)
+         DEALLOCATE(matrix_b_rs)
       ENDIF
       IF (new_c) THEN
          CALL dbcsr_r_reshape(matrix_c_rs, matrix_c, transc_prv/=transc)
          CALL dbcsr_r_destroy(matrix_c_rs)
+         DEALLOCATE(matrix_c_rs)
       ENDIF
 
       CALL timestop(handle)
