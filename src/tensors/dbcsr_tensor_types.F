@@ -81,13 +81,19 @@ MODULE dbcsr_tensor_types
    END TYPE
 
    TYPE, EXTENDS(dbcsr_r_distribution) :: dbcsr_r_dist_t
-      INTEGER, DIMENSION(:), ALLOCATABLE :: index_map ! which nd-indices map to matrix index of this distribution object
       INTEGER, DIMENSION(:), ALLOCATABLE :: dims ! tensor dimensions only for this matrix dimensions
       INTEGER, DIMENSION(:), ALLOCATABLE :: dims_grid ! grid dimensions only for this matrix dimension
       TYPE(array_list)       :: nd_dist ! dist only for tensor dimensions belonging to this matrix dimension
    CONTAINS
       PROCEDURE :: dist => r_dist_t
       PROCEDURE :: rowcols => r_rowcols_t
+   END TYPE
+
+   TYPE, EXTENDS(dbcsr_r_rowcol_data) :: dbcsr_r_blk_size_t
+      INTEGER, DIMENSION(:), ALLOCATABLE :: dims ! tensor dimensions only for this matrix dimensions
+      TYPE(array_list) :: blk_size
+   CONTAINS
+      PROCEDURE :: data => r_blk_size_t
    END TYPE
 
    INTERFACE dbcsr_t_create
@@ -101,29 +107,38 @@ MODULE dbcsr_tensor_types
 
 CONTAINS
 
-   FUNCTION new_dbcsr_r_dist_t(nd_dist, map_blks, map_grid, matrix_dim)
+   FUNCTION new_dbcsr_r_dist_t(nd_dist, map_blks, map_grid, which_dim)
       TYPE(array_list), INTENT(IN)                   :: nd_dist
       TYPE(nd_to_2d_mapping), INTENT(IN)             :: map_blks, map_grid
-      INTEGER :: matrix_dim
+      INTEGER, INTENT(IN) :: which_dim
       TYPE(dbcsr_r_dist_t) :: new_dbcsr_r_dist_t
+      INTEGER, DIMENSION(2) :: grid_dims
+      INTEGER(KIND=int_8), DIMENSION(2) :: matrix_dims
+      INTEGER, DIMENSION(:), ALLOCATABLE :: index_map
 
-      IF(matrix_dim == 1) THEN
+      IF(which_dim == 1) THEN
          CALL get_mapping_info(map_blks, &
-                               map1_2d=new_dbcsr_r_dist_t%index_map, &
+                               dims_2d = matrix_dims, &
+                               map1_2d=index_map, &
                                dims1_2d=new_dbcsr_r_dist_t%dims)
          CALL get_mapping_info(map_grid, &
+                               dims_2d = grid_dims, &
                                dims1_2d=new_dbcsr_r_dist_t%dims_grid)
-      ELSEIF(matrix_dim == 2) THEN
+      ELSEIF(which_dim == 2) THEN
          CALL get_mapping_info(map_blks, &
-                               map2_2d=new_dbcsr_r_dist_t%index_map, &
+                               dims_2d = matrix_dims, &
+                               map2_2d=index_map, &
                                dims2_2d=new_dbcsr_r_dist_t%dims)
          CALL get_mapping_info(map_grid, &
+                               dims_2d = grid_dims, &
                                dims2_2d=new_dbcsr_r_dist_t%dims_grid)
       ELSE
-         DBCSR_ABORT("Unknown value for matrix dim")
+         DBCSR_ABORT("Unknown value for which_dim")
       ENDIF
 
-      new_dbcsr_r_dist_t%nd_dist = array_sublist(nd_dist, new_dbcsr_r_dist_t%index_map)
+      new_dbcsr_r_dist_t%nd_dist = array_sublist(nd_dist, index_map)
+      new_dbcsr_r_dist_t%nprowcol = grid_dims(which_dim)
+      new_dbcsr_r_dist_t%nmrowcol = matrix_dims(which_dim)
    END FUNCTION
 
    FUNCTION r_dist_t(t, rowcol)
@@ -196,6 +211,48 @@ CONTAINS
 #:endfor
       ENDIF
 #:endfor
+
+   END FUNCTION
+
+   FUNCTION new_dbcsr_r_blk_size_t(blk_size, map_blks, which_dim)
+      TYPE(array_list), INTENT(IN)                   :: blk_size
+      TYPE(nd_to_2d_mapping), INTENT(IN)             :: map_blks
+      INTEGER, INTENT(IN) :: which_dim
+      INTEGER(KIND=int_8), DIMENSION(2) :: matrix_dims
+      INTEGER, DIMENSION(:), ALLOCATABLE :: index_map
+      TYPE(dbcsr_r_dist_t) :: new_dbcsr_r_blk_size_t
+
+      IF (which_dim == 1) THEN
+         CALL get_mapping_info(map_blks, &
+                               dims_2d=matrix_dims, &
+                               map1_2d=index_map, &
+                               dims1_2d=new_dbcsr_r_blk_size_t%dims)
+      ELSEIF (which_dim == 2) THEN
+         CALL get_mapping_info(map_blks, &
+                               dims_2d=matrix_dims, &
+                               map2_2d=index_map, &
+                               dims2_2d=new_dbcsr_r_blk_size_t%dims)
+      ELSE
+         DBCSR_ABORT("Unknown value for which_dim")
+      ENDIF
+
+      new_dbcsr_r_dist_t%blk_size = array_sublist(blk_size, index_map)
+      new_dbcsr_r_dist_t%nmrowcol = matrix_dims(which_dim)
+
+      new_dbcsr_r_dist_t%nfullrowcol = PRODUCT(INT(sum_of_arrays(new_dbcsr_r_dist_t%blk_size), &
+                                                   KIND=int_8))
+   END FUNCTION
+
+   FUNCTION r_blk_size_t(t, rowcol)
+      CLASS(dbcsr_r_blk_size_t), INTENT(IN) :: t
+      INTEGER(KIND=int_8), INTENT(IN) :: rowcol
+      INTEGER :: r_blk_size_t
+      INTEGER(KIND=int_8), DIMENSION(SIZE(t%dims)) :: ind_blk
+      INTEGER, DIMENSION(SIZE(t%dims)) :: dist_blk
+
+      ind_blk(:) = split_index(rowcol, t%dims, base=1, col_major=.TRUE.)
+      blk_size(:) = get_array_elements(t%blk_size, ind_blk)
+      r_blk_size_t = PRODUCT(blk_size)
 
    END FUNCTION
 
