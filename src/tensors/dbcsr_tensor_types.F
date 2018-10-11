@@ -12,6 +12,7 @@ MODULE dbcsr_tensor_types
 
 #:include "dbcsr_tensor.fypp"
 #:set maxdim = maxrank
+#:set ndims = range(2,maxdim+1)
 
    USE dbcsr_array_list_methods,        ONLY: array_list,&
                                               array_offsets,&
@@ -101,12 +102,74 @@ CONTAINS
    FUNCTION r_dist_t(t, rowcol)
       CLASS(dbcsr_r_dist_t), INTENT(IN) :: t
       INTEGER(KIND=int_8), INTENT(IN) :: rowcol
-      INTEGER(KIND=int_8), DIMENSION(SIZE(t%dims)) :: ind_blk, dist
+      INTEGER(KIND=int_8), DIMENSION(SIZE(t%dims)) :: ind_blk
+      INTEGER, DIMENSION(SIZE(t%dims)) :: dist_blk
       INTEGER :: r_dist_t
 
       ind_blk(:) = split_index(rowcol, t%dims, base=1, col_major=.TRUE.)
-      dist(:) = get_array_elements(t%nd_dist, ind_blk)
-      r_dist_t = combine_index(dist, t%dims_grid, base=0, col_major=.FALSE.)
+      dist_blk(:) = get_array_elements(t%nd_dist, ind_blk)
+      r_dist_t = combine_index(dist_blk, t%dims_grid, base=0, col_major=.FALSE.)
+   END FUNCTION
+
+   FUNCTION r_rowcols_t(t, dist)
+      CLASS(dbcsr_r_dist_cyclic), INTENT(IN) :: t
+      INTEGER, INTENT(IN) :: dist
+      INTEGER(KIND=int_8), DIMENSION(:), ALLOCATABLE :: r_rowcols_t
+      INTEGER, DIMENSION(SIZE(t%dims)) :: dist_blk
+      INTEGER, DIMENSION(:), ALLOCATABLE :: ${varlist("dist")}$, ${varlist("blks")}$, blks_tmp
+      INTEGER :: ${varlist("i")}$, i
+      INTEGER(KIND=int_8), DIMENSION(SIZE(t%dims)) :: ind_blk
+      INTEGER(KIND=int_8) :: nrowcols
+
+      dist_blk(:) = split_index(dist, t%dims_grid, base=0, col_major=.FALSE.)
+
+#:for ndim in ndims
+      IF (SIZE(t%dims) == ${ndim}$) THEN
+         CALL get_arrays(t%nd_dist, ${varlist("dist", nmax=ndim)}$)
+      ENDIF
+#:endfor
+
+#:for idim in range(1, maxdim+1)
+      IF (SIZE(t%dims) .GE. ${idim}$) THEN
+         nblks = SIZE(dist_${idim}$)
+         ALLOCATE (blks_tmp(nblks))
+         iblk_count = 0
+         DO iblk = 1, nblks
+            IF(dist_${idim}$(iblk) == dist_blk(${idim}$)) THEN
+               iblk_count = iblk_count+1
+               blks_tmp(iblk_count) = iblk
+            ENDIF
+         ENDDO
+         ALLOCATE(blks_${idim}$(iblk_count))
+         blks_${idim}$(:) = blks_tmp(:iblk_count)
+         DEALLOCATE(blks_tmp)
+      ENDIF
+#:endfor
+
+#:for ndim in ndims
+      IF (SIZE(t%dims) == ${ndim}$) THEN
+         CALL create_array_list(blks, ${ndim}$, ${varlist("blks", nmax=ndim)}$)
+      ENDIF
+#:endfor
+
+      nrowcols = PRODUCT(INTEGER(sizes_of_arrays(blks), KIND=int_8))
+      ALLOCATE (r_rowcols_t(nrowcols))
+
+#:for ndim in ndims
+      IF (SIZE(t%dims) == ${ndim}$) THEN
+         i = 0
+#:for idim in range(1,ndim+1)
+         DO i_${idim}$ = 1, SIZE(blks_${idim}$)
+#:endfor
+            i = i + 1
+            r_rowcols_t(i) = combine_index(get_array_elements(blks, [${varlist("i", nmax=ndim)}$]), &
+                                           t%dims, base=1, col_major=.TRUE.)
+#:for idim in range(1,ndim+1)
+         ENDDO
+#:endfor
+      ENDIF
+#:endfor
+
    END FUNCTION
 
 ! **************************************************************************************************
