@@ -81,11 +81,9 @@ MODULE dbcsr_tensor_types
    END TYPE
 
    TYPE, EXTENDS(dbcsr_r_distribution) :: dbcsr_r_dist_t
-      !INTEGER :: dims_nd ! tensor rank
       INTEGER, DIMENSION(:), ALLOCATABLE :: index_map ! which nd-indices map to matrix index of this distribution object
       INTEGER, DIMENSION(:), ALLOCATABLE :: dims ! tensor dimensions only for this matrix dimensions
       INTEGER, DIMENSION(:), ALLOCATABLE :: dims_grid ! grid dimensions only for this matrix dimension
-      !TYPE(nd_to_2d_mapping) :: map_blks, map_grid
       TYPE(array_list)       :: nd_dist ! dist only for tensor dimensions belonging to this matrix dimension
    CONTAINS
       PROCEDURE :: dist => r_dist_t
@@ -97,7 +95,36 @@ MODULE dbcsr_tensor_types
       MODULE PROCEDURE dbcsr_t_create_template
    END INTERFACE
 
+   INTERFACE dbcsr_r_dist_t
+      MODULE PROCEDURE new_dbcsr_r_dist_t
+   END INTERFACE
+
 CONTAINS
+
+   FUNCTION new_dbcsr_r_dist_t(nd_dist, map_blks, map_grid, matrix_dim)
+      TYPE(array_list), INTENT(IN)                   :: nd_dist
+      TYPE(nd_to_2d_mapping), INTENT(IN)             :: map_blks, map_grid
+      INTEGER :: matrix_dim
+      TYPE(dbcsr_r_dist_t) :: new_dbcsr_r_dist_t
+
+      IF(matrix_dim == 1) THEN
+         CALL get_mapping_info(map_blks, &
+                               map1_2d=new_dbcsr_r_dist_t%index_map, &
+                               dims1_2d=new_dbcsr_r_dist_t%dims)
+         CALL get_mapping_info(map_grid, &
+                               dims1_2d=new_dbcsr_r_dist_t%dims_grid)
+      ELSEIF(matrix_dim == 2) THEN
+         CALL get_mapping_info(map_blks, &
+                               map2_2d=new_dbcsr_r_dist_t%index_map, &
+                               dims2_2d=new_dbcsr_r_dist_t%dims)
+         CALL get_mapping_info(map_grid, &
+                               dims2_2d=new_dbcsr_r_dist_t%dims_grid)
+      ELSE
+         DBCSR_ABORT("Unknown value for matrix dim")
+      ENDIF
+
+      new_dbcsr_r_dist_t%nd_dist = array_sublist(nd_dist, new_dbcsr_r_dist_t%index_map)
+   END FUNCTION
 
    FUNCTION r_dist_t(t, rowcol)
       CLASS(dbcsr_r_dist_t), INTENT(IN) :: t
