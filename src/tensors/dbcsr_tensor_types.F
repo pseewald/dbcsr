@@ -178,7 +178,7 @@ CONTAINS
 
       dist_blk(:) = split_index(INT(dist, int_8), t%dims_grid, base=0, col_major=.FALSE.)
 
-#:for ndim in ndims
+#:for ndim in range(1, maxdim+1)
       IF (SIZE(t%dims) == ${ndim}$) THEN
          CALL get_arrays(t%nd_dist, ${varlist("dist", nmax=ndim)}$)
       ENDIF
@@ -201,7 +201,7 @@ CONTAINS
       ENDIF
 #:endfor
 
-#:for ndim in ndims
+#:for ndim in range(1, maxdim+1)
       IF (SIZE(t%dims) == ${ndim}$) THEN
          CALL create_array_list(blks, ${ndim}$, ${varlist("blks", nmax=ndim)}$)
       ENDIF
@@ -210,7 +210,7 @@ CONTAINS
       nrowcols = PRODUCT(INT(sizes_of_arrays(blks), int_8))
       ALLOCATE (r_rowcols_t(nrowcols))
 
-#:for ndim in ndims
+#:for ndim in range(1, maxdim+1)
       IF (SIZE(t%dims) == ${ndim}$) THEN
          ALLOCATE(nd_ind(${ndim}$))
          i = 0
