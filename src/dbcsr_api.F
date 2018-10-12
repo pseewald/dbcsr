@@ -253,6 +253,7 @@ MODULE dbcsr_api
    PUBLIC :: convert_sizes_to_offsets
    PUBLIC :: dbcsr_run_tests
    PUBLIC :: dbcsr_test_mm
+   PUBLIC :: dbcsr_scalar
 
    ! high level matrix functions
    PUBLIC :: dbcsr_norm_frobenius

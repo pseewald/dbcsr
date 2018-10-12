@@ -26,6 +26,7 @@ MODULE dbcsr_array_list_methods
    PUBLIC  :: &
       array_list, &
       array_offsets, &
+      array_sublist, &
       create_array_list, &
       destroy_array_list, &
       get_array_elements, &
@@ -127,7 +128,7 @@ CONTAINS
 
 #:for dim in range(1, maxdim+1)
       IF (ndata == ${dim}$) THEN
-         CALL get_arrays(list, ${varlist("data", nmax=dim)}$, i_selected)
+         CALL get_arrays(list, ${varlist("data", nmax=dim)}$, i_selected=i_selected)
          CALL create_array_list(array_sublist, ndata, ${varlist("data", nmax=dim)}$)
       ENDIF
 #:endfor

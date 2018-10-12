@@ -53,7 +53,7 @@ MODULE dbcsr_rectangular_reshape
                                               block_buffer_type,&
                                               communicate_buffer
    USE dbcsr_rectangular_split,         ONLY: colsplit,&
-                                              dbcsr_r_get_info,&
+                                              dbcsr_r_get_split_info,&
                                               rowsplit
    USE dbcsr_types,                     ONLY: dbcsr_distribution_obj,&
                                               dbcsr_iterator,&
@@ -476,7 +476,7 @@ CONTAINS
       data_type = dbcsr_r_get_data_type(matrix_in)
 
       info = dbcsr_r_info(matrix_in)
-      CALL dbcsr_r_get_info(info, mp_comm=mp_comm)
+      CALL dbcsr_r_get_split_info(info, mp_comm=mp_comm)
       CALL mp_environ(numnodes, mynode, mp_comm)
 
       ALLOCATE (buffer_send(0:numnodes-1))

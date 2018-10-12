@@ -25,10 +25,14 @@ MODULE dbcsr_tensor
                                               reorder_arrays,&
                                               get_ith_array
    USE dbcsr_api,                       ONLY: &
-        dbcsr_copy, dbcsr_type, dbcsr_create, dbcsr_iterator_type, dbcsr_iterator_blocks_left, &
+        dbcsr_type, dbcsr_iterator_type, dbcsr_iterator_blocks_left, &
         dbcsr_iterator_next_block, dbcsr_iterator_start, dbcsr_iterator_stop, &
-        dbcsr_finalize, dbcsr_transpose, dbcsr_no_transpose, dbcsr_get_data_type, dbcsr_multiply, &
-        dbcsr_get_info, ${uselist(dtype_float_param)}$
+        dbcsr_transpose, dbcsr_no_transpose, dbcsr_scalar, &
+        ${uselist(dtype_float_param)}$
+   USE dbcsr_rectangular_base, ONLY:&
+        dbcsr_r_copy, dbcsr_r_create, dbcsr_r_finalize, dbcsr_r_get_data_type, dbcsr_r_get_info, dbcsr_r_info
+   USE dbcsr_rectangular_mm, ONLY: dbcsr_r_multiply
+   USE dbcsr_rectangular_split,         ONLY: dbcsr_r_get_split_info
    USE dbcsr_tensor_block,              ONLY: dbcsr_t_iterator_type, &
                                               dbcsr_t_get_block, &
                                               dbcsr_t_put_block, &
@@ -166,6 +170,7 @@ CONTAINS
          CALL dbcsr_t_put_block(tensor_out, ind_2d, SHAPE(block_arr), block_arr)
          DEALLOCATE (block_arr)
       ENDDO
+      CALL dbcsr_iterator_stop(iter)
 
       CALL timestop(handle)
 
@@ -188,7 +193,7 @@ CONTAINS
                                contract_1, notcontract_1, &
                                contract_2, notcontract_2, &
                                map_1, map_2)
-      TYPE(dbcsr_t_type), INTENT(IN)                 :: tensor_1, tensor_2
+      TYPE(dbcsr_t_type), INTENT(INOUT)                 :: tensor_1, tensor_2
       INTEGER, DIMENSION(:), INTENT(IN)              :: contract_1, contract_2, map_1, map_2
       INTEGER, DIMENSION(:), INTENT(IN)              :: notcontract_1, notcontract_2
       TYPE(dbcsr_t_type), INTENT(INOUT)              :: tensor_3
@@ -278,7 +283,7 @@ CONTAINS
       map_1_tmp(:) = (/(i, i=1,ndims_2d_3(1))/)
       map_2_tmp(:) = (/(i, i=ndims_2d_3(1)+1,ndims_2d_3(1)+ndims_2d_3(2))/)
 
-      CALL dbcsr_get_info(tensor_contr_1%matrix_rep, group=mp_comm_2d)
+      CALL dbcsr_r_get_split_info(dbcsr_r_info(tensor_contr_1%matrix_rep), mp_comm=mp_comm_2d)
       mp_comm_nd = dbcsr_t_nd_mp_comm(mp_comm_2d, map_1_tmp, map_2_tmp)
 
       ALLOCATE(pdims_3(SUM(ndims_2d_3)))
@@ -312,9 +317,9 @@ CONTAINS
       ENDIF
 #:endfor
 
-      CALL dbcsr_multiply(trans_1, trans_2, 1.0_real_8, &
-                          tensor_contr_1%matrix_rep, tensor_contr_2%matrix_rep, 0.0_real_8, &
-                          tensor_3_tmp%matrix_rep)
+      CALL dbcsr_r_multiply(trans_1, trans_2, 'N', dbcsr_scalar(1.0_real_8), &
+                            tensor_contr_1%matrix_rep, tensor_contr_2%matrix_rep, &
+                            tensor_3_tmp%matrix_rep)
 
       order(:) = [map_1_mod, map_2_mod]
       CALL dbcsr_t_copy(tensor_3_tmp, tensor_3, order = order)
@@ -340,7 +345,7 @@ CONTAINS
 ! **************************************************************************************************
       SUBROUTINE align_tensor(tensor_in, contract_in, notcontract_in, &
                               tensor_out, contract_out, notcontract_out)
-         TYPE(dbcsr_t_type), INTENT(IN)               :: tensor_in
+         TYPE(dbcsr_t_type), INTENT(INOUT)               :: tensor_in
          INTEGER, DIMENSION(:), INTENT(IN)            :: contract_in, notcontract_in
          TYPE(dbcsr_t_type), INTENT(OUT)              :: tensor_out
          INTEGER, DIMENSION(SIZE(contract_in)), &
@@ -491,7 +496,7 @@ CONTAINS
          name_tmp = tensor_in%name
       ENDIF
 
-      CALL dbcsr_get_info(tensor_in%matrix_rep, group=comm_2d)
+      CALL dbcsr_r_get_split_info(dbcsr_r_info(tensor_in%matrix_rep), mp_comm=comm_2d)
       comm_nd = dbcsr_t_nd_mp_comm(comm_2d, map1_2d, map2_2d)
 
       CALL mp_environ(comm_nd, dbcsr_t_ndims(tensor_in), pdims, myploc, periods)
@@ -516,7 +521,7 @@ CONTAINS
 #:for ndim in ndims
       IF (ndims_tensor(tensor_in) == ${ndim}$) THEN
          CALL dbcsr_t_create(tensor_out, name_tmp, dist, &
-                             map1_2d, map2_2d, dbcsr_get_data_type(tensor_in%matrix_rep),&
+                             map1_2d, map2_2d, dbcsr_r_get_data_type(tensor_in%matrix_rep),&
                              ${varlist("blk_sizes", nmax=ndim)}$)
          tensor_out%comm_prv = .TRUE. ! since this tensor is created internally (not by user)
       ENDIF
@@ -535,7 +540,7 @@ CONTAINS
 !> \param order permutation resulting from alignment
 ! **************************************************************************************************
    SUBROUTINE dbcsr_t_align_index(tensor_in, tensor_out, order)
-      TYPE(dbcsr_t_type), INTENT(IN)               :: tensor_in
+      TYPE(dbcsr_t_type), INTENT(INOUT)               :: tensor_in
       TYPE(dbcsr_t_type), INTENT(OUT)                 :: tensor_out
       INTEGER, DIMENSION(:), ALLOCATABLE              :: map1_2d, map2_2d
       INTEGER, DIMENSION(ndims_tensor(tensor_in)), &
@@ -563,7 +568,7 @@ CONTAINS
 !> \param order ...
 ! **************************************************************************************************
    SUBROUTINE dbcsr_t_permute_index(tensor_in, tensor_out, order)
-      TYPE(dbcsr_t_type), INTENT(IN)                  :: tensor_in
+      TYPE(dbcsr_t_type), INTENT(INOUT)                  :: tensor_in
       TYPE(dbcsr_t_type), INTENT(OUT)                 :: tensor_out
       INTEGER, DIMENSION(ndims_tensor(tensor_in)), &
          INTENT(IN)                                   :: order
@@ -578,10 +583,10 @@ CONTAINS
       CALL permute_index(tensor_in%nd_index, nd_index_rs, order)
       CALL permute_index(tensor_in%nd_index_blk, nd_index_blk_rs, order)
 
-      CALL dbcsr_create(tensor_out%matrix_rep, template=tensor_in%matrix_rep)
-      CALL dbcsr_finalize(tensor_out%matrix_rep)
+      CALL dbcsr_r_create(tensor_in%matrix_rep, tensor_out%matrix_rep)
+      CALL dbcsr_r_finalize(tensor_out%matrix_rep)
 
-      CALL dbcsr_copy(tensor_out%matrix_rep, tensor_in%matrix_rep, shallow_data=.TRUE.)
+      CALL dbcsr_r_copy(tensor_out%matrix_rep, tensor_in%matrix_rep, shallow_data=.TRUE.)
       tensor_out%nd_index = nd_index_rs
       tensor_out%nd_index_blk = nd_index_blk_rs
 
@@ -674,7 +679,7 @@ CONTAINS
 
       ENDDO
 
-      CALL dbcsr_get_info(tensor_in%matrix_rep, group=comm_2d)
+      CALL dbcsr_r_get_split_info(dbcsr_r_info(tensor_in%matrix_rep), mp_comm=comm_2d)
       CALL get_mapping_info(tensor_in%nd_index_blk, map1_2d=map1_2d, map2_2d=map2_2d)
 
 #:for ndim in ndims
@@ -744,7 +749,7 @@ CONTAINS
       ENDDO
       CALL dbcsr_t_iterator_stop(iter)
 
-      CALL dbcsr_finalize(tensor_out%matrix_rep)
+      CALL dbcsr_r_finalize(tensor_out%matrix_rep)
 
    END SUBROUTINE
 

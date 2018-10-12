@@ -25,7 +25,7 @@ MODULE dbcsr_rectangular_base_low
 
    CHARACTER(len=*), PARAMETER, PRIVATE :: moduleN = 'dbcsr_rectangular_base_low'
 
-   PUBLIC :: dbcsr_r_iterator_next_block, dbcsr_r_put_block, dbcsr_r_get_block
+   PUBLIC :: dbcsr_r_iterator_next_block, dbcsr_r_put_block, dbcsr_r_get_block_p
 
    INTERFACE dbcsr_r_iterator_next_block
 #:for dparam, dtype, dsuffix in dtype_float_list
@@ -39,7 +39,7 @@ MODULE dbcsr_rectangular_base_low
 #:endfor
    END INTERFACE
 
-   INTERFACE dbcsr_r_get_block
+   INTERFACE dbcsr_r_get_block_p
 #:for dparam, dtype, dsuffix in dtype_float_list
       MODULE PROCEDURE dbcsr_r_get_block_p_${dsuffix}$
 #:endfor

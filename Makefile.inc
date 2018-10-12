@@ -76,7 +76,7 @@ AR          = ar -r
 # Corresponding command flags.
 # Note the -fopenmp flag to have OpenMP parallelization.
 DEBFLAGS = -march=native -fno-omit-frame-pointer -g -mno-avx -mno-avx2
-OPTFLAGS = -O3 -funroll-loops -ffast-math
+OPTFLAGS = -O0 -funroll-loops -ffast-math
 
 FLAGS = $(OPTFLAGS) $(DEBFLAGS)
 

@@ -37,7 +37,7 @@ MODULE dbcsr_rectangular_base
                                               dbcsr_release
    USE dbcsr_operations,                ONLY: dbcsr_copy,&
                                               dbcsr_get_info
-   USE dbcsr_rectangular_base_low,      ONLY: dbcsr_r_get_block,&
+   USE dbcsr_rectangular_base_low,      ONLY: dbcsr_r_get_block_p,&
                                               dbcsr_r_iterator_next_block,&
                                               dbcsr_r_put_block
    USE dbcsr_rectangular_base_types,    ONLY: dbcsr_r_distribution_type,&
@@ -75,9 +75,10 @@ MODULE dbcsr_rectangular_base
              dbcsr_r_get_stored_coordinates, &
              dbcsr_repl_get_stored_coordinates, dbcsr_r_convert_to_dbcsr, dbcsr_r_convert_to_rectangular, &
              dbcsr_r_info, dbcsr_r_nblkrows_total, dbcsr_r_nblkcols_total, &
-             dbcsr_r_put_block, dbcsr_r_get_data_type, dbcsr_r_iterator_next_block, dbcsr_r_get_block, &
+             dbcsr_r_put_block, dbcsr_r_get_data_type, dbcsr_r_iterator_next_block, dbcsr_r_get_block_p, &
              dbcsr_r_nblkcols_local, dbcsr_r_nblkrows_local, dbcsr_r_iterator_blocks_left, &
-             dbcsr_r_blk_sizes, dbcsr_r_iterator_start, dbcsr_r_iterator_stop, dbcsr_r_reserve_blocks
+             dbcsr_r_blk_sizes, dbcsr_r_iterator_start, dbcsr_r_iterator_stop, dbcsr_r_reserve_blocks, &
+             dbcsr_r_get_info
 
    INTERFACE dbcsr_r_create
       MODULE PROCEDURE dbcsr_r_create_new
@@ -89,8 +90,8 @@ MODULE dbcsr_rectangular_base
       MODULE PROCEDURE dbcsr_r_iterator_next_block_index
    END INTERFACE
 
-   INTERFACE dbcsr_r_get_block
-      MODULE PROCEDURE dbcsr_r_get_block_area
+   INTERFACE dbcsr_r_get_block_p
+      MODULE PROCEDURE dbcsr_r_get_block_p_area
    END INTERFACE
 
    INTERFACE dbcsr_r_put_block
@@ -759,14 +760,14 @@ CONTAINS
 !> \param row_size ...
 !> \param col_size ...
 ! **************************************************************************************************
-   SUBROUTINE dbcsr_r_get_block_area(matrix, row, col, block, transposed, found, row_size, col_size)
+   SUBROUTINE dbcsr_r_get_block_p_area(matrix, row, col, block, transposed, found, row_size, col_size)
       TYPE(dbcsr_r_type), INTENT(INOUT)                  :: matrix
       INTEGER(KIND=int_8), INTENT(IN)                    :: row, col
       TYPE(dbcsr_data_obj), INTENT(INOUT)                :: block
       LOGICAL, INTENT(OUT)                               :: transposed, found
       INTEGER, INTENT(OUT), OPTIONAL                     :: row_size, col_size
 
-      CHARACTER(LEN=*), PARAMETER :: routineN = 'dbcsr_r_get_block_area', &
+      CHARACTER(LEN=*), PARAMETER :: routineN = 'dbcsr_r_get_block_p_area', &
          routineP = moduleN//':'//routineN
 
       INTEGER                                            :: col_group, handle, row_group
@@ -865,5 +866,75 @@ CONTAINS
 
       nblkrows_local = dbcsr_nblkrows_total(matrix%matrix)
    END FUNCTION
+
+   SUBROUTINE dbcsr_r_get_info(matrix, nblkrows_total, nblkcols_total, &
+                               nfullrows_total, nfullcols_total,&
+                               nblkrows_local, nblkcols_local, &
+                               nfullrows_local, nfullcols_local, &
+                               my_prow, my_pcol, &
+                               local_rows, local_cols, proc_row_dist, proc_col_dist, &
+                               row_blk_size, col_blk_size, distribution, name, data_area, &
+                               matrix_type, data_type)
+
+      TYPE(dbcsr_r_type), INTENT(IN)                       :: matrix
+      INTEGER(KIND=int_8), INTENT(OUT), OPTIONAL :: nblkrows_total, nblkcols_total, nfullrows_total, &
+         nfullcols_total
+      INTEGER, INTENT(OUT), OPTIONAL :: nblkrows_local, nblkcols_local, nfullrows_local, &
+         nfullcols_local, my_prow, my_pcol
+      INTEGER(KIND=int_8), DIMENSION(:), OPTIONAL, ALLOCATABLE :: local_rows, local_cols
+      CLASS(dbcsr_r_distribution), ALLOCATABLE, OPTIONAL, INTENT(OUT)       :: proc_row_dist, proc_col_dist
+      CLASS(dbcsr_r_rowcol_data), ALLOCATABLE, OPTIONAL, INTENT(OUT)        :: row_blk_size, col_blk_size
+      TYPE(dbcsr_r_distribution_type), OPTIONAL                :: distribution
+      CHARACTER(len=*), INTENT(OUT), OPTIONAL            :: name
+      TYPE(dbcsr_data_obj), INTENT(OUT), OPTIONAL        :: data_area
+      CHARACTER, OPTIONAL                                :: matrix_type
+      INTEGER, OPTIONAL                                  :: data_type
+      TYPE(dbcsr_r_split_info) :: info
+      INTEGER :: numnodes, irow, icol
+      INTEGER, DIMENSION(2) :: pdims, pcoord
+      INTEGER, DIMENSION(:), POINTER                 :: local_rows_local, local_cols_local
+
+      CALL dbcsr_get_info(matrix%matrix, nblkrows_local=nblkrows_local, nblkcols_local=nblkcols_local, &
+                          nfullrows_local=nfullrows_local, nfullcols_local=nfullcols_local, &
+                          local_rows=local_rows_local, local_cols=local_cols_local, &
+                          name = name, data_area=data_area, matrix_type=matrix_type, data_type=data_type)
+
+
+      IF(PRESENT(nblkrows_total)) nblkrows_total = dbcsr_r_nblkrows_total(matrix)
+      IF(PRESENT(nblkcols_total)) nblkcols_total = dbcsr_r_nblkcols_total(matrix)
+
+      IF(PRESENT(nfullrows_total)) nfullrows_total = matrix%nfullrows
+      IF(PRESENT(nfullcols_total)) nfullcols_total = matrix%nfullcols
+
+      info = dbcsr_r_info(matrix)
+
+      IF(PRESENT(my_prow) .OR. PRESENT(my_pcol)) THEN
+         CALL mp_environ(numnodes, pdims, pcoord, info%mp_comm)
+         IF(PRESENT(my_prow)) my_prow = pcoord(1)
+         IF(PRESENT(my_pcol)) my_pcol = pcoord(2)
+      ENDIF
+
+      IF (PRESENT(local_rows)) THEN
+         ALLOCATE(local_rows(SIZE(local_rows_local)))
+         DO irow = 1, SIZE(local_rows_local)
+            CALL block_index_local_to_global(info, matrix%dist, row_group = local_rows_local(irow), row=local_rows(irow))
+         ENDDO
+      ENDIF
+
+      IF (PRESENT(local_cols)) THEN
+         ALLOCATE(local_cols(SIZE(local_cols_local)))
+         DO icol = 1, SIZE(local_cols_local)
+            CALL block_index_local_to_global(info, matrix%dist, column_group = local_cols_local(irow), column=local_cols(irow))
+         ENDDO
+      ENDIF
+
+      IF(PRESENT(proc_row_dist)) ALLOCATE(proc_row_dist, SOURCE=matrix%dist%row_dist)
+      IF(PRESENT(proc_col_dist)) ALLOCATE(proc_col_dist, SOURCE=matrix%dist%col_dist)
+
+      IF(PRESENT(row_blk_size)) ALLOCATE(row_blk_size, SOURCE=matrix%row_blk_size)
+      IF(PRESENT(col_blk_size)) ALLOCATE(col_blk_size, SOURCE=matrix%col_blk_size)
+      IF(PRESENT(distribution)) distribution = matrix%dist
+
+   END SUBROUTINE
 
 END MODULE

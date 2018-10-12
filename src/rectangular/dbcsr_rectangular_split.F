@@ -36,7 +36,7 @@ MODULE dbcsr_rectangular_split
 
    PUBLIC :: dbcsr_r_split, &
              dbcsr_r_split_rows_or_cols, &
-             dbcsr_r_release_info, dbcsr_r_print_info, rowsplit, colsplit, dbcsr_r_get_info, &
+             dbcsr_r_release_info, dbcsr_r_print_info, rowsplit, colsplit, dbcsr_r_get_split_info, &
              world_to_group_proc_map, group_to_world_proc_map, group_to_mrowcol, mrowcol_to_group, &
              block_index_global_to_local, block_index_local_to_global, &
              dbcsr_r_mp_comm, dbcsr_r_info_hold, dbcsr_r_copY_distribution
@@ -197,7 +197,7 @@ CONTAINS
 !> \param split_rowcol ...
 !> \param pgrid_offset ...
 ! **************************************************************************************************
-   SUBROUTINE dbcsr_r_get_info(info, mp_comm, nsplit, igroup, mp_comm_group, split_rowcol, pgrid_offset)
+   SUBROUTINE dbcsr_r_get_split_info(info, mp_comm, nsplit, igroup, mp_comm_group, split_rowcol, pgrid_offset)
       TYPE(dbcsr_r_split_info), INTENT(IN)               :: info
       INTEGER, INTENT(OUT), OPTIONAL                     :: mp_comm, nsplit, igroup, mp_comm_group, &
                                                             split_rowcol
@@ -381,7 +381,7 @@ CONTAINS
       INTEGER, DIMENSION(2)                              :: coord, dims, groupcoord, groupdims, &
                                                             pgrid_offset
 
-      CALL dbcsr_r_get_info(info, mp_comm, nsplit, igroup, mp_comm_group, split_rowcol, pgrid_offset)
+      CALL dbcsr_r_get_split_info(info, mp_comm, nsplit, igroup, mp_comm_group, split_rowcol, pgrid_offset)
       CALL mp_environ(numnodes, mynode, mp_comm)
       CALL mp_environ(numnodes, dims, coord, mp_comm)
       CALL mp_environ(groupsize, groupdims, groupcoord, mp_comm_group)

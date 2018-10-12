@@ -25,7 +25,7 @@ MODULE dbcsr_rectangular_mm
       dbcsr_r_replicate, &
       dbcsr_r_reshape
    USE dbcsr_rectangular_split, ONLY: colsplit, &
-      dbcsr_r_get_info, &
+      dbcsr_r_get_split_info, &
       dbcsr_r_split, &
       dbcsr_r_split_rows_or_cols, &
       rowsplit, &
@@ -187,7 +187,7 @@ CONTAINS
          CALL reshape_mm_compatible(matrix_a, matrix_c, matrix_a_rs, matrix_c_rs, &
             new_a, new_c, transa_prv, transc_prv, nodata2 = .TRUE.)
 
-         CALL dbcsr_r_get_info(dbcsr_r_info(matrix_a_rs), mp_comm=mp_comm)
+         CALL dbcsr_r_get_split_info(dbcsr_r_info(matrix_a_rs), mp_comm=mp_comm)
 
          ALLOCATE(matrix_b_rs)
          CALL reshape_mm_small(mp_comm, matrix_b, matrix_b_rs, transb_prv==dbcsr_transpose, transb_prv)
@@ -206,7 +206,7 @@ CONTAINS
 
          CALL reshape_mm_compatible(matrix_a, matrix_b, matrix_a_rs, matrix_b_rs, new_a, new_b, transa_prv, transb_prv)
 
-         CALL dbcsr_r_get_info(dbcsr_r_info(matrix_a_rs), mp_comm=mp_comm)
+         CALL dbcsr_r_get_split_info(dbcsr_r_info(matrix_a_rs), mp_comm=mp_comm)
 
          ALLOCATE(matrix_c_rs)
          CALL reshape_mm_small(mp_comm, matrix_c, matrix_c_rs, transc_prv==dbcsr_transpose, transc_prv, nodata=.TRUE.)
@@ -226,7 +226,7 @@ CONTAINS
          CALL reshape_mm_compatible(matrix_b, matrix_c, matrix_b_rs, matrix_c_rs, new_b, new_c, transb_prv, &
             transc_prv, nodata2=.TRUE.)
 
-         CALL dbcsr_r_get_info(dbcsr_r_info(matrix_b_rs), mp_comm=mp_comm)
+         CALL dbcsr_r_get_split_info(dbcsr_r_info(matrix_b_rs), mp_comm=mp_comm)
 
          ALLOCATE(matrix_a_rs)
          CALL reshape_mm_small(mp_comm, matrix_a, matrix_a_rs, transa_prv==dbcsr_transpose, transa_prv)
@@ -248,7 +248,7 @@ CONTAINS
       ENDIF
 
       info = dbcsr_r_info(matrix_a_rs)
-      CALL dbcsr_r_get_info(info, mp_comm=mp_comm)
+      CALL dbcsr_r_get_split_info(info, mp_comm=mp_comm)
       CALL mp_environ(numnodes, pdims, pcoord, mp_comm)
 
       zero = dbcsr_scalar_zero(data_type)
@@ -534,7 +534,7 @@ CONTAINS
             ENDIF
          END SELECT
 
-         CALL dbcsr_r_get_info(info_template, mp_comm=mp_comm)
+         CALL dbcsr_r_get_split_info(info_template, mp_comm=mp_comm)
          CALL dbcsr_r_distribution_new(dist_new, mp_comm, row_dist, col_dist, split_info=info_template)
          IF(.NOT. transposed) THEN ! todo: don't need to call create twice
             CALL dbcsr_r_create(matrix_out, matrix_in%matrix%name, dist_new, dbcsr_r_get_data_type(matrix_in), &
