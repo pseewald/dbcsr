@@ -161,15 +161,15 @@ CONTAINS
          CALL mp_environ(numproc, iproc, mp_comm)
          CALL mp_environ(numproc, pdims, pcoord, mp_comm)
 
-         DO WHILE (MOD(numproc, s) .NE. 0)
-            s = s - 1
-         ENDDO
-
          IF (d_max == nblkrows_total) THEN
             split_rowcol = rowsplit
          ELSE
             split_rowcol = colsplit
          ENDIF
+
+         DO WHILE (MOD(pdims(split_rowcol), s) .NE. 0)
+            s = s - 1
+         ENDDO
 
          SELECT CASE (split_rowcol)
          CASE (rowsplit)
@@ -586,7 +586,7 @@ CONTAINS
                                      routineP = moduleN//':'//routineN
 
       ASSOCIATE (rowcols=>dist%local_rowcols)
-         rowcol_group = i8_isearch(rowcols, rowcol)
+         rowcol_group = i8_bsearch(rowcols, rowcol)
       END ASSOCIATE
    END SUBROUTINE
 
@@ -614,6 +614,32 @@ CONTAINS
          END IF
       ENDDO
       res = INT(lindex)
+   END FUNCTION
+
+   FUNCTION i8_bsearch(array, el, l_index, u_index)&
+        result(res)
+     INTEGER(KIND=int_8), intent(in) :: array(:)
+     INTEGER(KIND=int_8), intent(in) :: el
+     INTEGER, INTENT(in), OPTIONAL :: l_index, u_index
+     integer :: res
+
+     character(len=*), parameter :: routineN='i8_bsearch',&
+           routineP=moduleN//':'//routineN
+     INTEGER :: lindex,uindex,aindex
+
+     lindex=1
+     uindex=size(array)
+     if (present(l_index)) lindex=l_index
+     if (present(u_index)) uindex=u_index
+     DO WHILE (lindex <= uindex)
+        aindex=(lindex+uindex)/2
+        IF (array(aindex) < el) THEN
+           lindex=aindex+1
+        ELSE
+           uindex=aindex-1
+        END IF
+     END DO
+     res=lindex
    END FUNCTION
 
 ! **************************************************************************************************

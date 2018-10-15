@@ -33,7 +33,7 @@ PROGRAM dbcsr_rectangular_unittest
                                               dbcsr_r_create
    USE dbcsr_rectangular_base_types,    ONLY: dbcsr_r_type
    USE dbcsr_rectangular_mm,            ONLY: dbcsr_r_multiply
-   USE dbcsr_rectangular_split,         ONLY: dbcsr_r_get_info,&
+   USE dbcsr_rectangular_split,         ONLY: dbcsr_r_get_split_info,&
                                               dbcsr_r_print_info
    USE dbcsr_rectangular_test,          ONLY: dbcsr_r_random_bsizes,&
                                               dbcsr_r_setup_test_matrix
@@ -197,7 +197,7 @@ CONTAINS
                                                             dbcsr_b_mm, dbcsr_c, dbcsr_c_mm, &
                                                             dbcsr_c_mm_check
 
-      CALL dbcsr_r_get_info(dbcsr_r_info(matrix_a), mp_comm=mp_comm)
+      CALL dbcsr_r_get_split_info(dbcsr_r_info(matrix_a), mp_comm=mp_comm)
       CALL mp_environ(numnodes, mynode, mp_comm)
       io_unit = 0
       IF (mynode .EQ. 0) io_unit = unit_nr
