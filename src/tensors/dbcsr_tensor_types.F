@@ -86,6 +86,7 @@ MODULE dbcsr_tensor_types
    TYPE dbcsr_t_distribution_type
       TYPE(dbcsr_r_distribution_type) :: dist
       INTEGER                       :: comm_nd
+      INTEGER                       :: comm_2d
       TYPE(array_list)              :: nd_dist
    END TYPE
 
@@ -315,6 +316,22 @@ CONTAINS
 
    END FUNCTION
 
+   FUNCTION dbcsr_t_2d_mp_comm(comm_nd, map1_2d, map2_2d)
+      INTEGER, INTENT(IN) :: comm_nd
+      INTEGER, DIMENSION(:), INTENT(IN) :: map1_2d, map2_2d
+      INTEGER, DIMENSION(2) :: pos, dims_2d
+      INTEGER :: dbcsr_t_2d_mp_comm
+      INTEGER, DIMENSION(SIZE(map1_2d) + SIZE(map2_2d)) :: dims_nd, pcoord
+      LOGICAL, DIMENSION(SIZE(map1_2d) + SIZE(map2_2d)) :: periods
+
+      CALL mp_environ(comm_nd, SIZE(dims_nd), dims_nd, pcoord, periods)
+
+      dims_2d = [PRODUCT(dims_nd(map1_2d)), PRODUCT(dims_nd(map2_2d))]
+
+      CALL mp_cart_create(comm_nd, 2, dims_2d, pos, dbcsr_t_2d_mp_comm)
+
+   END FUNCTION
+
 ! **************************************************************************************************
 !> \brief Release the MPI communicator.
 !>
@@ -341,13 +358,13 @@ CONTAINS
 !> \param nd_dist_2 distribution vector for second dimension
 !> \param nd_dist_3 ...
 ! **************************************************************************************************
-   SUBROUTINE dbcsr_t_distribution_new(dist, comm_nd, comm_2d, map1_2d, map2_2d, ${varlist("nd_dist")}$)
+   SUBROUTINE dbcsr_t_distribution_new(dist, comm_nd, map1_2d, map2_2d, ${varlist("nd_dist")}$)
 
       TYPE(dbcsr_t_distribution_type), INTENT(OUT)    :: dist
-      INTEGER, INTENT(IN)                             :: comm_nd, comm_2d
+      INTEGER, INTENT(IN)                             :: comm_nd
       INTEGER, DIMENSION(:), INTENT(IN)               :: map1_2d, map2_2d
       INTEGER, DIMENSION(:), INTENT(IN), OPTIONAL     :: ${varlist("nd_dist")}$
-      INTEGER                                         :: ndims
+      INTEGER                                         :: ndims, comm_2d
       INTEGER, DIMENSION(2)                           :: pdims_2d_check, &
                                                          pdims_2d, task_coor_2d
       INTEGER, DIMENSION(SIZE(map1_2d)+SIZE(map2_2d)) :: dims, nblks_nd, task_coor
@@ -382,6 +399,8 @@ CONTAINS
 
       CALL get_mapping_info(map_grid, dims_2d=pdims_2d)
 
+      comm_2d = dbcsr_t_2d_mp_comm(comm_nd, map1_2d, map2_2d)
+
       CALL mp_environ(comm_2d, 2, pdims_2d_check, task_coor_2d, periods_2d)
       IF (ANY(pdims_2d_check .NE. pdims_2d)) THEN
          DBCSR_ABORT("inconsistent process grid dimensions")
@@ -411,6 +430,7 @@ CONTAINS
 
       !CALL dbcsr_distribution_new(dist%dist, group=comm_2d, row_dist=row_dist, col_dist=col_dist, reuse_arrays=.TRUE.)
       dist%nd_dist = nd_dist
+      dist%comm_2d = comm_2d
       dist%comm_nd = comm_nd
       CALL timestop(handle)
    END SUBROUTINE
@@ -426,8 +446,8 @@ CONTAINS
          routineP = moduleN//':'//routineN
 
       CALL timeset(routineN, handle)
-      !CALL dbcsr_distribution_release(dist%dist)
       CALL dbcsr_r_distribution_destroy(dist%dist)
+      CALL mp_comm_free(dist%comm_2d)
       CALL destroy_array_list(dist%nd_dist)
       CALL timestop(handle)
    END SUBROUTINE
@@ -583,7 +603,7 @@ CONTAINS
 
       CALL dbcsr_t_distribution_new( &
          dist, &
-         comm_nd, comm_2d, &
+         comm_nd, &
          [order_in(1)], [order_in(2)], &
          row_dist, col_dist)
 

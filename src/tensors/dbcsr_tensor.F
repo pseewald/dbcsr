@@ -307,7 +307,7 @@ CONTAINS
 
 #:for ndim in ndims
       IF (SUM(ndims_2d_3) == ${ndim}$) THEN
-         CALL dbcsr_t_distribution_new(dist_3, mp_comm_nd, mp_comm_2d, &
+         CALL dbcsr_t_distribution_new(dist_3, mp_comm_nd, &
                                        map_1_tmp, map_2_tmp, &
                                        ${varlist("dist_3", nmax=ndim)}$)
          CALL dbcsr_t_create(tensor_3_tmp, "temporary contraction result", dist_3, &
@@ -513,7 +513,7 @@ CONTAINS
 #:for idim in range(1, ndim+1)
          CALL cyclic_dist(nd_dist_${idim}$, SIZE(blk_sizes_${idim}$), pdims(${idim}$))
 #:endfor
-         CALL dbcsr_t_distribution_new(dist, comm_nd, comm_2d, map1_2d, map2_2d, &
+         CALL dbcsr_t_distribution_new(dist, comm_nd, map1_2d, map2_2d, &
                                        ${varlist("nd_dist", nmax=ndim)}$)
       ENDIF
 #:endfor
@@ -617,7 +617,7 @@ CONTAINS
       INTEGER, DIMENSION(:), ALLOCATABLE              :: ${varlist("nd_blk_size_split")}$
       INTEGER, DIMENSION(:), ALLOCATABLE              :: ${varlist("index_split_offset")}$
       INTEGER                                         :: ${varlist("split_blk")}$
-      INTEGER :: idim, i, isplit_sum, blk_remainder, comm_2d, blk, nsplit, isplit
+      INTEGER :: idim, i, isplit_sum, blk_remainder, blk, nsplit, isplit
       INTEGER, DIMENSION(:), ALLOCATABLE :: dist_d, blk_size_d, blk_size_split_d, dist_split_d, &
          map1_2d, map2_2d
       INTEGER, DIMENSION(dbcsr_t_ndims(tensor_in)) :: blk_index, blk_size, blk_offset, nsplit_blk, &
@@ -679,12 +679,11 @@ CONTAINS
 
       ENDDO
 
-      CALL dbcsr_r_get_split_info(dbcsr_r_info(tensor_in%matrix_rep), mp_comm=comm_2d)
       CALL get_mapping_info(tensor_in%nd_index_blk, map1_2d=map1_2d, map2_2d=map2_2d)
 
 #:for ndim in ndims
       IF (ndims_tensor(tensor_in) == ${ndim}$) THEN
-         CALL dbcsr_t_distribution_new(dist_split, tensor_in%comm_nd, comm_2d, map1_2d, map2_2d, &
+         CALL dbcsr_t_distribution_new(dist_split, tensor_in%comm_nd, map1_2d, map2_2d, &
                                        ${varlist("nd_dist_split", nmax=ndim)}$)
          CALL dbcsr_t_create(tensor_out, tensor_in%name, dist_split, map1_2d, map2_2d, &
                              dbcsr_t_get_data_type(tensor_in), ${varlist("nd_blk_size_split", nmax=ndim)}$)

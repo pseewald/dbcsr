@@ -38,7 +38,8 @@ MODULE dbcsr_tensor_test
                                               mp_bcast, &
                                               mp_comm_free, &
                                               mp_comm_free, &
-                                              mp_sum
+                                              mp_sum,&
+                                              mp_cart_create
    USE dbcsr_allocate_wrap,             ONLY: allocate_any
    USE dbcsr_tensor_index,              ONLY: combine_index, &
                                               get_mapping_info
@@ -191,7 +192,7 @@ CONTAINS
 !> \param blk_size_1 block sizes along dimension 1
 !> \param blk_ind_1 index along dimension 1 of non-zero blocks
 ! **************************************************************************************************
-   SUBROUTINE dbcsr_t_test_formats(ndims, mp_comm_2d, unit_nr, verbose, &
+   SUBROUTINE dbcsr_t_test_formats(ndims, mp_comm, unit_nr, verbose, &
                                   ${varlist("blk_size")}$, &
                                   ${varlist("blk_ind")}$)
       INTEGER, DIMENSION(:), INTENT(IN), OPTIONAL :: ${varlist("blk_size")}$
@@ -199,15 +200,14 @@ CONTAINS
       INTEGER, INTENT(IN)                         :: ndims
       INTEGER, INTENT(IN)                         :: unit_nr
       LOGICAL, INTENT(IN)                         :: verbose
-      INTEGER, INTENT(IN)                         :: mp_comm_2d
-      INTEGER                                     :: mp_comm_ref, mp_comm_test
+      INTEGER, INTENT(IN)                         :: mp_comm
       TYPE(dbcsr_t_distribution_type)             :: dist1, dist2
       TYPE(dbcsr_t_type)                          :: tensor1, tensor2
       INTEGER                                     :: isep, iblk
       INTEGER, DIMENSION(:), ALLOCATABLE          :: ${varlist("dist1")}$, &
                                                      ${varlist("dist2")}$
       INTEGER                                     :: nblks, imap
-      INTEGER, DIMENSION(ndims)                   :: pdims_ref, pdims_test, myploc
+      INTEGER, DIMENSION(ndims)                   :: pdims, myploc
       LOGICAL                                     :: eql
       INTEGER                                     :: iperm, idist, icount
       INTEGER, DIMENSION(:), ALLOCATABLE          :: map1, map2, map1_ref, map2_ref
@@ -215,9 +215,13 @@ CONTAINS
       LOGICAL, DIMENSION(ndims)                   :: periods
       INTEGER                                     :: io_unit
       INTEGER                                     :: mynode, numnodes
+      INTEGER                                     :: comm_nd
       CHARACTER(LEN=default_string_length)        :: tensor_name
 
-      CALL mp_environ(numnodes, mynode, mp_comm_2d)
+      ! Process grid
+      pdims(:) = 0
+      CALL mp_cart_create(mp_comm, ndims, pdims, myploc, comm_nd)
+      CALL mp_environ(numnodes, mynode, mp_comm)
 
       io_unit = 0
       IF (mynode .EQ. 0) io_unit = unit_nr
@@ -226,9 +230,6 @@ CONTAINS
       CALL allocate_any(map1_ref, source=perm(1:ndims/2, 1))
       CALL allocate_any(map2_ref, source=perm(ndims/2+1:ndims, 1))
 
-      mp_comm_ref = dbcsr_t_nd_mp_comm(mp_comm_2d, map1_ref, map2_ref)
-      CALL mp_environ(numnodes, mynode, mp_comm_ref)
-      CALL mp_environ(mp_comm_ref, ndims, pdims_ref, myploc, periods)
 
       IF(io_unit > 0) THEN
          WRITE(io_unit, *)
@@ -279,21 +280,21 @@ CONTAINS
             CALL allocate_any(map1, source=perm(1:isep,iperm))
             CALL allocate_any(map2, source=perm(isep+1:ndims,iperm))
 
-            mp_comm_test = dbcsr_t_nd_mp_comm(mp_comm_2d, map1, map2)
-            CALL mp_environ(numnodes, mynode, mp_comm_test)
-            CALL mp_environ(mp_comm_test, ndims, pdims_test, myploc, periods)
+            CALL mp_environ(numnodes, mynode, comm_nd)
+            CALL mp_environ(comm_nd, ndims, pdims, myploc, periods)
 
 #:for dim in range(1, maxdim+1)
             IF (${dim}$ <= ndims) THEN
                nblks = SIZE(blk_size_${dim}$)
-               CALL dbcsr_t_random_dist(dist1_${dim}$, nblks, pdims_test(${dim}$), mp_comm_test)
-               CALL dbcsr_t_random_dist(dist2_${dim}$, nblks, pdims_ref(${dim}$), mp_comm_ref)
+               CALL dbcsr_t_random_dist(dist1_${dim}$, nblks, pdims(${dim}$), comm_nd)
+               CALL dbcsr_t_random_dist(dist2_${dim}$, nblks, pdims(${dim}$), comm_nd)
             ENDIF
 #:endfor
 
+            WRITE(tensor_name, '(A,1X,I3,1X)') "Test", icount
+
             IF(io_unit > 0) THEN
                WRITE(io_unit, *)
-               WRITE(tensor_name, '(A,1X,I3,1X)') "Test", icount
                WRITE(io_unit, '(A,A,1X)', advance='no') TRIM(tensor_name),':'
                WRITE (io_unit, '(A1,1X)', advance='no') "("
                DO imap = 1, SIZE(map1)
@@ -330,10 +331,10 @@ CONTAINS
 
 #:for ndim in ndims
             IF (ndims==${ndim}$) THEN
-               CALL dbcsr_t_distribution_new(dist2, mp_comm_ref, mp_comm_2d, map1_ref, map2_ref, ${varlist("dist2", nmax=ndim)}$)
+               CALL dbcsr_t_distribution_new(dist2, comm_nd, map1_ref, map2_ref, ${varlist("dist2", nmax=ndim)}$)
                CALL dbcsr_t_create(tensor2, "Ref", dist2, map1_ref, map2_ref, &
                                    dbcsr_type_real_8, ${varlist("blk_size", nmax=ndim)}$)
-               CALL dbcsr_t_setup_test_tensor(tensor2, mp_comm_ref, ${varlist("blk_ind", nmax=ndim)}$)
+               CALL dbcsr_t_setup_test_tensor(tensor2, comm_nd, ${varlist("blk_ind", nmax=ndim)}$)
             ENDIF
 #:endfor
 
@@ -341,10 +342,10 @@ CONTAINS
 
 #:for ndim in ndims
             IF (ndims==${ndim}$) THEN
-               CALL dbcsr_t_distribution_new(dist1, mp_comm_test, mp_comm_2d, map1, map2, ${varlist("dist1", nmax=ndim)}$)
+               CALL dbcsr_t_distribution_new(dist1, comm_nd, map1, map2, ${varlist("dist1", nmax=ndim)}$)
                CALL dbcsr_t_create(tensor1, tensor_name, dist1, map1, map2, &
                                    dbcsr_type_real_8, ${varlist("blk_size", nmax=ndim)}$)
-               CALL dbcsr_t_setup_test_tensor(tensor1, mp_comm_test, ${varlist("blk_ind", nmax=ndim)}$)
+               CALL dbcsr_t_setup_test_tensor(tensor1, comm_nd, ${varlist("blk_ind", nmax=ndim)}$)
             ENDIF
 #:endfor
 
@@ -364,13 +365,12 @@ CONTAINS
             CALL dbcsr_t_destroy(tensor1)
             CALL dbcsr_t_distribution_destroy(dist1)
 
-            CALL mp_comm_free(mp_comm_test)
             CALL dbcsr_t_destroy(tensor2)
             CALL dbcsr_t_distribution_destroy(dist2)
 
          ENDDO
       ENDDO
-      CALL mp_comm_free(mp_comm_ref)
+      CALL mp_comm_free(comm_nd)
    END SUBROUTINE
 
 ! **************************************************************************************************
