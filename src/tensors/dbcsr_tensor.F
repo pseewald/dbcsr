@@ -60,7 +60,8 @@ MODULE dbcsr_tensor
                                               dbcsr_t_destroy,&
                                               dbcsr_t_distribution_destroy,&
                                               dbcsr_t_distribution_new,&
-                                              dbcsr_t_get_stored_coordinates
+                                              dbcsr_t_get_stored_coordinates,&
+                                              blk_dims_tensor
    USE dbcsr_kinds,                     ONLY: ${uselist(dtype_float_prec)}$,&
                                               default_string_length
    USE dbcsr_mpiwrap,                   ONLY: mp_environ,&
@@ -202,7 +203,7 @@ CONTAINS
       TYPE(dbcsr_t_type)                             :: tensor_contr_1, tensor_contr_2, tensor_contr_3, &
                                                         tensor_tmp_1, tensor_tmp_2, tensor_tmp_3
       LOGICAL                                        :: assert_stmt
-      INTEGER                                        :: data_type, mp_comm_nd, handle, large_mm_dim
+      INTEGER                                        :: data_type, mp_comm_nd, handle, max_mm_dim, max_tensor
       !INTEGER, DIMENSION(:), ALLOCATABLE             :: sort_indices
       INTEGER, DIMENSION(SIZE(contract_1))           :: contract_1_mod
       INTEGER, DIMENSION(SIZE(notcontract_1))        :: notcontract_1_mod
@@ -214,6 +215,7 @@ CONTAINS
       TYPE(dbcsr_t_distribution_type)                :: dist_3
       TYPE(dbcsr_t_type)                             :: tensor_3_tmp
       LOGICAL                                        :: new_3
+      INTEGER, DIMENSION(:), ALLOCATABLE             :: dims1, dims2, dims3
 
       CHARACTER(LEN=*), PARAMETER :: routineN = 'dbcsr_t_contract', &
          routineP = moduleN//':'//routineN
@@ -259,11 +261,30 @@ CONTAINS
                         tensor_tmp_3, map_1_mod, map_2_mod)
 
 
-      large_mm_dim = MAXVAL([SIZE(notcontract_1), SIZE(contract_1), SIZE(notcontract_2)])
+      ALLOCATE(dims1(dbcsr_t_ndims(tensor_1)))
+      ALLOCATE(dims2(dbcsr_t_ndims(tensor_2)))
+      ALLOCATE(dims3(dbcsr_t_ndims(tensor_3)))
 
-      SELECT CASE(large_mm_dim)
+      CALL blk_dims_tensor(tensor_1, dims1)
+      CALL blk_dims_tensor(tensor_2, dims2)
+      CALL blk_dims_tensor(tensor_3, dims3)
+
+      max_mm_dim = MAXLOC([PRODUCT(dims1(notcontract_1)), PRODUCT(dims1(contract_1)), PRODUCT(dims2(notcontract_2))], DIM=1)
+      max_tensor = MAXLOC([PRODUCT(dims1), PRODUCT(dims2), PRODUCT(dims3)], DIM=1)
+
+      SELECT CASE(max_mm_dim)
       CASE(1)
-         ! todo: should sort indices!
+
+         CALL index_linked_sort(contract_1_mod, contract_2_mod)
+         CALL index_linked_sort(map_2_mod, notcontract_2_mod)
+         SELECT CASE(max_tensor)
+         CASE(1)
+            CALL index_linked_sort(notcontract_1_mod, map_1_mod)
+         CASE(3)
+            CALL index_linked_sort(map_1_mod, notcontract_1_mod)
+         CASE DEFAULT
+            DBCSR_ABORT("should not happen")
+         END SELECT
 
          CALL reshape_mm_compatible(tensor_tmp_1, tensor_tmp_3, tensor_contr_1, tensor_contr_3, &
                                     contract_1_mod, notcontract_1_mod, map_2_mod, map_1_mod, &
@@ -275,6 +296,17 @@ CONTAINS
 
       CASE(2)
 
+         CALL index_linked_sort(notcontract_1_mod, map_1_mod)
+         CALL index_linked_sort(notcontract_2_mod, map_2_mod)
+         SELECT CASE(max_tensor)
+         CASE(1)
+            CALL index_linked_sort(contract_1_mod, contract_2_mod)
+         CASE(2)
+            CALL index_linked_sort(contract_2_mod, contract_1_mod)
+         CASE DEFAULT
+            DBCSR_ABORT("should not happen")
+         END SELECT
+
          CALL reshape_mm_compatible(tensor_tmp_1, tensor_tmp_2, tensor_contr_1, tensor_contr_2, &
                                     notcontract_1_mod, contract_1_mod, notcontract_2_mod, contract_2_mod, &
                                     trans)
@@ -284,6 +316,17 @@ CONTAINS
          CALL reshape_mm_small(tensor_tmp_3, map_1_mod, map_2_mod, tensor_contr_3, trans_3, nodata=.TRUE., new=new_3)
 
       CASE(3)
+
+         CALL index_linked_sort(map_1_mod, notcontract_1_mod)
+         CALL index_linked_sort(contract_2_mod, contract_1_mod)
+         SELECT CASE(max_tensor)
+         CASE(2)
+            CALL index_linked_sort(notcontract_2_mod, map_2_mod)
+         CASE(3)
+            CALL index_linked_sort(map_2_mod, notcontract_2_mod)
+         CASE DEFAULT
+            DBCSR_ABORT("should not happen")
+         END SELECT
 
          CALL reshape_mm_compatible(tensor_tmp_2, tensor_tmp_3, tensor_contr_2, tensor_contr_3, &
                                     contract_2_mod, notcontract_2_mod, map_1_mod, map_2_mod, &
@@ -531,6 +574,15 @@ CONTAINS
          ELSEIF (trans_flag == dbcsr_no_transpose) THEN
             trans_flag = dbcsr_transpose
          ENDIF
+      END SUBROUTINE
+
+      SUBROUTINE index_linked_sort(ind_ref, ind_dep)
+         INTEGER, DIMENSION(:), INTENT(INOUT) :: ind_ref, ind_dep
+         INTEGER, DIMENSION(SIZE(ind_ref))    :: sort_indices
+
+         CALL sort(ind_ref, SIZE(ind_ref), sort_indices)
+         ind_dep(:) = ind_dep(sort_indices)
+
       END SUBROUTINE
 
    END SUBROUTINE

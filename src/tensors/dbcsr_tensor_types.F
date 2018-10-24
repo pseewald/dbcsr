@@ -67,6 +67,7 @@ MODULE dbcsr_tensor_types
       dbcsr_t_nd_mp_free, &
       dbcsr_t_type, &
       dims_tensor, &
+      blk_dims_tensor, &
       ndims_tensor, &
       dbcsr_t_get_stored_coordinates
 
@@ -685,6 +686,15 @@ CONTAINS
 
       DBCSR_ASSERT(tensor%valid)
       dims = tensor%nd_index%dims_nd
+   END SUBROUTINE
+
+   SUBROUTINE blk_dims_tensor(tensor, dims)
+      TYPE(dbcsr_t_type), INTENT(IN)              :: tensor
+      INTEGER, DIMENSION(ndims_tensor(tensor)), &
+         INTENT(OUT)                              :: dims
+
+      DBCSR_ASSERT(tensor%valid)
+      dims = tensor%nd_index_blk%dims_nd
    END SUBROUTINE
 
 ! **************************************************************************************************
