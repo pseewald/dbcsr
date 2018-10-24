@@ -68,6 +68,7 @@ MODULE dbcsr_tensor
                                               mp_comm_free
    USE dbcsr_toollib,                   ONLY: sort
    USE dbcsr_tensor_reshape,            ONLY: dbcsr_t_reshape
+   USE dbcsr_io,                        ONLY: dbcsr_print ! debug
 
 #include "base/dbcsr_base_uses.f90"
 
@@ -203,7 +204,7 @@ CONTAINS
       TYPE(dbcsr_t_type)                             :: tensor_contr_1, tensor_contr_2, tensor_contr_3, &
                                                         tensor_tmp_1, tensor_tmp_2, tensor_tmp_3
       LOGICAL                                        :: assert_stmt
-      INTEGER                                        :: data_type, mp_comm_nd, handle, max_mm_dim, max_tensor
+      INTEGER                                        :: data_type, handle, max_mm_dim, max_tensor
       !INTEGER, DIMENSION(:), ALLOCATABLE             :: sort_indices
       INTEGER, DIMENSION(SIZE(contract_1))           :: contract_1_mod
       INTEGER, DIMENSION(SIZE(notcontract_1))        :: notcontract_1_mod
@@ -212,8 +213,6 @@ CONTAINS
       INTEGER, DIMENSION(SIZE(map_1))                :: map_1_mod
       INTEGER, DIMENSION(SIZE(map_2))                :: map_2_mod
       CHARACTER(LEN=1)                               :: trans_1, trans_2, trans_3, trans
-      TYPE(dbcsr_t_distribution_type)                :: dist_3
-      TYPE(dbcsr_t_type)                             :: tensor_3_tmp
       LOGICAL                                        :: new_3
       INTEGER, DIMENSION(:), ALLOCATABLE             :: dims1, dims2, dims3
 
@@ -342,18 +341,25 @@ CONTAINS
       CALL dbcsr_t_destroy(tensor_tmp_2)
       CALL dbcsr_t_destroy(tensor_tmp_3)
 
-
       CALL dbcsr_r_multiply(trans_1, trans_2, trans_3, dbcsr_scalar(1.0_real_8), &
                             tensor_contr_1%matrix_rep, tensor_contr_2%matrix_rep, &
                             tensor_contr_3%matrix_rep)
 
-      IF(new_3) CALL dbcsr_t_copy(tensor_contr_3, tensor_3)
+      !PRINT *, "new 3", new_3 ! debug
+      !CALL dbcsr_print(tensor_3%matrix_rep%matrix) ! debug
+      IF(new_3) THEN
+         ! need redistribute
+         CALL dbcsr_t_copy(tensor_contr_3, tensor_3)
+      ELSE
+         ! shallow copy sufficient since no new matrix has been created for tensor 3
+         CALL dbcsr_r_copy(tensor_3%matrix_rep, tensor_contr_3%matrix_rep, shallow_data=.TRUE.)
+      ENDIF
+
+
 
       CALL dbcsr_t_destroy(tensor_contr_1)
       CALL dbcsr_t_destroy(tensor_contr_2)
-      CALL dbcsr_t_destroy(tensor_3_tmp)
-      CALL dbcsr_t_distribution_destroy(dist_3)
-      CALL mp_comm_free(mp_comm_nd)
+      CALL dbcsr_t_destroy(tensor_contr_3)
 
       CALL timestop(handle)
 
