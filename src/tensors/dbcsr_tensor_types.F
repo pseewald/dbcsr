@@ -88,6 +88,7 @@ MODULE dbcsr_tensor_types
       INTEGER                       :: comm_nd
       INTEGER                       :: comm_2d
       TYPE(array_list)              :: nd_dist
+      TYPE(nd_to_2d_mapping)        :: nd_index_grid
    END TYPE
 
    TYPE, EXTENDS(dbcsr_r_distribution) :: dbcsr_r_dist_t
@@ -283,7 +284,7 @@ CONTAINS
 !> \param dims_nd nd dimensions
 !> \return with nd cartesian grid
 ! **************************************************************************************************
-   FUNCTION dbcsr_t_nd_mp_comm(comm_2d, map1_2d, map2_2d, dims_nd)
+   FUNCTION dbcsr_t_nd_mp_comm(comm_2d, map1_2d, map2_2d, dims_nd, dims1_nd, dims2_nd)
       INTEGER, INTENT(IN)                               :: comm_2d
       INTEGER, DIMENSION(:), INTENT(IN)                 :: map1_2d, map2_2d
       INTEGER                                           :: ndim1, ndim2
@@ -291,8 +292,10 @@ CONTAINS
       INTEGER, DIMENSION(2)                             :: dims_2d, task_coor
       INTEGER, DIMENSION(SIZE(map1_2d) + SIZE(map2_2d)), &
          INTENT(IN), OPTIONAL                           :: dims_nd
-      INTEGER, DIMENSION(SIZE(map1_2d))                 :: dims1_nd
-      INTEGER, DIMENSION(SIZE(map2_2d))                 :: dims2_nd
+      INTEGER, DIMENSION(SIZE(map1_2d)), INTENT(IN), OPTIONAL :: dims1_nd
+      INTEGER, DIMENSION(SIZE(map2_2d)), INTENT(IN), OPTIONAL :: dims2_nd
+      INTEGER, DIMENSION(SIZE(map1_2d)) :: dims1_nd_prv
+      INTEGER, DIMENSION(SIZE(map2_2d)) :: dims2_nd_prv
       INTEGER, DIMENSION(SIZE(map1_2d) + SIZE(map2_2d)) :: dims_nd_prv, pos
       INTEGER                                           :: dbcsr_t_nd_mp_comm
 
@@ -301,11 +304,20 @@ CONTAINS
       CALL mp_environ(numtask, dims_2d, task_coor, comm_2d)
 
       IF(.NOT. PRESENT(dims_nd)) THEN
-         dims1_nd = 0; dims2_nd = 0
-         CALL mp_dims_create(dims_2d(1), dims1_nd)
-         CALL mp_dims_create(dims_2d(2), dims2_nd)
-         dims_nd_prv(map1_2d) = dims1_nd
-         dims_nd_prv(map2_2d) = dims2_nd
+         dims1_nd_prv = 0; dims2_nd_prv = 0
+         IF(PRESENT(dims1_nd)) THEN
+            dims1_nd_prv(:) = dims1_nd
+         ELSE
+            CALL mp_dims_create(dims_2d(1), dims1_nd_prv)
+         ENDIF
+
+         IF(PRESENT(dims2_nd)) THEN
+            dims2_nd_prv(:) = dims2_nd
+         ELSE
+            CALL mp_dims_create(dims_2d(2), dims2_nd_prv)
+         ENDIF
+         dims_nd_prv(map1_2d) = dims1_nd_prv
+         dims_nd_prv(map2_2d) = dims2_nd_prv
       ELSE
          DBCSR_ASSERT(PRODUCT(dims_nd(map1_2d)) == dims_2d(1))
          DBCSR_ASSERT(PRODUCT(dims_nd(map2_2d)) == dims_2d(2))
@@ -432,6 +444,7 @@ CONTAINS
       dist%nd_dist = nd_dist
       dist%comm_2d = comm_2d
       dist%comm_nd = comm_nd
+      dist%nd_index_grid = map_grid
       CALL timestop(handle)
    END SUBROUTINE
 
@@ -449,6 +462,7 @@ CONTAINS
       CALL dbcsr_r_distribution_destroy(dist%dist)
       CALL mp_comm_free(dist%comm_2d)
       CALL destroy_array_list(dist%nd_dist)
+      CALL destroy_nd_to_2d_mapping(dist%nd_index_grid)
       CALL timestop(handle)
    END SUBROUTINE
 
