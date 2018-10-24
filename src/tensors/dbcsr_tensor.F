@@ -23,7 +23,9 @@ MODULE dbcsr_tensor
    USE dbcsr_allocate_wrap,             ONLY: allocate_any
    USE dbcsr_array_list_methods,        ONLY: get_arrays,&
                                               reorder_arrays,&
-                                              get_ith_array
+                                              get_ith_array,&
+                                              array_list, &
+                                              array_sublist
    USE dbcsr_api,                       ONLY: &
         dbcsr_type, dbcsr_iterator_type, dbcsr_iterator_blocks_left, &
         dbcsr_iterator_next_block, dbcsr_iterator_start, dbcsr_iterator_stop, &
@@ -197,23 +199,21 @@ CONTAINS
       INTEGER, DIMENSION(:), INTENT(IN)              :: contract_1, contract_2, map_1, map_2
       INTEGER, DIMENSION(:), INTENT(IN)              :: notcontract_1, notcontract_2
       TYPE(dbcsr_t_type), INTENT(INOUT)              :: tensor_3
-      TYPE(dbcsr_t_type)                             :: tensor_contr_1, tensor_contr_2, tensor_tmp_1, tensor_tmp_2
+      TYPE(dbcsr_t_type)                             :: tensor_contr_1, tensor_contr_2, tensor_contr_3, &
+                                                        tensor_tmp_1, tensor_tmp_2, tensor_tmp_3
       LOGICAL                                        :: assert_stmt
-      INTEGER                                        :: i, data_type, mp_comm_2d, mp_comm_nd, handle, large_mm_dim
-      INTEGER, DIMENSION(:), ALLOCATABLE             :: pdims_3, myploc, sort_indices
+      INTEGER                                        :: data_type, mp_comm_nd, handle, large_mm_dim
+      !INTEGER, DIMENSION(:), ALLOCATABLE             :: sort_indices
       INTEGER, DIMENSION(SIZE(contract_1))           :: contract_1_mod
       INTEGER, DIMENSION(SIZE(notcontract_1))        :: notcontract_1_mod
       INTEGER, DIMENSION(SIZE(contract_2))           :: contract_2_mod
       INTEGER, DIMENSION(SIZE(notcontract_2))        :: notcontract_2_mod
-      INTEGER, DIMENSION(SIZE(map_1))                :: map_1_mod, map_1_tmp
-      INTEGER, DIMENSION(SIZE(map_2))                :: map_2_mod, map_2_tmp
-      INTEGER, DIMENSION(dbcsr_t_ndims(tensor_3))    :: order
-      LOGICAL, DIMENSION(:), ALLOCATABLE             :: periods
+      INTEGER, DIMENSION(SIZE(map_1))                :: map_1_mod
+      INTEGER, DIMENSION(SIZE(map_2))                :: map_2_mod
       CHARACTER(LEN=1)                               :: trans_1, trans_2, trans_3, trans
-      INTEGER, DIMENSION(:), ALLOCATABLE             :: ${varlist("blk_sizes_3")}$
-      INTEGER, DIMENSION(:), ALLOCATABLE             :: ${varlist("dist_3")}$
       TYPE(dbcsr_t_distribution_type)                :: dist_3
       TYPE(dbcsr_t_type)                             :: tensor_3_tmp
+      LOGICAL                                        :: new_3
 
       CHARACTER(LEN=*), PARAMETER :: routineN = 'dbcsr_t_contract', &
          routineP = moduleN//':'//routineN
@@ -263,29 +263,30 @@ CONTAINS
 
       SELECT CASE(large_mm_dim)
       CASE(1)
+         ! todo: should sort indices!
 
          CALL reshape_mm_compatible(tensor_tmp_1, tensor_tmp_3, tensor_contr_1, tensor_contr_3, &
-                                    contract1_mod, notcontract1_mod, map_2_mod, map_1_mod, &
+                                    contract_1_mod, notcontract_1_mod, map_2_mod, map_1_mod, &
                                     trans, nodata2=.TRUE., new2=new_3)
 
          trans_1 = trans; trans_3 = trans
 
-         CALL reshape_mm_small(tensor_tmp_2, contract2_mod, notcontract2_mod, tensor_contr_2, trans_2)
+         CALL reshape_mm_small(tensor_tmp_2, contract_2_mod, notcontract_2_mod, tensor_contr_2, trans_2)
 
       CASE(2)
 
          CALL reshape_mm_compatible(tensor_tmp_1, tensor_tmp_2, tensor_contr_1, tensor_contr_2, &
-                                    notcontract1_mod, contract1_mod, notcontract2_mod, contract2_mod, &
+                                    notcontract_1_mod, contract_1_mod, notcontract_2_mod, contract_2_mod, &
                                     trans)
          trans_1 = trans; trans_2 = trans
          CALL invert_transpose_flag(trans_1)
 
-         CALL reshape_mm_small(tensor_tmp_3, map1_mod, map_2_mod, tensor_contr_3, trans_3, nodata=.TRUE., new=new_3)
+         CALL reshape_mm_small(tensor_tmp_3, map_1_mod, map_2_mod, tensor_contr_3, trans_3, nodata=.TRUE., new=new_3)
 
       CASE(3)
 
          CALL reshape_mm_compatible(tensor_tmp_2, tensor_tmp_3, tensor_contr_2, tensor_contr_3, &
-                                    contract2_mod, notcontract2_mod, map_1_mod, map_2_mod, &
+                                    contract_2_mod, notcontract_2_mod, map_1_mod, map_2_mod, &
                                     trans, nodata2=.TRUE., new2=new_3)
          trans_2 = trans; trans_3 = trans
 
@@ -303,7 +304,7 @@ CONTAINS
                             tensor_contr_1%matrix_rep, tensor_contr_2%matrix_rep, &
                             tensor_contr_3%matrix_rep)
 
-      IF(new_3) THEN CALL dbcsr_t_copy(tensor_contr_3, tensor_3)
+      IF(new_3) CALL dbcsr_t_copy(tensor_contr_3, tensor_3)
 
       CALL dbcsr_t_destroy(tensor_contr_1)
       CALL dbcsr_t_destroy(tensor_contr_2)
@@ -361,9 +362,9 @@ CONTAINS
          CHARACTER(LEN=1), INTENT(OUT)               :: trans
          LOGICAL, INTENT(IN), OPTIONAL               :: nodata1, nodata2
          LOGICAL, INTENT(OUT), OPTIONAL              :: new1, new2
-         INTEGER                                     :: ref_tensor
+         INTEGER                                     :: ref_tensor, compat1, compat2
          TYPE(array_list)                            :: dist_list
-         INTEGER, ALLOCATABLE                        :: mp_dims
+         INTEGER, DIMENSION(:), ALLOCATABLE                        :: mp_dims
          TYPE(dbcsr_t_distribution_type)             :: dist_in
 
          IF (SIZE(ind1_free) .GE. SIZE(ind2_free)) THEN
@@ -409,7 +410,7 @@ CONTAINS
                   CALL dbcsr_t_remap(tensor2, ind2_free, ind2_linked, tensor2_out, comm_2d=dist_in%comm_2d, &
                                      dist2=dist_list, mp_dims_2=mp_dims, nodata=nodata2)
                ELSE
-                  CPABORT("should not happen")
+                  DBCSR_ABORT("should not happen")
                ENDIF
             ELSE
                CALL dbcsr_t_copy(tensor2, tensor2_out)
@@ -427,13 +428,13 @@ CONTAINS
                IF (compat2 == 1) THEN
                   CALL get_mapping_info(dist_in%nd_index_grid, dims1_2d=mp_dims)
                   CALL dbcsr_t_remap(tensor1, ind1_linked, ind1_free, tensor1_out, comm_2d=dist_in%comm_2d, &
-                                     dist1=dist_list, mp_dims_1=mp_dim, nodata=nodata1)
+                                     dist1=dist_list, mp_dims_1=mp_dims, nodata=nodata1)
                ELSEIF (compat1 == 2) THEN
                   CALL get_mapping_info(dist_in%nd_index_grid, dims2_2d=mp_dims)
                   CALL dbcsr_t_remap(tensor1, ind1_free, ind1_linked, tensor1_out, comm_2d=dist_in%comm_2d, &
                                      dist2=dist_list, mp_dims_2=mp_dims, nodata=nodata1)
                ELSE
-                  CPABORT("should not happen")
+                  DBCSR_ABORT("should not happen")
                ENDIF
             ELSE
                CALL dbcsr_t_copy(tensor1, tensor1_out)
@@ -446,7 +447,7 @@ CONTAINS
          CASE(2)
             trans = dbcsr_transpose
          CASE DEFAULT
-            CPABORT("should not happen")
+            DBCSR_ABORT("should not happen")
          END SELECT
 
 
@@ -460,8 +461,7 @@ CONTAINS
          CHARACTER(LEN=1), INTENT(OUT)               :: trans
          LOGICAL, INTENT(IN), OPTIONAL               :: nodata
          LOGICAL, INTENT(OUT), OPTIONAL              :: new
-         CHARACTER(LEN=1)                            :: compat_1_trans, compat_2_trans
-         INTEGER                                     :: compat
+         INTEGER                                     :: compat1, compat2
 
          IF(PRESENT(new)) new = .FALSE.
          compat1 = compat_map(tensor_in%nd_index, ind1)
@@ -573,7 +573,7 @@ CONTAINS
       INTEGER, DIMENSION(:), ALLOCATABLE     :: ${varlist("blk_sizes")}$,&
                                                 ${varlist("nd_dist")}$
       TYPE(dbcsr_t_distribution_type)        :: dist
-      INTEGER                                :: comm_2d_prv, comm_nd, handle
+      INTEGER                                :: comm_2d_prv, comm_nd, handle, i
       INTEGER, DIMENSION(dbcsr_t_ndims(tensor_in)) :: pdims, myploc
       LOGICAL, DIMENSION(dbcsr_t_ndims(tensor_in)) :: periods
       CHARACTER(LEN=*), PARAMETER :: routineN = 'dbcsr_t_remap', &
