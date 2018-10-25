@@ -38,7 +38,7 @@ MODULE dbcsr_rectangular_mm
       real_8
    USE dbcsr_mpiwrap, ONLY: mp_cart_create, &
       mp_comm_compare, &
-      mp_environ
+      mp_environ, mp_sum
    USE dbcsr_io, ONLY: dbcsr_print
 #include "../base/dbcsr_base_uses.f90"
 
@@ -419,9 +419,9 @@ CONTAINS
          INTEGER, INTENT(IN), OPTIONAL :: io_unit
          LOGICAL                                            :: dist_compatible
 
-         INTEGER                                            :: res
+         INTEGER                                            :: res, same_local_rowcols
          TYPE(dbcsr_r_split_info)                           :: info_a, info_b
-         INTEGER :: io_unit_prv
+         INTEGER :: io_unit_prv, numproc, iproc
 
          IF (PRESENT(io_unit)) THEN
             io_unit_prv = io_unit
@@ -433,6 +433,8 @@ CONTAINS
 
          info_a = dbcsr_r_info(mat_a)
          info_b = dbcsr_r_info(mat_b)
+
+         CALL mp_environ(numproc, iproc, info_a%mp_comm)
 
          CALL mp_comm_compare(info_a%mp_comm_group, info_b%mp_comm_group, res)
          IF (res .GT. 1) THEN
@@ -448,7 +450,11 @@ CONTAINS
             IF (io_unit_prv > 0) THEN
                WRITE (io_unit_prv, *) "split compatible"
             ENDIF
-            IF (array_eq_i8(mat_a%dist%local_rowcols, mat_b%dist%local_rowcols)) THEN
+
+            same_local_rowcols = MERGE(1, 0, array_eq_i8(mat_a%dist%local_rowcols, mat_b%dist%local_rowcols))
+            CALL mp_sum(same_local_rowcols, info_a%mp_comm) ! todo: if inefficient, this can be done on master ranks
+
+            IF (same_local_rowcols == numproc) THEN
                IF (io_unit_prv > 0) THEN
                   WRITE (io_unit_prv, *) "local rowcols compatible"
                ENDIF
