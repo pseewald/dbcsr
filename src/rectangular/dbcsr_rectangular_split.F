@@ -282,6 +282,7 @@ CONTAINS
          DBCSR_ABORT('inconsistent subgroups')
       ENDIF
 
+      ! todo: this is not needed!
       CALL mp_cart_create(mp_comm_group, 2, pdims_group, pcoord_group, split_info%mp_comm_group)
 
       CALL mp_environ(numproc_group_check, iproc_group_check, split_info%mp_comm_group)

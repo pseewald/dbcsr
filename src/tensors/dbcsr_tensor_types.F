@@ -54,6 +54,7 @@ MODULE dbcsr_tensor_types
    CHARACTER(len=*), PARAMETER, PRIVATE :: moduleN = 'dbcsr_tensor_types'
 
    PUBLIC  :: &
+      blk_dims_tensor, &
       dbcsr_t_blk_offsets, &
       dbcsr_t_blk_sizes, &
       dbcsr_t_create, &
@@ -63,13 +64,13 @@ MODULE dbcsr_tensor_types
       dbcsr_t_distribution_new, &
       dbcsr_t_distribution_type, &
       dbcsr_t_get_data_type, &
+      dbcsr_t_get_stored_coordinates,&
+      dbcsr_t_hold,&
       dbcsr_t_nd_mp_comm, &
       dbcsr_t_nd_mp_free, &
       dbcsr_t_type, &
       dims_tensor, &
-      blk_dims_tensor, &
-      ndims_tensor, &
-      dbcsr_t_get_stored_coordinates
+      ndims_tensor
 
    TYPE dbcsr_t_type
       TYPE(dbcsr_r_type)                     :: matrix_rep
@@ -81,9 +82,9 @@ MODULE dbcsr_tensor_types
       TYPE(array_list)                       :: nd_dist
       INTEGER                                :: comm_nd
       INTEGER                                :: comm_2d
-      LOGICAL                                :: comm_prv = .FALSE.
       LOGICAL                                :: valid = .FALSE.
       CHARACTER(LEN=default_string_length)   :: name
+      INTEGER, POINTER :: refcount => NULL() ! lightweight reference counting for communicators
    END TYPE dbcsr_t_type
 
    TYPE dbcsr_t_distribution_type
@@ -92,6 +93,7 @@ MODULE dbcsr_tensor_types
       INTEGER                       :: comm_2d
       TYPE(array_list)              :: nd_dist
       TYPE(nd_to_2d_mapping)        :: nd_index_grid
+      INTEGER, POINTER :: refcount => NULL() ! lightweight reference counting for communicators
    END TYPE
 
    TYPE, EXTENDS(dbcsr_r_distribution) :: dbcsr_r_dist_t
@@ -373,12 +375,13 @@ CONTAINS
 !> \param nd_dist_2 distribution vector for second dimension
 !> \param nd_dist_3 ...
 ! **************************************************************************************************
-   SUBROUTINE dbcsr_t_distribution_new(dist, comm_nd, map1_2d, map2_2d, ${varlist("nd_dist")}$)
+   SUBROUTINE dbcsr_t_distribution_new(dist, comm_nd, map1_2d, map2_2d, ${varlist("nd_dist")}$, own_comm)
 
       TYPE(dbcsr_t_distribution_type), INTENT(OUT)    :: dist
       INTEGER, INTENT(IN)                             :: comm_nd
       INTEGER, DIMENSION(:), INTENT(IN)               :: map1_2d, map2_2d
       INTEGER, DIMENSION(:), INTENT(IN), OPTIONAL     :: ${varlist("nd_dist")}$
+      LOGICAL, INTENT(IN), OPTIONAL                   :: own_comm
       INTEGER                                         :: ndims, comm_2d
       INTEGER, DIMENSION(2)                           :: pdims_2d_check, &
                                                          pdims_2d, task_coor_2d
@@ -445,9 +448,21 @@ CONTAINS
 
       !CALL dbcsr_distribution_new(dist%dist, group=comm_2d, row_dist=row_dist, col_dist=col_dist, reuse_arrays=.TRUE.)
       dist%nd_dist = nd_dist
-      dist%comm_2d = comm_2d ! TODO: could cause communicator leak since distribution does not own communicator
-      dist%comm_nd = comm_nd
+      dist%comm_2d = comm_2d
+      IF(PRESENT(own_comm)) THEN
+         IF(own_comm) THEN
+            dist%comm_nd = comm_nd
+         ELSE
+            CALL mp_comm_dup(comm_nd, dist%comm_nd)
+         ENDIF
+      ELSE
+         CALL mp_comm_dup(comm_nd, dist%comm_nd)
+      ENDIF
+
       dist%nd_index_grid = map_grid
+
+      ALLOCATE(dist%refcount)
+      dist%refcount = 1
       CALL timestop(handle)
    END SUBROUTINE
 
@@ -460,12 +475,45 @@ CONTAINS
       INTEGER                                   :: handle
       CHARACTER(LEN=*), PARAMETER :: routineN = 'dbcsr_t_distribution_destroy', &
          routineP = moduleN//':'//routineN
+      LOGICAL :: abort
+
 
       CALL timeset(routineN, handle)
       CALL dbcsr_r_distribution_destroy(dist%dist)
       CALL destroy_array_list(dist%nd_dist)
       CALL destroy_nd_to_2d_mapping(dist%nd_index_grid)
+
+      abort = .FALSE.
+      IF (.NOT. ASSOCIATED(dist%refcount)) THEN
+         abort = .TRUE.
+      ELSEIF (dist%refcount < 1) THEN
+         abort = .TRUE.
+      ENDIF
+
+      IF (abort) THEN
+         DBCSR_ABORT("can not destroy non-existing tensor distribution")
+      ENDIF
+
+      dist%refcount = dist%refcount - 1
+
+      IF(dist%refcount == 0) THEN
+         CALL mp_comm_free(dist%comm_2d)
+         CALL mp_comm_free(dist%comm_nd)
+         DEALLOCATE(dist%refcount)
+      ENDIF
+
       CALL timestop(handle)
+   END SUBROUTINE
+
+   SUBROUTINE dbcsr_t_distribution_hold(dist)
+      TYPE(dbcsr_t_distribution_type), INTENT(IN) :: dist
+      INTEGER, POINTER                            :: ref
+
+      IF(dist%refcount < 1) THEN
+         DBCSR_ABORT("can not hold non-existing tensor distribution")
+      ENDIF
+      ref => dist%refcount
+      ref = ref + 1
    END SUBROUTINE
 
    FUNCTION dbcsr_t_distribution(tensor)
@@ -477,6 +525,7 @@ CONTAINS
       dbcsr_t_distribution%comm_2d = tensor%comm_2d
       dbcsr_t_distribution%nd_dist = tensor%nd_dist
       dbcsr_t_distribution%nd_index_grid = tensor%nd_index_grid
+      dbcsr_t_distribution%refcount => dbcsr_t_distribution%refcount
    END FUNCTION
 
 ! **************************************************************************************************
@@ -542,10 +591,25 @@ CONTAINS
       tensor%comm_nd = dist%comm_nd
       tensor%comm_2d = dist%comm_2d
 
+      CALL dbcsr_t_distribution_hold(dist)
+      tensor%refcount => dist%refcount
+
       CALL array_offsets(tensor%blk_sizes, tensor%blk_offsets)
 
       tensor%valid = .TRUE.
       CALL timestop(handle)
+   END SUBROUTINE
+
+   SUBROUTINE dbcsr_t_hold(tensor)
+      TYPE(dbcsr_t_type), INTENT(IN) :: tensor
+      INTEGER, POINTER :: ref
+
+      IF(tensor%refcount < 1) THEN
+         DBCSR_ABORT("can not hold non-existing tensor")
+      ENDIF
+      ref => tensor%refcount
+      ref = ref + 1
+
    END SUBROUTINE
 
 ! **************************************************************************************************
@@ -573,8 +637,11 @@ CONTAINS
       tensor%blk_offsets = tensor_in%blk_offsets
       tensor%nd_dist = tensor_in%nd_dist
       tensor%comm_nd = tensor_in%comm_nd
+      tensor%comm_2d = tensor_in%comm_2d
 
-      CALL mp_comm_dup(tensor_in%comm_2d, tensor%comm_2d)
+      tensor%refcount => tensor_in%refcount
+      CALL dbcsr_t_hold(tensor)
+
       tensor%valid = .TRUE.
       IF (PRESENT(name)) THEN
          tensor%name = name
@@ -629,7 +696,7 @@ CONTAINS
          dist, &
          comm_nd, &
          [order_in(1)], [order_in(2)], &
-         row_dist, col_dist)
+         row_dist, col_dist, own_comm=.TRUE.)
 
       CALL dbcsr_get_info(matrix_in, &
                           data_type=data_type, &
@@ -653,6 +720,7 @@ CONTAINS
       INTEGER                                   :: handle
       CHARACTER(LEN=*), PARAMETER :: routineN = 'dbcsr_t_destroy', &
          routineP = moduleN//':'//routineN
+      LOGICAL :: abort
 
       CALL timeset(routineN, handle)
       CALL dbcsr_r_destroy(tensor%matrix_rep)
@@ -662,12 +730,26 @@ CONTAINS
       CALL destroy_array_list(tensor%blk_sizes)
       CALL destroy_array_list(tensor%blk_offsets)
       CALL destroy_array_list(tensor%nd_dist)
-      IF (tensor%comm_prv) THEN
-         ! release communicator if it is marked as private (not created by user)
-         CALL mp_comm_free(tensor%comm_nd)
+
+      abort = .FALSE.
+      IF (.NOT. ASSOCIATED(tensor%refcount)) THEN
+         abort = .TRUE.
+      ELSEIF (tensor%refcount < 1) THEN
+         abort = .TRUE.
       ENDIF
-      CALL mp_comm_free(tensor%comm_2d)
-      tensor%comm_prv = .FALSE.
+
+      IF (abort) THEN
+         DBCSR_ABORT("can not destroy non-existing tensor")
+      ENDIF
+
+      tensor%refcount = tensor%refcount - 1
+
+      IF(tensor%refcount == 0) THEN
+         CALL mp_comm_free(tensor%comm_2d)
+         CALL mp_comm_free(tensor%comm_nd)
+         DEALLOCATE(tensor%refcount)
+      ENDIF
+
       tensor%valid = .FALSE.
       tensor%name = ""
       CALL timestop(handle)

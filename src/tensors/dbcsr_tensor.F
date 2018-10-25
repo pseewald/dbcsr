@@ -60,11 +60,11 @@ MODULE dbcsr_tensor
                                               dbcsr_t_distribution_destroy,&
                                               dbcsr_t_distribution_new,&
                                               dbcsr_t_get_stored_coordinates,&
-                                              blk_dims_tensor
+                                              blk_dims_tensor,&
+                                              dbcsr_t_hold
    USE dbcsr_kinds,                     ONLY: ${uselist(dtype_float_prec)}$,&
                                               default_string_length
-   USE dbcsr_mpiwrap,                   ONLY: mp_environ,&
-                                              mp_comm_dup
+   USE dbcsr_mpiwrap,                   ONLY: mp_environ
    USE dbcsr_toollib,                   ONLY: sort
    USE dbcsr_tensor_reshape,            ONLY: dbcsr_t_reshape
    USE dbcsr_io,                        ONLY: dbcsr_print ! debug
@@ -349,11 +349,12 @@ CONTAINS
          ! need redistribute if we created new tensor for tensor 3
          CALL dbcsr_t_copy(tensor_contr_3, tensor_tmp_3)
          CALL dbcsr_r_copy(tensor_3%matrix_rep, tensor_tmp_3%matrix_rep, shallow_data=.TRUE.)
-         CALL dbcsr_t_destroy(tensor_tmp_3)
       ELSE
          ! shallow copy sufficient since no new matrix has been created for tensor 3
          CALL dbcsr_r_copy(tensor_3%matrix_rep, tensor_contr_3%matrix_rep, shallow_data=.TRUE.)
       ENDIF
+
+      CALL dbcsr_t_destroy(tensor_tmp_3)
 
       CALL dbcsr_t_destroy(tensor_contr_1)
       CALL dbcsr_t_destroy(tensor_contr_2)
@@ -689,7 +690,7 @@ CONTAINS
          ENDIF
 #:endfor
          CALL dbcsr_t_distribution_new(dist, comm_nd, map1_2d, map2_2d, &
-                                       ${varlist("nd_dist", nmax=ndim)}$)
+                                       ${varlist("nd_dist", nmax=ndim)}$, own_comm=.TRUE.)
       ENDIF
 #:endfor
 
@@ -698,7 +699,6 @@ CONTAINS
          CALL dbcsr_t_create(tensor_out, name_tmp, dist, &
                              map1_2d, map2_2d, dbcsr_r_get_data_type(tensor_in%matrix_rep),&
                              ${varlist("blk_sizes", nmax=ndim)}$)
-         tensor_out%comm_prv = .TRUE. ! since this tensor is created internally (not by user)
       ENDIF
 #:endfor
 
@@ -773,7 +773,9 @@ CONTAINS
       tensor_out%nd_index_blk = nd_index_blk_rs
       tensor_out%nd_index_grid = nd_index_grid_rs
       tensor_out%comm_nd = tensor_in%comm_nd
-      CALL mp_comm_dup(tensor_in%comm_2d, tensor_out%comm_2d)
+      tensor_out%comm_2d = tensor_in%comm_2d
+      tensor_out%refcount => tensor_in%refcount
+      CALL dbcsr_t_hold(tensor_out)
 
       CALL reorder_arrays(tensor_in%blk_sizes, tensor_out%blk_sizes, order)
       CALL reorder_arrays(tensor_in%blk_offsets, tensor_out%blk_offsets, order)

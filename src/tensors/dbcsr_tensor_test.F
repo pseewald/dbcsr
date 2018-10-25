@@ -95,6 +95,7 @@ CONTAINS
 
       ! create a copy of tensor2 that has exact same data format as tensor1
       CALL dbcsr_t_create(tensor1, tensor2_tmp)
+
       CALL dbcsr_t_reserve_blocks(tensor1, tensor2_tmp)
       CALL dbcsr_t_copy(tensor2, tensor2_tmp)
 
@@ -113,6 +114,7 @@ CONTAINS
       ENDDO
 
       CALL dbcsr_t_iterator_stop(iter)
+
       CALL dbcsr_t_destroy(tensor2_tmp)
    END FUNCTION
 
