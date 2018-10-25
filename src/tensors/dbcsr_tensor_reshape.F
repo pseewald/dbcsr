@@ -15,7 +15,6 @@ MODULE dbcsr_tensor_reshape
 
    USE dbcsr_allocate_wrap,             ONLY: allocate_any
    USE dbcsr_rectangular_base,          ONLY: dbcsr_r_copy, dbcsr_r_get_info, dbcsr_r_info
-   USE dbcsr_rectangular_split,         ONLY: dbcsr_r_get_split_info
    USE dbcsr_tensor_block,              ONLY: &
         block_nd, create_block, destroy_block, dbcsr_t_iterator_type, dbcsr_t_iterator_next_block, &
         dbcsr_t_iterator_blocks_left, dbcsr_t_iterator_start, dbcsr_t_iterator_stop, dbcsr_t_get_block, &
@@ -86,7 +85,7 @@ CONTAINS
 
       IF (tensor_out%valid) THEN
 
-         CALL dbcsr_r_get_split_info(dbcsr_r_info(tensor_in%matrix_rep), mp_comm=mp_comm)
+         mp_comm = tensor_in%comm_2d
          CALL mp_environ(numnodes, mynode, mp_comm)
          ALLOCATE (buffer_send(0:numnodes - 1))
          ALLOCATE (buffer_recv(0:numnodes - 1))

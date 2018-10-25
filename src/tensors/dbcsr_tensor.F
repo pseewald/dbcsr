@@ -34,7 +34,6 @@ MODULE dbcsr_tensor
    USE dbcsr_rectangular_base, ONLY:&
         dbcsr_r_copy, dbcsr_r_create, dbcsr_r_finalize, dbcsr_r_get_data_type, dbcsr_r_get_info, dbcsr_r_info
    USE dbcsr_rectangular_mm, ONLY: dbcsr_r_multiply
-   USE dbcsr_rectangular_split,         ONLY: dbcsr_r_get_split_info
    USE dbcsr_tensor_block,              ONLY: dbcsr_t_iterator_type, &
                                               dbcsr_t_get_block, &
                                               dbcsr_t_put_block, &
@@ -65,7 +64,7 @@ MODULE dbcsr_tensor
    USE dbcsr_kinds,                     ONLY: ${uselist(dtype_float_prec)}$,&
                                               default_string_length
    USE dbcsr_mpiwrap,                   ONLY: mp_environ,&
-                                              mp_comm_free
+                                              mp_comm_dup
    USE dbcsr_toollib,                   ONLY: sort
    USE dbcsr_tensor_reshape,            ONLY: dbcsr_t_reshape
    USE dbcsr_io,                        ONLY: dbcsr_print ! debug
@@ -335,27 +334,26 @@ CONTAINS
          CALL invert_transpose_flag(trans_2)
          CALL invert_transpose_flag(trans_3)
 
+         CALL reshape_mm_small(tensor_tmp_1, notcontract_1_mod, contract_1_mod, tensor_contr_1, trans_1)
+
       END SELECT
 
       CALL dbcsr_t_destroy(tensor_tmp_1)
       CALL dbcsr_t_destroy(tensor_tmp_2)
-      CALL dbcsr_t_destroy(tensor_tmp_3)
 
       CALL dbcsr_r_multiply(trans_1, trans_2, trans_3, dbcsr_scalar(1.0_real_8), &
                             tensor_contr_1%matrix_rep, tensor_contr_2%matrix_rep, &
                             tensor_contr_3%matrix_rep)
 
-      !PRINT *, "new 3", new_3 ! debug
-      !CALL dbcsr_print(tensor_3%matrix_rep%matrix) ! debug
       IF(new_3) THEN
-         ! need redistribute
-         CALL dbcsr_t_copy(tensor_contr_3, tensor_3)
+         ! need redistribute if we created new tensor for tensor 3
+         CALL dbcsr_t_copy(tensor_contr_3, tensor_tmp_3)
+         CALL dbcsr_r_copy(tensor_3%matrix_rep, tensor_tmp_3%matrix_rep, shallow_data=.TRUE.)
+         CALL dbcsr_t_destroy(tensor_tmp_3)
       ELSE
          ! shallow copy sufficient since no new matrix has been created for tensor 3
          CALL dbcsr_r_copy(tensor_3%matrix_rep, tensor_contr_3%matrix_rep, shallow_data=.TRUE.)
       ENDIF
-
-
 
       CALL dbcsr_t_destroy(tensor_contr_1)
       CALL dbcsr_t_destroy(tensor_contr_2)
@@ -444,7 +442,7 @@ CONTAINS
                CALL dbcsr_t_copy(tensor1, tensor1_out)
             ENDIF
             IF (compat2 == 0) THEN ! tensor 2 is not contraction compatible --> reshape
-               dist_in = dbcsr_t_distribution(tensor1)
+               dist_in = dbcsr_t_distribution(tensor1_out)
                dist_list = array_sublist(dist_in%nd_dist, ind1_linked)
                IF (compat1 == 1) THEN ! linked index is first 2d dimension
                   ! get distribution of linked index, tensor 2 must adopt this distribution
@@ -472,7 +470,7 @@ CONTAINS
                CALL dbcsr_t_copy(tensor2, tensor2_out)
             ENDIF
             IF (compat1 == 0) THEN ! tensor 1 is not contraction compatible --> reshape
-               dist_in = dbcsr_t_distribution(tensor2)
+               dist_in = dbcsr_t_distribution(tensor2_out)
                dist_list = array_sublist(dist_in%nd_dist, ind2_linked)
                IF (compat2 == 1) THEN
                   CALL get_mapping_info(dist_in%nd_index_grid, dims1_2d=mp_dims)
@@ -656,7 +654,7 @@ CONTAINS
       IF(PRESENT(comm_2d)) THEN
          comm_2d_prv = comm_2d
       ELSE
-         CALL dbcsr_r_get_split_info(dbcsr_r_info(tensor_in%matrix_rep), mp_comm=comm_2d_prv)
+         comm_2d_prv = tensor_in%comm_2d
       ENDIF
 
       comm_nd = dbcsr_t_nd_mp_comm(comm_2d_prv, map1_2d, map2_2d, dims1_nd=mp_dims_1, dims2_nd=mp_dims_2)
@@ -756,7 +754,7 @@ CONTAINS
       INTEGER, DIMENSION(ndims_tensor(tensor_in)), &
          INTENT(IN)                                   :: order
 
-      TYPE(nd_to_2d_mapping)                          :: nd_index_blk_rs, nd_index_rs
+      TYPE(nd_to_2d_mapping)                          :: nd_index_blk_rs, nd_index_rs, nd_index_grid_rs
       CHARACTER(LEN=*), PARAMETER :: routineN = 'dbcsr_t_permute_index', &
          routineP = moduleN//':'//routineN
       INTEGER                                         :: handle
@@ -765,6 +763,7 @@ CONTAINS
 
       CALL permute_index(tensor_in%nd_index, nd_index_rs, order)
       CALL permute_index(tensor_in%nd_index_blk, nd_index_blk_rs, order)
+      CALL permute_index(tensor_in%nd_index_grid, nd_index_grid_rs, order)
 
       CALL dbcsr_r_create(tensor_in%matrix_rep, tensor_out%matrix_rep)
       CALL dbcsr_r_finalize(tensor_out%matrix_rep)
@@ -772,6 +771,9 @@ CONTAINS
       CALL dbcsr_r_copy(tensor_out%matrix_rep, tensor_in%matrix_rep, shallow_data=.TRUE.)
       tensor_out%nd_index = nd_index_rs
       tensor_out%nd_index_blk = nd_index_blk_rs
+      tensor_out%nd_index_grid = nd_index_grid_rs
+      tensor_out%comm_nd = tensor_in%comm_nd
+      CALL mp_comm_dup(tensor_in%comm_2d, tensor_out%comm_2d)
 
       CALL reorder_arrays(tensor_in%blk_sizes, tensor_out%blk_sizes, order)
       CALL reorder_arrays(tensor_in%blk_offsets, tensor_out%blk_offsets, order)

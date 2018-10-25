@@ -15,7 +15,6 @@ MODULE dbcsr_tensor_test
 
    USE dbcsr_api,                       ONLY: ${uselist(dtype_float_param)}$
    USE dbcsr_rectangular_base,          ONLY: dbcsr_r_info
-   USE dbcsr_rectangular_split,         ONLY: dbcsr_r_get_split_info
    USE dbcsr_tensor,                    ONLY: &
         dbcsr_t_copy, dbcsr_t_get_block, dbcsr_t_iterator_type, dbcsr_t_iterator_blocks_left, &
         dbcsr_t_iterator_next_block, dbcsr_t_iterator_start, dbcsr_t_iterator_stop, dbcsr_t_ndims, &
@@ -771,7 +770,7 @@ CONTAINS
       LOGICAL                             :: eql
       LOGICAL, PARAMETER                  :: debug = .FALSE.
 
-      CALL dbcsr_r_get_split_info(dbcsr_r_info(tensor_1%matrix_rep), mp_comm=mp_comm)
+      mp_comm = tensor_1%comm_2d
       CALL mp_environ(numnodes, mynode, mp_comm)
       io_unit = 0
       IF (mynode .EQ. 0) io_unit = unit_nr

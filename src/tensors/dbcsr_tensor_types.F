@@ -45,7 +45,7 @@ MODULE dbcsr_tensor_types
                                               mp_cart_rank,&
                                               mp_environ, &
                                               mp_dims_create, &
-                                              mp_comm_free
+                                              mp_comm_free, mp_comm_dup
    USE dbcsr_rectangular_global,        ONLY: dbcsr_r_distribution, dbcsr_r_rowcol_data
 #include "base/dbcsr_base_uses.f90"
 
@@ -75,10 +75,12 @@ MODULE dbcsr_tensor_types
       TYPE(dbcsr_r_type)                     :: matrix_rep
       TYPE(nd_to_2d_mapping)                 :: nd_index_blk
       TYPE(nd_to_2d_mapping)                 :: nd_index
+      TYPE(nd_to_2d_mapping)                 :: nd_index_grid
       TYPE(array_list)                       :: blk_sizes
       TYPE(array_list)                       :: blk_offsets
       TYPE(array_list)                       :: nd_dist
       INTEGER                                :: comm_nd
+      INTEGER                                :: comm_2d
       LOGICAL                                :: comm_prv = .FALSE.
       LOGICAL                                :: valid = .FALSE.
       CHARACTER(LEN=default_string_length)   :: name
@@ -443,7 +445,7 @@ CONTAINS
 
       !CALL dbcsr_distribution_new(dist%dist, group=comm_2d, row_dist=row_dist, col_dist=col_dist, reuse_arrays=.TRUE.)
       dist%nd_dist = nd_dist
-      dist%comm_2d = comm_2d
+      dist%comm_2d = comm_2d ! TODO: could cause communicator leak since distribution does not own communicator
       dist%comm_nd = comm_nd
       dist%nd_index_grid = map_grid
       CALL timestop(handle)
@@ -461,7 +463,6 @@ CONTAINS
 
       CALL timeset(routineN, handle)
       CALL dbcsr_r_distribution_destroy(dist%dist)
-      CALL mp_comm_free(dist%comm_2d)
       CALL destroy_array_list(dist%nd_dist)
       CALL destroy_nd_to_2d_mapping(dist%nd_index_grid)
       CALL timestop(handle)
@@ -473,7 +474,9 @@ CONTAINS
 
       CALL dbcsr_r_get_info(tensor%matrix_rep, distribution=dbcsr_t_distribution%dist)
       dbcsr_t_distribution%comm_nd = tensor%comm_nd
+      dbcsr_t_distribution%comm_2d = tensor%comm_2d
       dbcsr_t_distribution%nd_dist = tensor%nd_dist
+      dbcsr_t_distribution%nd_index_grid = tensor%nd_index_grid
    END FUNCTION
 
 ! **************************************************************************************************
@@ -533,8 +536,11 @@ CONTAINS
       CALL create_nd_to_2d_mapping(map, sum_of_arrays(blk_size), map1_2d, map2_2d)
       tensor%nd_index = map
       tensor%blk_sizes = blk_size
+
+      tensor%nd_index_grid = dist%nd_index_grid
       tensor%nd_dist = dist%nd_dist
       tensor%comm_nd = dist%comm_nd
+      tensor%comm_2d = dist%comm_2d
 
       CALL array_offsets(tensor%blk_sizes, tensor%blk_offsets)
 
@@ -562,10 +568,13 @@ CONTAINS
 
       tensor%nd_index_blk = tensor_in%nd_index_blk
       tensor%nd_index = tensor_in%nd_index
+      tensor%nd_index_grid = tensor_in%nd_index_grid
       tensor%blk_sizes = tensor_in%blk_sizes
       tensor%blk_offsets = tensor_in%blk_offsets
       tensor%nd_dist = tensor_in%nd_dist
       tensor%comm_nd = tensor_in%comm_nd
+
+      CALL mp_comm_dup(tensor_in%comm_2d, tensor%comm_2d)
       tensor%valid = .TRUE.
       IF (PRESENT(name)) THEN
          tensor%name = name
@@ -649,6 +658,7 @@ CONTAINS
       CALL dbcsr_r_destroy(tensor%matrix_rep)
       CALL destroy_nd_to_2d_mapping(tensor%nd_index_blk)
       CALL destroy_nd_to_2d_mapping(tensor%nd_index)
+      CALL destroy_nd_to_2d_mapping(tensor%nd_index_grid)
       CALL destroy_array_list(tensor%blk_sizes)
       CALL destroy_array_list(tensor%blk_offsets)
       CALL destroy_array_list(tensor%nd_dist)
@@ -656,6 +666,7 @@ CONTAINS
          ! release communicator if it is marked as private (not created by user)
          CALL mp_comm_free(tensor%comm_nd)
       ENDIF
+      CALL mp_comm_free(tensor%comm_2d)
       tensor%comm_prv = .FALSE.
       tensor%valid = .FALSE.
       tensor%name = ""
