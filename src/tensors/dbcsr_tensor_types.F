@@ -426,27 +426,6 @@ CONTAINS
 
       CALL dbcsr_r_distribution_new(dist%dist, comm_2d, row_dist_obj, col_dist_obj)
 
-      !! create 2d distribution from nd distribution
-      !ALLOCATE (row_dist(bdims_2d(1)), col_dist(bdims_2d(2)))
-      !row_dist(:) = -1
-      !col_dist(:) = -1
-
-      !DO brow = 1, bdims_2d(1) ! blk rows
-      !   DO bcol = 1, bdims_2d(2) ! blk cols
-
-      !      ! 2d blk index to nd blk index
-      !      ind(:) = get_nd_indices(map_blks, [brow, bcol])
-
-      !      ! nd distribution to 2d distribution, mapped using proc grid
-      !      dist_2d(:) = get_2d_indices(map_grid, get_array_elements(nd_dist, ind))
-
-      !      ! first index maps to columns, second index to rows (row-major)
-      !      IF (row_dist(brow) .LT. 0) row_dist(brow) = dist_2d(1)
-      !      IF (col_dist(bcol) .LT. 0) col_dist(bcol) = dist_2d(2)
-      !   ENDDO
-      !ENDDO
-
-      !CALL dbcsr_distribution_new(dist%dist, group=comm_2d, row_dist=row_dist, col_dist=col_dist, reuse_arrays=.TRUE.)
       dist%nd_dist = nd_dist
       dist%comm_2d = comm_2d
       IF(PRESENT(own_comm)) THEN
