@@ -769,7 +769,7 @@ CONTAINS
                                              array_2_mm, &
                                              array_3_mm, &
                                              array_3_test_mm
-      LOGICAL                             :: eql
+      LOGICAL                             :: eql, notzero
       LOGICAL, PARAMETER                  :: debug = .FALSE.
 
       mp_comm = tensor_1%comm_2d
@@ -846,8 +846,9 @@ CONTAINS
       END ASSOCIATE
 
       eql = MAXVAL(ABS(array_3_test_mm(:,:) - array_3_mm(:,:))) .LT. 1.0E-12_${dprec}$
+      notzero = MAXVAL(ABS(array_3_test_mm(:,:))) .GT. 1.0E-12_${dprec}$
 
-      IF (.NOT. eql) THEN
+      IF (.NOT. eql .OR. .NOT. notzero) THEN
          IF (io_unit > 0) WRITE(io_unit,'(A)') 'Test failed!'
          DBCSR_ABORT('')
       ELSE
