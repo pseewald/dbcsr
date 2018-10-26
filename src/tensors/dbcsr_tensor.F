@@ -10,8 +10,7 @@
 !> Support for arbitrary redistribution between different representations.
 !> Support for arbitrary tensor contractions
 !> DBCSR routines are generalized to n dimensions by light-weight wrapper routines.
-!> \todo implement communication optimal scheme for multiplication of non-square matrices.
-!>       implement checks and error messages
+!> \todo implement checks and error messages
 !> \author Patrick Seewald
 ! **************************************************************************************************
 MODULE dbcsr_tensor

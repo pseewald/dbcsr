@@ -452,7 +452,7 @@ CONTAINS
             ENDIF
 
             same_local_rowcols = MERGE(1, 0, array_eq_i8(mat_a%dist%local_rowcols, mat_b%dist%local_rowcols))
-            CALL mp_sum(same_local_rowcols, info_a%mp_comm) ! todo: if inefficient, this can be done on master ranks
+            CALL mp_sum(same_local_rowcols, info_a%mp_comm) ! todo: if inefficient, this can be done on master ranks only
 
             IF (same_local_rowcols == numproc) THEN
                IF (io_unit_prv > 0) THEN
@@ -542,7 +542,7 @@ CONTAINS
 
          CALL dbcsr_r_get_split_info(info_template, mp_comm=mp_comm)
          CALL dbcsr_r_distribution_new(dist_new, mp_comm, row_dist, col_dist, split_info=info_template)
-         IF(.NOT. transposed) THEN ! todo: don't need to call create twice
+         IF(.NOT. transposed) THEN
             CALL dbcsr_r_create(matrix_out, matrix_in%matrix%name, dist_new, dbcsr_r_get_data_type(matrix_in), &
                                 matrix_in%row_blk_size, matrix_in%col_blk_size, own_dist=.TRUE.)
          ELSE

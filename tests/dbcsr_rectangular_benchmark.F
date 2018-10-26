@@ -64,7 +64,7 @@ PROGRAM dbcsr_rectangular_benchmark
 
    CALL mp_environ(numnodes, pdims, pcoord, mp_comm_cart)
 
-   CALL dbcsr_r_random_bsizes([13, 8, 5, 25, 12], 2, bsize_max) ! todo: don't store as vector but as function object
+   CALL dbcsr_r_random_bsizes([13, 8, 5, 25, 12], 2, bsize_max)
    CALL dbcsr_r_random_bsizes([9, 64, 23, 2], 3, bsize_min)
 
    CALL dbcsr_r_setup_test_matrix(A, mp_comm_cart_, mp_comm_cart, dmax, dmin, bsize_max, bsize_min, [5, 9], "A", &
