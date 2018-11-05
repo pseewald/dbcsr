@@ -8,22 +8,22 @@
 # 4) OpenMP+MPI
 #
 # Except the 1) variant (not useful for real production cases), all others are tested.
-# Variants 2) and 4) requires to add the compiler flag to enable OpenMP,
+# Variants 2) and 4) requires to add the compiler flag to enable OpenMP, 
 # e.g. -fopenmp for GNU and Intel compilers.
 # Variants 3) and 4) requires to use MPI wrappers for the compilation and to specify
 # -D__parallel in the FCFLAGS variable.
 #
-# The 4 variants can be combined with the CUDA compilation. In this case, it further
+# The 4 variants can be combined with the CUDA compilation. In this case, it further 
 # requires:
 # a) set the NVCC variable, e.g. NVCC = nvcc
 # b) specify -D__DBCSR_ACC in FCFLAGS variable
-# c) set the GPUVER variable, e.g. GPUVER = K20 for K20 card
+# c) set the GPUVER variable, e.g. GPUVER = K20 for K20 card 
 #    or GPUVER = P100 for P100 card
-# d) set the NVFLAGS variable,
+# d) set the NVFLAGS variable, 
 #    e.g. NVFLAGS = -O3 -g -w --std=c++11
 #    in the Makefile, the -arch will be appended with the correct compute version
-# e) specify the CUDA include path in the CXXFLAGS variable,
-#    e.g. CXXFLAGS += -I${CUDA_PATH}/include
+# e) specify the CUDA include path in the CXXFLAGS variable, 
+#    e.g. CXXFLAGS += -I${CUDA_PATH}/include 
 # f) specify the corresponding CUDA libraries in the LIBS variable,
 #    e.g. LIBS += -lstdc++ -lcudart -lnvrtc -lcuda
 #
@@ -36,22 +36,32 @@
 
 #######################################################################################
 #
-# Optional configurations:
+# Optional configuration:
 #
 # *** LIBXSMM ***
 #
 # Performance of the library can be improved on the CPU execution by using
-# the libxsmm, a library for small matrix multiplications which
+# the libxsmm, a library for small matrix multiplications which 
 # is provided by Intel: https://github.com/hfp/libxsmm/.
-# Add -D__LIBXSMM flag to the FCFLAGS variable and specify the library in the LIBS
-# variable, .e.g LIBS += -L${LIBXSMM_DIR)/lib -lxsmmf -lxsmm -ldl
+# Provide LIBXSMM_DIR or adjust the FCFLAGS variable e.g.,
+# FCFLAGS += -I${LIBXSMM_DIR}/include -D__LIBXSMM
+# and specify the library in the LIBS variable, e.g.
+# LIBS += -L${LIBXSMM_DIR}/lib -lxsmmf -lxsmm -ldl
+
+ifneq (,$(LIBXSMM_DIR))
+  FCFLAGS += -I${LIBXSMM_DIR}/include -D__LIBXSMM
+  LIBS += -L${LIBXSMM_DIR}/lib -lxsmmf -lxsmm -ldl
+endif
+
+#######################################################################################
 #
+# Optional configuration:
 #
 # *** CUBLAS ***
 #
-# For multiplications of dense matrices, it can be beneficial to "densify" the matrices
+# For multiplications of dense matrices, it can be beneficial to "densify" the matrices 
 # and then use DGEMM for the local multiplication. This is the default behavior for the
-# CPU execution, while it requires to link CUBLAS for the GPU execution
+# CPU execution, while it requires to link CUBLAS for the GPU execution 
 # (LIBS += -lcublas) and to specify the macro -D__DBCSR_ACC=2 in the FCFLAGS and NVFLAGS
 # variables.
 #
@@ -65,27 +75,50 @@
 # LD  => Linker, e.g. gfortran or mpifort
 # AR  => Archive command, e.g. ar -r
 
-CC          = gcc
-CXX         = g++
-FC          = mpif90
-LD          = mpif90
-AR          = ar -r
+ifneq (0,$(MPI))
+  ifneq (0,$(GNU)) # DEFAULT, just edit...
+    CXX = mpigxx
+    CC  = mpigcc
+    FC  = mpif90
+    LD  = mpif90
+    AR  = gcc-ar -r
+    # flags
+    CXXFLAGS += -std=c++11
+    FCFLAGS  += -fopenmp -ffree-form -fimplicit-none -ffree-line-length-512
+    OPTFLAGS += -O3 -g -fno-omit-frame-pointer -funroll-loops
+  else
+    CXX = mpiicpc
+    CC  = mpiicc
+    FC  = mpiifort
+    LD  = mpiifort
+    AR  = xiar -r
+    # flags
+    CXXFLAGS += -std=c++11
+    FCFLAGS  += -fopenmp -free
+    OPTFLAGS += -O2 -g
+  endif
+else # no MPI
+  CXX = g++
+  CC  = gcc
+  FC  = gfortran
+  LD  = gfortran
+  AR  = ar -r
+  # flags
+  CXXFLAGS += -std=c++11
+  FCFLAGS  += -fopenmp -std=f2003 -ffree-form -fimplicit-none -ffree-line-length-512
+  OPTFLAGS += -O3 -g -fno-omit-frame-pointer -funroll-loops
+endif
 
 #######################################################################################
 #
 # Corresponding command flags.
 # Note the -fopenmp flag to have OpenMP parallelization.
-DEBFLAGS = -march=native -fno-omit-frame-pointer -g -mno-avx -mno-avx2
-OPTFLAGS = -O0 -funroll-loops -ffast-math
 
-FLAGS = $(OPTFLAGS) $(DEBFLAGS)
-
-
-CFLAGS      = $(FLAGS)
-CXXFLAGS    = $(FLAGS) -std=c++11
-FCFLAGS     = $(FLAGS) \
-              -std=f2003 -ffree-form -fimplicit-none -ffree-line-length-512
-LDFLAGS     = $(FCFLAGS)
+OPTFLAGS    += 
+CFLAGS      += $(OPTFLAGS)
+CXXFLAGS    += $(OPTFLAGS)
+FCFLAGS     += $(OPTFLAGS)
+LDFLAGS     += $(FCFLAGS)
 
 #######################################################################################
 #
@@ -99,14 +132,15 @@ endif
 #
 # Macro for MPI parallelization.
 
-FCFLAGS    += -D__parallel
+ifneq (0,$(MPI))
+FCFLAGS += -D__parallel
+endif
 
 #######################################################################################
 #
 # Minimal external libraries, i.e. BLAS and LAPACK.
 
-#LIBS        = -L${LAPACK_PATH}/lib -llapack -lblas
-LIBS        = -L'/sw/build/openSUSE/13.1/tool/toolchain_ompi_r18242/install/scalapack-2.0.2/lib' -L'/sw/build/openSUSE/13.1/tool/toolchain_ompi_r18242/install/openblas-0.2.20/lib' -lscalapack -lopenblas
+LIBS        = -L${LAPACK_PATH}/lib -llapack -lblas
 
 #######################################################################################
 #
@@ -131,6 +165,7 @@ endif
 # We do not simply use -Wall since some warnings for Fortran are misleading.
 # For the checks use `make CHECKS=1` to enable them.
 
+ifneq (0,$(GNU))
 WFLAGS      = -Werror=aliasing -Werror=ampersand -Werror=c-binding-type \
               -Werror=intrinsic-shadow -Werror=intrinsics-std \
               -Werror=line-truncation \
@@ -141,6 +176,8 @@ WFLAGS      = -Werror=aliasing -Werror=ampersand -Werror=c-binding-type \
               -Werror=zerotrip \
               -Werror=uninitialized -Wno-maybe-uninitialized -Wuse-without-only \
               -Werror
+endif
+
 FCFLAGS    += $(WFLAGS)
 
 ifneq ($(CHECKS),)
