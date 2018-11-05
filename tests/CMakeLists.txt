@@ -13,8 +13,7 @@ endif ()
 
 set(DBCSR_PERF_SRCS
   dbcsr_performance_driver.F
-  dbcsr_performance_multiply.F
-  dbcsr_rectangular_benchmark.F)
+  dbcsr_performance_multiply.F)
 add_executable(dbcsr_perf ${DBCSR_PERF_SRCS})
 target_link_libraries(dbcsr_perf dbcsr)
 
@@ -37,7 +36,6 @@ set(DBCSR_TESTS
   dbcsr_unittest2
   dbcsr_tensor_unittest
   dbcsr_test_csr_conversions
-  dbcsr_rectangular_unittest
   )
 
 # Common object files linked to all tests
@@ -52,20 +50,11 @@ set(dbcsr_unittest2_SRCS dbcsr_unittest2.F)
 set(dbcsr_tensor_unittest_SRCS dbcsr_tensor_unittest.F)
 set(dbcsr_test_csr_conversions_SRCS dbcsr_test_csr_conversions.F)
 
-<<<<<<< HEAD
-set(dbcsr_tensor_unittest_SRCS
-  dbcsr_tensor_unittest.F)
-set(dbcsr_test_csr_conversions_SRCS
-  dbcsr_test_csr_conversions.F)
-set(dbcsr_rectangular_unittest_SRCS
-  dbcsr_rectangular_unittest.F)
-=======
 # instead of building a full-blown lib, it would be better to simply build an OBJECT lib,
 # but we would need cmake 3.12 to be able to specify target_link_libraries on those to get
 # the proper compile flags
 add_library(dbcsr_unittest_common STATIC ${dbcsr_unittest_common_SRCS})
 target_link_libraries(dbcsr_unittest_common dbcsr)
->>>>>>> upstream/develop
 
 foreach (dbcsr_test ${DBCSR_TESTS})
   add_executable(${dbcsr_test} ${${dbcsr_test}_SRCS})
