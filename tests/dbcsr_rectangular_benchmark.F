@@ -31,7 +31,7 @@ PROGRAM dbcsr_rectangular_benchmark
 
    IMPLICIT NONE
 
-   INTEGER(KIND=int_8), PARAMETER :: dmin = 100, dmax = 10000
+   INTEGER(KIND=int_8), PARAMETER :: dmin = 100, dmax = 100000
    REAL(KIND=real_8), PARAMETER :: sparsity = 0.1
 
    INTEGER, DIMENSION(dmax) :: bsize_max
@@ -39,7 +39,7 @@ PROGRAM dbcsr_rectangular_benchmark
    TYPE(dbcsr_r_type) :: A, B, C
    INTEGER :: io_unit, mp_comm, mynode, mp_comm_cart, mp_comm_cart_, numnodes
    INTEGER, DIMENSION(2) :: pcoord, pdims
-   LOGICAL, PARAMETER :: compare_dbcsr = .FALSE.
+   LOGICAL, PARAMETER :: compare_dbcsr = .TRUE.
    TYPE(dbcsr_mp_obj)            :: mp_env
 
    !mp_collect_timings = .TRUE.
