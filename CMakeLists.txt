@@ -9,7 +9,7 @@ include(CMakeDependentOption)
 
 option(USE_MPI "Build with MPI support" ON)
 option(USE_OPENMP "Build with OpenMP support" ON)
-option(WITH_C_API "Build the C API library" ON)
+cmake_dependent_option(WITH_C_API "Build the C API (ISO_C_BINDINGS)" ON "USE_MPI" OFF) # the ISO_C_BINDINGS require MPI unconditionally
 cmake_dependent_option(WITH_EXAMPLES "Build the examples" ON "USE_MPI" OFF) # all examples require MPI
 
 set(TEST_MPI_RANKS "auto" CACHE STRING "Number of MPI ranks for testing")
@@ -84,9 +84,6 @@ endif ()
 
 get_filename_component(Fortran_COMPILER_NAME ${CMAKE_Fortran_COMPILER} NAME)
 
-set(CMAKE_CXX_FLAGS "${OpenMP_CXX_FLAGS}")
-set(CMAKE_Fortran_FLAGS "${OpenMP_Fortran_FLAGS}")
-
 if (Fortran_COMPILER_NAME MATCHES "gfortran.*")
   set(CMAKE_CXX_FLAGS_RELEASE      "-O3 -funroll-loops")
   set(CMAKE_CXX_FLAGS_COVERAGE     "-O0 -fprofile-arcs -ftest-coverage")
@@ -112,18 +109,6 @@ else ()
   set(CMAKE_Fortran_FLAGS_DEBUG    "-O0 -g")
 endif ()
 
-if (APPLE)
-  # fix /proc/self/statm can not be opened on macOS
-  add_definitions(-D__NO_STATM_ACCESS)
-endif()
-
-add_subdirectory(src)
-add_subdirectory(tests)
-
-if (WITH_EXAMPLES)
-  add_subdirectory(examples)
-endif ()
-
 file(STRINGS VERSION VERSION_INFO)
 foreach(line ${VERSION_INFO})
   if (${line} MATCHES "^([^#].*)=[ \t]*(.*)$")
@@ -135,6 +120,13 @@ foreach(line ${VERSION_INFO})
     continue ()
   endif ()
 endforeach()
+
+add_subdirectory(src)
+add_subdirectory(tests)
+
+if (WITH_EXAMPLES)
+  add_subdirectory(examples)
+endif ()
 
 set(ARCHIVE_NAME "${CMAKE_PROJECT_NAME}-${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_PATCH}")
 add_custom_target(dist
