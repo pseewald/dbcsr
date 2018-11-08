@@ -67,6 +67,7 @@ MODULE dbcsr_tensor
    USE dbcsr_toollib,                   ONLY: sort
    USE dbcsr_tensor_reshape,            ONLY: dbcsr_t_reshape
    USE dbcsr_io,                        ONLY: dbcsr_print ! debug
+   USE dbcsr_rectangular_test,          ONLY: dbcsr_r_test_mm
 
 #include "base/dbcsr_base_uses.f90"
 
@@ -340,9 +341,12 @@ CONTAINS
       CALL dbcsr_t_destroy(tensor_tmp_1)
       CALL dbcsr_t_destroy(tensor_tmp_2)
 
-      CALL dbcsr_r_multiply(trans_1, trans_2, trans_3, dbcsr_scalar(1.0_real_8), &
-                            tensor_contr_1%matrix_rep, tensor_contr_2%matrix_rep, &
-                            tensor_contr_3%matrix_rep)
+      !CALL dbcsr_r_multiply(trans_1, trans_2, trans_3, dbcsr_scalar(1.0_real_8), &
+      !                      tensor_contr_1%matrix_rep, tensor_contr_2%matrix_rep, &
+      !                      tensor_contr_3%matrix_rep)
+
+      CALL dbcsr_r_test_mm(trans_1, trans_2, trans_3, tensor_contr_1%matrix_rep, tensor_contr_2%matrix_rep, &
+                            tensor_contr_3%matrix_rep, 6)
 
       IF(new_3) THEN
          ! need redistribute if we created new tensor for tensor 3
