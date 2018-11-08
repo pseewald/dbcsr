@@ -12,7 +12,7 @@ MODULE dbcsr_rectangular_test
    USE dbcsr_data_methods,              ONLY: dbcsr_scalar
    USE dbcsr_methods,                   ONLY: dbcsr_release, dbcsr_nblkcols_total, dbcsr_nblkrows_total,&
                                               dbcsr_row_block_sizes, dbcsr_col_block_sizes, &
-                                              dbcsr_get_nze
+                                              dbcsr_get_nze, dbcsr_mp_release, dbcsr_distribution_release
    USE dbcsr_multiply_api,              ONLY: dbcsr_multiply
    USE dbcsr_rectangular_base,          ONLY: &
         dbcsr_r_convert_to_dbcsr, dbcsr_r_create, dbcsr_r_destroy, dbcsr_r_distribution_new, &
@@ -29,11 +29,12 @@ MODULE dbcsr_rectangular_test
                                               dbcsr_no_transpose, dbcsr_transpose, dbcsr_type_no_symmetry
    USE dbcsr_kinds,                           ONLY: int_8,&
                                               real_8
-   USE dbcsr_mpiwrap,                 ONLY: mp_environ
+   USE dbcsr_mpiwrap,                 ONLY: mp_environ, mp_cart_create, mp_comm_free
    USE dbcsr_dist_methods,            ONLY: dbcsr_distribution_new
-   USE dbcsr_work_operations,         ONLY: dbcsr_create
+   USE dbcsr_work_operations,         ONLY: dbcsr_create, dbcsr_finalize
    USE dbcsr_dist_util,             ONLY: dbcsr_checksum
-   USE dbcsr_operations,            ONLY: dbcsr_frobenius_norm
+   USE dbcsr_operations,            ONLY: dbcsr_frobenius_norm, dbcsr_add
+   USE dbcsr_transformations,       ONLY: dbcsr_complete_redistribute
 #include "../base/dbcsr_base_uses.f90"
 
    IMPLICIT NONE
@@ -319,6 +320,39 @@ CONTAINS
          size_i = MOD((d-1)/repeat, SIZE(sizes))+1
          block_sizes(d) = sizes(size_i)
       ENDDO
+   END SUBROUTINE
+
+! **************************************************************************************************
+!> \brief ...
+!> \param dist_array ...
+!> \param dist_size ...
+!> \param nbins ...
+! **************************************************************************************************
+   SUBROUTINE random_dist(dist_array, dist_size, nbins)
+      INTEGER, DIMENSION(:), INTENT(out), POINTER        :: dist_array
+      INTEGER, INTENT(in)                                :: dist_size, nbins
+
+      INTEGER                                            :: i
+
+      ALLOCATE (dist_array(dist_size))
+      DO i = 1, dist_size
+         dist_array(i) = MODULO(nbins-i, nbins)
+      END DO
+
+   END SUBROUTINE random_dist
+
+! **************************************************************************************************
+!> \brief ...
+!> \param trans_flag ...
+! **************************************************************************************************
+   SUBROUTINE invert_transpose_flag(trans_flag)
+      CHARACTER(LEN=1), INTENT(INOUT)                    :: trans_flag
+
+      IF (trans_flag == dbcsr_transpose) THEN
+         trans_flag = dbcsr_no_transpose
+      ELSEIF (trans_flag == dbcsr_no_transpose) THEN
+         trans_flag = dbcsr_transpose
+      ENDIF
    END SUBROUTINE
 
 END MODULE

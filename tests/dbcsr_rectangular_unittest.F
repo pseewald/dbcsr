@@ -170,40 +170,4 @@ PROGRAM dbcsr_rectangular_unittest
 
    CALL mp_world_finalize()
 
-CONTAINS
-
-
-! **************************************************************************************************
-!> \brief ...
-!> \param trans_flag ...
-! **************************************************************************************************
-   SUBROUTINE invert_transpose_flag(trans_flag)
-      CHARACTER(LEN=1), INTENT(INOUT)                    :: trans_flag
-
-      IF (trans_flag == dbcsr_transpose) THEN
-         trans_flag = dbcsr_no_transpose
-      ELSEIF (trans_flag == dbcsr_no_transpose) THEN
-         trans_flag = dbcsr_transpose
-      ENDIF
-   END SUBROUTINE
-
-! **************************************************************************************************
-!> \brief ...
-!> \param dist_array ...
-!> \param dist_size ...
-!> \param nbins ...
-! **************************************************************************************************
-   SUBROUTINE random_dist(dist_array, dist_size, nbins)
-      INTEGER, DIMENSION(:), INTENT(out), POINTER        :: dist_array
-      INTEGER, INTENT(in)                                :: dist_size, nbins
-
-      INTEGER                                            :: i
-
-      ALLOCATE (dist_array(dist_size))
-      DO i = 1, dist_size
-         dist_array(i) = MODULO(nbins-i, nbins)
-      END DO
-
-   END SUBROUTINE random_dist
-
 END PROGRAM
