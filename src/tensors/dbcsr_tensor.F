@@ -291,6 +291,7 @@ CONTAINS
          trans_1 = trans; trans_3 = trans
 
          CALL reshape_mm_small(tensor_tmp_2, contract_2_mod, notcontract_2_mod, tensor_contr_2, trans_2)
+         PRINT *, "trans after reshape small case 1", trans_2
 
       CASE(2)
 
@@ -345,6 +346,7 @@ CONTAINS
       !                      tensor_contr_1%matrix_rep, tensor_contr_2%matrix_rep, &
       !                      tensor_contr_3%matrix_rep)
 
+      PRINT *, "transpose flags", trans_1, trans_2, trans_3
       CALL dbcsr_r_test_mm(trans_1, trans_2, trans_3, tensor_contr_1%matrix_rep, tensor_contr_2%matrix_rep, &
                             tensor_contr_3%matrix_rep, 6)
 
