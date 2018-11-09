@@ -296,9 +296,9 @@ CONTAINS
 
          CALL reshape_mm_compatible(tensor_tmp_1, tensor_tmp_3, tensor_contr_1, tensor_contr_3, &
                                     contract_1_mod, notcontract_1_mod, map_2_mod, map_1_mod, &
-                                    trans, nodata2=.TRUE., new2=new_3)
+                                    trans_1, trans_3, nodata2=.TRUE., new2=new_3)
 
-         trans_1 = trans; trans_3 = trans
+         !trans_1 = trans; trans_3 = trans
 
          CALL reshape_mm_small(tensor_tmp_2, contract_2_mod, notcontract_2_mod, tensor_contr_2, trans_2)
          PRINT *, "trans after reshape small case 1", trans_2
@@ -318,8 +318,7 @@ CONTAINS
 
          CALL reshape_mm_compatible(tensor_tmp_1, tensor_tmp_2, tensor_contr_1, tensor_contr_2, &
                                     notcontract_1_mod, contract_1_mod, notcontract_2_mod, contract_2_mod, &
-                                    trans)
-         trans_1 = trans; trans_2 = trans
+                                    trans_1, trans_2)
          CALL invert_transpose_flag(trans_1)
 
          CALL reshape_mm_small(tensor_tmp_3, map_1_mod, map_2_mod, tensor_contr_3, trans_3, nodata=.TRUE., new=new_3)
@@ -339,8 +338,7 @@ CONTAINS
 
          CALL reshape_mm_compatible(tensor_tmp_2, tensor_tmp_3, tensor_contr_2, tensor_contr_3, &
                                     contract_2_mod, notcontract_2_mod, map_1_mod, map_2_mod, &
-                                    trans, nodata2=.TRUE., new2=new_3)
-         trans_2 = trans; trans_3 = trans
+                                    trans_2, trans_3, nodata2=.TRUE., new2=new_3)
 
          CALL invert_transpose_flag(trans_2)
          CALL invert_transpose_flag(trans_3)
@@ -413,16 +411,17 @@ CONTAINS
 !> \param notcontract ...
 !> \param contract_index ...
 !> \param tensor_out ...
-!> \param trans 'N' if tensors out have format (ind linked, ind free), 'T' otherwise
+!> \param trans1 'N' if tensor 1 out has format (ind linked, ind free), 'T' otherwise
+!> \param trans2 'N' if tensor 2 out has format (ind linked, ind free), 'T' otherwise
 ! **************************************************************************************************
       SUBROUTINE reshape_mm_compatible(tensor1, tensor2, tensor1_out, tensor2_out, ind1_free, ind1_linked, &
-                                       ind2_free, ind2_linked, trans, nodata1, nodata2, new1, new2)
+                                       ind2_free, ind2_linked, trans1, trans2, nodata1, nodata2, new1, new2)
          TYPE(dbcsr_t_type), INTENT(INOUT)           :: tensor1
          TYPE(dbcsr_t_type), INTENT(INOUT)           :: tensor2
          TYPE(dbcsr_t_type), INTENT(OUT)             :: tensor1_out, tensor2_out
          INTEGER, DIMENSION(:), INTENT(IN)           :: ind1_free, ind2_free
          INTEGER, DIMENSION(:), INTENT(IN)           :: ind1_linked, ind2_linked
-         CHARACTER(LEN=1), INTENT(OUT)               :: trans
+         CHARACTER(LEN=1), INTENT(OUT)               :: trans1, trans2
          LOGICAL, INTENT(IN), OPTIONAL               :: nodata1, nodata2
          LOGICAL, INTENT(OUT), OPTIONAL              :: new1, new2
          INTEGER                                     :: ref_tensor, compat1, compat2
@@ -506,9 +505,18 @@ CONTAINS
 
          SELECT CASE(compat1)
          CASE(1)
-            trans = dbcsr_no_transpose
+            trans1 = dbcsr_no_transpose
          CASE(2)
-            trans = dbcsr_transpose
+            trans1 = dbcsr_transpose
+         CASE DEFAULT
+            DBCSR_ABORT("should not happen")
+         END SELECT
+
+         SELECT CASE(compat2)
+         CASE(1)
+            trans2 = dbcsr_no_transpose
+         CASE(2)
+            trans2 = dbcsr_transpose
          CASE DEFAULT
             DBCSR_ABORT("should not happen")
          END SELECT
