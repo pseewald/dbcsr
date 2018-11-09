@@ -266,9 +266,19 @@ CONTAINS
       CALL blk_dims_tensor(tensor_1, dims1)
       CALL blk_dims_tensor(tensor_2, dims2)
       CALL blk_dims_tensor(tensor_3, dims3)
+      print *, "dims1", dims1
+      print *, "dims2", dims2
+      print *, "dims3", dims3
+      print *, "notcontract_1", notcontract_1
+      print *, "contract_1", contract_1
+      print *, "notcontract_2", notcontract_2
+      print *, "contract_2", contract_2
 
       max_mm_dim = MAXLOC([PRODUCT(dims1(notcontract_1)), PRODUCT(dims1(contract_1)), PRODUCT(dims2(notcontract_2))], DIM=1)
       max_tensor = MAXLOC([PRODUCT(dims1), PRODUCT(dims2), PRODUCT(dims3)], DIM=1)
+
+      print *, "max mm dim", max_mm_dim
+      print *, "max tensor", max_tensor
 
       SELECT CASE(max_mm_dim)
       CASE(1)
