@@ -42,6 +42,7 @@ MODULE dbcsr_tensor_test
    USE dbcsr_allocate_wrap,             ONLY: allocate_any
    USE dbcsr_tensor_index,              ONLY: combine_index, &
                                               get_mapping_info
+   USE dbcsr_rectangular_test,          ONLY: dbcsr_r_checksum
 #include "base/dbcsr_base_uses.f90"
 
    IMPLICIT NONE
@@ -777,6 +778,11 @@ CONTAINS
       io_unit = 0
       IF (mynode .EQ. 0) io_unit = unit_nr
 
+      IF(io_unit > 0) THEN
+         WRITE(io_unit, *) "checksum", TRIM(tensor_1%name), dbcsr_t_checksum(tensor_1)
+         WRITE(io_unit, *) "checksum", TRIM(tensor_2%name), dbcsr_t_checksum(tensor_2)
+      ENDIF
+
       IF (debug) THEN
          CALL write_tensor_block_indices(tensor_1, io_unit, unit_nr)
          CALL write_tensor_blocks(tensor_1, io_unit, unit_nr, write_int)
@@ -794,6 +800,10 @@ CONTAINS
                             contract_1, notcontract_1, &
                             contract_2, notcontract_2, &
                             map_1, map_2)
+
+      IF(io_unit > 0) THEN
+         WRITE(io_unit, *) "checksum", TRIM(tensor_3%name), dbcsr_t_checksum(tensor_3)
+      ENDIF
 
       ! Convert tensors to simple multidimensional arrays
 #:for i in range(1,4)
@@ -897,6 +907,13 @@ CONTAINS
       INTEGER, DIMENSION(2)             :: sizes_2d
       sizes_2d(1) = PRODUCT(nd_sizes(map1))
       sizes_2d(2) = PRODUCT(nd_sizes(map2))
+   END FUNCTION
+
+   FUNCTION dbcsr_t_checksum(tensor, local, pos)
+      TYPE(dbcsr_t_type), INTENT(IN) :: tensor
+      REAL(KIND=real_8) :: dbcsr_t_checksum
+      LOGICAL, INTENT(IN), OPTIONAL     :: local, pos
+      dbcsr_t_checksum = dbcsr_r_checksum(tensor%matrix_rep, local, pos)
    END FUNCTION
 
 END MODULE

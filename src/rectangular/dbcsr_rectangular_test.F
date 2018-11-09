@@ -40,7 +40,8 @@ MODULE dbcsr_rectangular_test
    IMPLICIT NONE
    PRIVATE
 
-   PUBLIC :: dbcsr_r_setup_test_matrix, dbcsr_r_random_bsizes, dbcsr_r_benchmark_mm, dbcsr_r_test_mm
+   PUBLIC :: dbcsr_r_setup_test_matrix, dbcsr_r_random_bsizes, dbcsr_r_benchmark_mm, dbcsr_r_test_mm,&
+             dbcsr_r_checksum
 
 CONTAINS
 ! **************************************************************************************************
@@ -206,7 +207,16 @@ CONTAINS
       io_unit = 0
       IF (mynode .EQ. 0) io_unit = unit_nr
 
+      IF(io_unit > 0) THEN
+         WRITE(io_unit, *) "checksum", TRIM(matrix_a%matrix%name), dbcsr_r_checksum(matrix_a)
+         WRITE(io_unit, *) "checksum", TRIM(matrix_b%matrix%name), dbcsr_r_checksum(matrix_b)
+      ENDIF
+
       CALL dbcsr_r_multiply(transa, transb, transc, dbcsr_scalar(1.0_real_8), matrix_a, matrix_b, matrix_c)
+
+      IF(io_unit > 0) THEN
+         WRITE(io_unit, *) "checksum", TRIM(matrix_c%matrix%name), dbcsr_r_checksum(matrix_c)
+      ENDIF
 
       CALL dbcsr_r_convert_to_dbcsr(matrix_a, dbcsr_a)
       CALL dbcsr_r_convert_to_dbcsr(matrix_b, dbcsr_b)
@@ -301,6 +311,17 @@ CONTAINS
       CALL mp_comm_free(comm_dbcsr)
 
    END SUBROUTINE
+
+   FUNCTION dbcsr_r_checksum(matrix, local, pos)
+      TYPE(dbcsr_r_type), INTENT(IN) :: matrix
+      LOGICAL, INTENT(IN), OPTIONAL     :: local, pos
+      TYPE(dbcsr_type)                  :: dbcsr_m
+      REAL(KIND=real_8)                 :: dbcsr_r_checksum
+
+      CALL dbcsr_r_convert_to_dbcsr(matrix, dbcsr_m)
+      dbcsr_r_checksum = dbcsr_checksum(matrix%matrix, local, pos)
+      CALL dbcsr_release(dbcsr_m)
+   END FUNCTION
 
 
 ! **************************************************************************************************
