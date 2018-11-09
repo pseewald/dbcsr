@@ -201,21 +201,26 @@ CONTAINS
                                                             dbcsr_b_mm, dbcsr_c, dbcsr_c_mm, &
                                                             dbcsr_c_mm_check
       REAL(KIND=real_8), PARAMETER :: test_tol = 1.0E-10_real_8
+      REAL(KIND=real_8) :: cs_a, cs_b, cs_c
 
       CALL dbcsr_r_get_split_info(dbcsr_r_info(matrix_a), mp_comm=mp_comm)
       CALL mp_environ(numnodes, mynode, mp_comm)
       io_unit = 0
       IF (mynode .EQ. 0) io_unit = unit_nr
 
+      cs_a = dbcsr_r_checksum(matrix_a)
+      cs_b = dbcsr_r_checksum(matrix_b)
       IF(io_unit > 0) THEN
-         WRITE(io_unit, *) "checksum", TRIM(matrix_a%matrix%name), dbcsr_r_checksum(matrix_a)
-         WRITE(io_unit, *) "checksum", TRIM(matrix_b%matrix%name), dbcsr_r_checksum(matrix_b)
+         WRITE(io_unit, *) "checksum r", TRIM(matrix_a%matrix%name), cs_a ! checksum ok
+         WRITE(io_unit, *) "checksum r", TRIM(matrix_b%matrix%name), cs_b ! checksum ok
       ENDIF
 
       CALL dbcsr_r_multiply(transa, transb, transc, dbcsr_scalar(1.0_real_8), matrix_a, matrix_b, matrix_c)
 
+      cs_c = dbcsr_r_checksum(matrix_c)
+
       IF(io_unit > 0) THEN
-         WRITE(io_unit, *) "checksum", TRIM(matrix_c%matrix%name), dbcsr_r_checksum(matrix_c)
+         WRITE(io_unit, *) "checksum r", TRIM(matrix_c%matrix%name), cs_c ! checksum bad
       ENDIF
 
       CALL dbcsr_r_convert_to_dbcsr(matrix_a, dbcsr_a)
@@ -264,6 +269,7 @@ CONTAINS
       CALL dbcsr_complete_redistribute(dbcsr_c, dbcsr_c_mm_check)
 
       transa_prv = transa; transb_prv = transb
+      !CALL invert_transpose_flag(transb_prv)
 
       IF (transc == dbcsr_no_transpose) THEN
          CALL dbcsr_multiply(transa_prv, transb_prv, dbcsr_scalar(1.0_real_8), &
@@ -319,7 +325,7 @@ CONTAINS
       REAL(KIND=real_8)                 :: dbcsr_r_checksum
 
       CALL dbcsr_r_convert_to_dbcsr(matrix, dbcsr_m)
-      dbcsr_r_checksum = dbcsr_checksum(matrix%matrix, local, pos)
+      dbcsr_r_checksum = dbcsr_checksum(dbcsr_m, local, pos)
       CALL dbcsr_release(dbcsr_m)
    END FUNCTION
 

@@ -772,15 +772,18 @@ CONTAINS
                                              array_3_test_mm
       LOGICAL                             :: eql, notzero
       LOGICAL, PARAMETER                  :: debug = .FALSE.
+      REAL(KIND=real_8)                   :: cs_1, cs_2, cs_3
 
       mp_comm = tensor_1%comm_2d
       CALL mp_environ(numnodes, mynode, mp_comm)
       io_unit = 0
       IF (mynode .EQ. 0) io_unit = unit_nr
 
+      cs_1 = dbcsr_t_checksum(tensor_1)
+      cs_2 = dbcsr_t_checksum(tensor_2)
       IF(io_unit > 0) THEN
-         WRITE(io_unit, *) "checksum", TRIM(tensor_1%name), dbcsr_t_checksum(tensor_1)
-         WRITE(io_unit, *) "checksum", TRIM(tensor_2%name), dbcsr_t_checksum(tensor_2)
+         WRITE(io_unit, *) "checksum t", TRIM(tensor_1%name), cs_1
+         WRITE(io_unit, *) "checksum t", TRIM(tensor_2%name), cs_2
       ENDIF
 
       IF (debug) THEN
@@ -801,8 +804,9 @@ CONTAINS
                             contract_2, notcontract_2, &
                             map_1, map_2)
 
+      cs_3 = dbcsr_t_checksum(tensor_3)
       IF(io_unit > 0) THEN
-         WRITE(io_unit, *) "checksum", TRIM(tensor_3%name), dbcsr_t_checksum(tensor_3)
+         WRITE(io_unit, *) "checksum t", TRIM(tensor_3%name), cs_3
       ENDIF
 
       ! Convert tensors to simple multidimensional arrays
