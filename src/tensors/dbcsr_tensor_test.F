@@ -771,7 +771,7 @@ CONTAINS
                                              array_3_mm, &
                                              array_3_test_mm
       LOGICAL                             :: eql, notzero
-      LOGICAL, PARAMETER                  :: debug = .TRUE.
+      LOGICAL, PARAMETER                  :: debug = .FALSE.
 
       mp_comm = tensor_1%comm_2d
       CALL mp_environ(numnodes, mynode, mp_comm)
