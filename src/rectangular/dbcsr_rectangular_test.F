@@ -153,7 +153,13 @@ CONTAINS
       LOGICAL, INTENT(IN) :: compare_dbcsr
 
       INTEGER                                            :: handle1, handle2
-      TYPE(dbcsr_type)                                   :: dbcsr_a, dbcsr_b, dbcsr_c
+      TYPE(dbcsr_type)                                   :: dbcsr_a, dbcsr_b, dbcsr_c, &
+                                                            dbcsr_a_mm, dbcsr_b_mm, dbcsr_c_mm
+      INTEGER                                            :: mp_comm, comm_dbcsr
+      TYPE(dbcsr_distribution_obj)                       :: dist_a, dist_b, dist_c
+      INTEGER, DIMENSION(2)                              :: npdims, myploc
+      INTEGER, DIMENSION(:), POINTER                     :: cd_a, cd_b, cd_c, rd_a, rd_b, rd_c
+      TYPE(dbcsr_mp_obj)                                 :: mp_environ_tmp
 
       CALL timeset("benchmark_rectangular_mm", handle1)
       CALL dbcsr_r_multiply(transa, transb, transc, dbcsr_scalar(1.0_real_8), matrix_a, matrix_b, matrix_c, io_unit=io_unit)
@@ -164,14 +170,56 @@ CONTAINS
          CALL dbcsr_r_convert_to_dbcsr(matrix_b, dbcsr_b)
          CALL dbcsr_r_convert_to_dbcsr(matrix_c, dbcsr_c)
 
+         CALL dbcsr_r_get_split_info(dbcsr_r_info(matrix_a), mp_comm=mp_comm)
+         npdims(:) = 0
+         CALL mp_cart_create(mp_comm, 2, npdims, myploc, comm_dbcsr)
+
+         CALL random_dist(rd_a, dbcsr_nblkrows_total(dbcsr_a), npdims(1))
+         CALL random_dist(cd_a, dbcsr_nblkcols_total(dbcsr_a), npdims(2))
+         CALL random_dist(rd_b, dbcsr_nblkrows_total(dbcsr_b), npdims(1))
+         CALL random_dist(cd_b, dbcsr_nblkcols_total(dbcsr_b), npdims(2))
+         CALL random_dist(rd_c, dbcsr_nblkrows_total(dbcsr_c), npdims(1))
+         CALL random_dist(cd_c, dbcsr_nblkcols_total(dbcsr_c), npdims(2))
+
+         mp_environ_tmp = dbcsr_mp_environ(comm_dbcsr)
+         CALL dbcsr_distribution_new(dist_a, mp_environ_tmp, rd_a, cd_a, reuse_arrays=.TRUE.)
+         CALL dbcsr_distribution_new(dist_b, mp_environ_tmp, rd_b, cd_b, reuse_arrays=.TRUE.)
+         CALL dbcsr_distribution_new(dist_c, mp_environ_tmp, rd_c, cd_c, reuse_arrays=.TRUE.)
+         CALL dbcsr_mp_release(mp_environ_tmp)
+
+         CALL dbcsr_create(matrix=dbcsr_a_mm, name=dbcsr_a%name, dist=dist_a, matrix_type=dbcsr_type_no_symmetry, &
+                           row_blk_size=dbcsr_row_block_sizes(dbcsr_a), col_blk_size=dbcsr_col_block_sizes(dbcsr_a), &
+                           data_type=dbcsr_type_real_8)
+         CALL dbcsr_create(matrix=dbcsr_b_mm, name=dbcsr_b%name, dist=dist_b, matrix_type=dbcsr_type_no_symmetry, &
+                           row_blk_size=dbcsr_row_block_sizes(dbcsr_b), col_blk_size=dbcsr_col_block_sizes(dbcsr_b), &
+                           data_type=dbcsr_type_real_8)
+         CALL dbcsr_create(matrix=dbcsr_c_mm, name=dbcsr_c%name, dist=dist_c, matrix_type=dbcsr_type_no_symmetry, &
+                           row_blk_size=dbcsr_row_block_sizes(dbcsr_c), col_blk_size=dbcsr_col_block_sizes(dbcsr_c), &
+                           data_type=dbcsr_type_real_8)
+
+         CALL dbcsr_finalize(dbcsr_a_mm)
+         CALL dbcsr_finalize(dbcsr_b_mm)
+         CALL dbcsr_finalize(dbcsr_c_mm)
+
+         CALL dbcsr_complete_redistribute(dbcsr_a, dbcsr_a_mm)
+         CALL dbcsr_complete_redistribute(dbcsr_b, dbcsr_b_mm)
+
          CALL timeset("benchmark_dbcsr_mm", handle2)
-         CALL dbcsr_multiply(transa, transb, dbcsr_scalar(1.0_real_8), dbcsr_a, dbcsr_b, &
-                             dbcsr_scalar(0.0_real_8), dbcsr_c)
+         CALL dbcsr_multiply(transa, transb, dbcsr_scalar(1.0_real_8), dbcsr_a_mm, dbcsr_b_mm, &
+                             dbcsr_scalar(0.0_real_8), dbcsr_c_mm)
          CALL timestop(handle2)
 
          CALL dbcsr_release(dbcsr_a)
          CALL dbcsr_release(dbcsr_b)
          CALL dbcsr_release(dbcsr_c)
+         CALL dbcsr_release(dbcsr_a_mm)
+         CALL dbcsr_release(dbcsr_b_mm)
+         CALL dbcsr_release(dbcsr_c_mm)
+         CALL dbcsr_distribution_release(dist_a)
+         CALL dbcsr_distribution_release(dist_b)
+         CALL dbcsr_distribution_release(dist_c)
+
+         CALL mp_comm_free(comm_dbcsr)
       ENDIF
 
    END SUBROUTINE
