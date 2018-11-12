@@ -1,3 +1,12 @@
+!--------------------------------------------------------------------------------------------------!
+! Copyright (C) by the DBCSR developers group - All rights reserved                                !
+! This file is part of the DBCSR library.                                                          !
+!                                                                                                  !
+! For information on the license, see the LICENSE file.                                            !
+! For further information please visit https://dbcsr.cp2k.org                                      !
+! SPDX-License-Identifier: GPL-2.0+                                                                !
+!--------------------------------------------------------------------------------------------------!
+
 ! Basic use statements and preprocessor macros
 ! should be included in the use statements
 
@@ -41,4 +50,7 @@
 ! Allows macro-toggles (in addition to parameters).
 #if defined(__LIBXSMM)
 #include <libxsmm_config.h>
+#if !defined(LIBXSMM_CONFIG_VERSION)
+#error LIBXSMM v1.8.2 or later is required!
+#endif
 #endif

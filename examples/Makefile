@@ -9,7 +9,7 @@ FCFLAGS    = $(FLAGS) $(INCLUDES) -fno-omit-frame-pointer \
              -funroll-loops -ffree-form -std=f2003 -fimplicit-none
 CXXFLAGS   = $(FLAGS) $(INCLUDES) -std=c++11
 LIBS       = -L$(DBCSRDIR)/lib -ldbcsr
-LIBS      += -L${SCALAPACK_PATH}/lib -lreflapack -lrefblas
+LIBS      += -L${LAPACK_PATH}/lib -llapack -lblas
 CLIBS      = $(LIBS) -lgfortran -lmpi_mpifh
 
 # Fortran examples
