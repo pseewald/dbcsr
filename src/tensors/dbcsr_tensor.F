@@ -66,8 +66,6 @@ MODULE dbcsr_tensor
    USE dbcsr_mpiwrap,                   ONLY: mp_environ
    USE dbcsr_toollib,                   ONLY: sort
    USE dbcsr_tensor_reshape,            ONLY: dbcsr_t_reshape
-   USE dbcsr_io,                        ONLY: dbcsr_print ! debug
-   USE dbcsr_rectangular_test,          ONLY: dbcsr_r_test_mm
 
 #include "base/dbcsr_base_uses.f90"
 
@@ -211,7 +209,7 @@ CONTAINS
       INTEGER, DIMENSION(SIZE(notcontract_2))        :: notcontract_2_mod
       INTEGER, DIMENSION(SIZE(map_1))                :: map_1_mod
       INTEGER, DIMENSION(SIZE(map_2))                :: map_2_mod
-      CHARACTER(LEN=1)                               :: trans_1, trans_2, trans_3, trans
+      CHARACTER(LEN=1)                               :: trans_1, trans_2, trans_3
       LOGICAL                                        :: new_3
       INTEGER, DIMENSION(:), ALLOCATABLE             :: dims1, dims2, dims3
 
@@ -266,19 +264,10 @@ CONTAINS
       CALL blk_dims_tensor(tensor_1, dims1)
       CALL blk_dims_tensor(tensor_2, dims2)
       CALL blk_dims_tensor(tensor_3, dims3)
-      print *, "dims1", dims1
-      print *, "dims2", dims2
-      print *, "dims3", dims3
-      print *, "notcontract_1", notcontract_1
-      print *, "contract_1", contract_1
-      print *, "notcontract_2", notcontract_2
-      print *, "contract_2", contract_2
 
       max_mm_dim = MAXLOC([PRODUCT(dims1(notcontract_1)), PRODUCT(dims1(contract_1)), PRODUCT(dims2(notcontract_2))], DIM=1)
       max_tensor = MAXLOC([PRODUCT(dims1), PRODUCT(dims2), PRODUCT(dims3)], DIM=1)
 
-      print *, "max mm dim", max_mm_dim
-      print *, "max tensor", max_tensor
 
       SELECT CASE(max_mm_dim)
       CASE(1)
@@ -298,10 +287,7 @@ CONTAINS
                                     contract_1_mod, notcontract_1_mod, map_2_mod, map_1_mod, &
                                     trans_1, trans_3, nodata2=.TRUE., new2=new_3)
 
-         !trans_1 = trans; trans_3 = trans
-
          CALL reshape_mm_small(tensor_tmp_2, contract_2_mod, notcontract_2_mod, tensor_contr_2, trans_2)
-         PRINT *, "trans after reshape small case 1", trans_2
 
       CASE(2)
 
@@ -350,13 +336,10 @@ CONTAINS
       CALL dbcsr_t_destroy(tensor_tmp_1)
       CALL dbcsr_t_destroy(tensor_tmp_2)
 
-      !CALL dbcsr_r_multiply(trans_1, trans_2, trans_3, dbcsr_scalar(1.0_real_8), &
-      !                      tensor_contr_1%matrix_rep, tensor_contr_2%matrix_rep, &
-      !                      tensor_contr_3%matrix_rep)
+      CALL dbcsr_r_multiply(trans_1, trans_2, trans_3, dbcsr_scalar(1.0_real_8), &
+                            tensor_contr_1%matrix_rep, tensor_contr_2%matrix_rep, &
+                            tensor_contr_3%matrix_rep)
 
-      PRINT *, "transpose flags", trans_1, trans_2, trans_3
-      CALL dbcsr_r_test_mm(trans_1, trans_2, trans_3, tensor_contr_1%matrix_rep, tensor_contr_2%matrix_rep, &
-                            tensor_contr_3%matrix_rep, 6)
 
       IF(new_3) THEN
          ! need redistribute if we created new tensor for tensor 3
