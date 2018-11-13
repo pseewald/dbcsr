@@ -11,7 +11,8 @@ PROGRAM dbcsr_rectangular_benchmark
                                               dbcsr_r_random_bsizes,&
                                               dbcsr_r_setup_test_matrix
    USE dbcsr_kinds,                           ONLY: int_8,&
-                                              real_8
+                                              real_8,&
+                                              default_string_length
    USE dbcsr_machine,                         ONLY: default_output_unit
    USE dbcsr_mpiwrap,                 ONLY: add_mp_perf_env,&
                                               mp_comm_free,&
@@ -31,19 +32,35 @@ PROGRAM dbcsr_rectangular_benchmark
 
    IMPLICIT NONE
 
-   INTEGER(KIND=int_8), PARAMETER :: dmin = 100, dmax = 100000
-   REAL(KIND=real_8), PARAMETER :: sparsity = 0.1
+   INTEGER(KIND=int_8) :: dmin, dmax, d1, d2
+   CHARACTER(len=default_string_length) :: arg
+   INTEGER :: bsize
+   REAL(KIND=real_8) :: sparsity
+   LOGICAL :: compare_dbcsr = .TRUE.
 
-   INTEGER, DIMENSION(dmax) :: bsize_max
-   INTEGER, DIMENSION(dmin) :: bsize_min
+   INTEGER, DIMENSION(:), ALLOCATABLE :: bsize_max
+   INTEGER, DIMENSION(:), ALLOCATABLE :: bsize_min
    TYPE(dbcsr_r_type) :: A, B, C
    INTEGER :: io_unit, mp_comm, mynode, mp_comm_cart, mp_comm_cart_, numnodes
    INTEGER, DIMENSION(2) :: pcoord, pdims
-   LOGICAL, PARAMETER :: compare_dbcsr = .TRUE.
    TYPE(dbcsr_mp_obj)            :: mp_env
 
    !mp_collect_timings = .TRUE.
    CALL mp_world_init(mp_comm)
+
+   CALL get_command_argument(1, arg)
+   READ(arg, *) d1
+   CALL get_command_argument(2, arg)
+   READ(arg, *) d2
+   dmax = MAX(d1, d2)
+   dmin = MIN(d1, d2)
+   CALL get_command_argument(3, arg)
+   READ(arg, *) bsize
+   CALL get_command_argument(4, arg)
+   READ(arg, *) sparsity
+   DBCSR_ASSERT(sparsity .LE. 1.0_real_8)
+   CALL get_command_argument(5, arg)
+   READ(arg, *) compare_dbcsr
 
    mp_comm_cart = dbcsr_r_mp_comm(mp_comm, dmax, dmin)
    mp_env = dbcsr_mp_environ(mp_comm_cart)
@@ -61,11 +78,22 @@ PROGRAM dbcsr_rectangular_benchmark
    io_unit = 0
    IF (mynode .EQ. 0) io_unit = default_output_unit
 
+   IF(io_unit > 0) THEN
+      WRITE(io_unit, *) "dimensions", dmax, dmin
+      WRITE(io_unit, *) "block sizes", bsize
+      WRITE(io_unit, *) "sparsity", sparsity
+      WRITE(io_unit, *) "compare with dbcsr?", compare_dbcsr
+   ENDIF
+
 
    CALL mp_environ(numnodes, pdims, pcoord, mp_comm_cart)
 
-   CALL dbcsr_r_random_bsizes([64], 1, bsize_max)
-   CALL dbcsr_r_random_bsizes([64], 1, bsize_min)
+   ALLOCATE(bsize_max(dmax))
+   ALLOCATE(bsize_min(dmin))
+   bsize_max(:) = bsize
+   bsize_min(:) = bsize
+   !CALL dbcsr_r_random_bsizes([bsize], 1, bsize_max)
+   !CALL dbcsr_r_random_bsizes([bsize], 1, bsize_min)
 
    CALL dbcsr_r_setup_test_matrix(A, mp_comm_cart_, mp_comm_cart, dmax, dmin, bsize_max, bsize_min, [5, 1], "A", &
                                   sparsity, reuse_comm=.TRUE.)
