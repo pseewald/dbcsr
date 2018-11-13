@@ -28,6 +28,7 @@ PROGRAM dbcsr_rectangular_benchmark
    USE dbcsr_timings_report,                  ONLY: cost_type_time,&
                                               timings_report_print
    USE dbcsr_rectangular_util,          ONLY: dbcsr_mp_environ
+   USE dbcsr_base_hooks,                ONLY: timeset, timestop
 #include "base/dbcsr_base_uses.f90"
 
    IMPLICIT NONE
@@ -44,6 +45,7 @@ PROGRAM dbcsr_rectangular_benchmark
    INTEGER :: io_unit, mp_comm, mynode, mp_comm_cart, mp_comm_cart_, numnodes
    INTEGER, DIMENSION(2) :: pcoord, pdims
    TYPE(dbcsr_mp_obj)            :: mp_env
+   INTEGER :: handle
 
    !mp_collect_timings = .TRUE.
    CALL mp_world_init(mp_comm)
@@ -86,6 +88,9 @@ PROGRAM dbcsr_rectangular_benchmark
    ENDIF
 
 
+   CALL timeset("dbcsr_rectangular_benchmark", handle)
+
+
    CALL mp_environ(numnodes, pdims, pcoord, mp_comm_cart)
 
    ALLOCATE(bsize_max(dmax))
@@ -107,6 +112,8 @@ PROGRAM dbcsr_rectangular_benchmark
    CALL dbcsr_r_destroy(A)
    CALL dbcsr_r_destroy(B)
    CALL dbcsr_r_destroy(C)
+
+   CALL timestop(handle)
 
    CALL dbcsr_finalize_lib(mp_comm, io_unit)
 
