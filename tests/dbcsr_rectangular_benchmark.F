@@ -67,9 +67,9 @@ PROGRAM dbcsr_rectangular_benchmark
    CALL dbcsr_r_random_bsizes([64], 1, bsize_max)
    CALL dbcsr_r_random_bsizes([64], 1, bsize_min)
 
-   CALL dbcsr_r_setup_test_matrix(A, mp_comm_cart_, mp_comm_cart, dmax, dmin, bsize_max, bsize_min, [5, 9], "A", &
+   CALL dbcsr_r_setup_test_matrix(A, mp_comm_cart_, mp_comm_cart, dmax, dmin, bsize_max, bsize_min, [5, 1], "A", &
                                   sparsity, reuse_comm=.TRUE.)
-   CALL dbcsr_r_setup_test_matrix(B, mp_comm_cart_, mp_comm_cart, dmax, dmin, bsize_max, bsize_min, [8, 7], "B", &
+   CALL dbcsr_r_setup_test_matrix(B, mp_comm_cart_, mp_comm_cart, dmax, dmin, bsize_max, bsize_min, [5, 1], "B", &
                                   sparsity, reuse_comm=.TRUE.)
    CALL dbcsr_r_setup_test_matrix(C, mp_comm_cart_, mp_comm_cart, dmin, dmin, bsize_min, bsize_min, [2, 3], "C", &
                                   sparsity, reuse_comm=.TRUE.)
