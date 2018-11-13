@@ -86,6 +86,8 @@ CONTAINS
       CHARACTER(LEN=*), PARAMETER :: routineN = 'dbcsr_r_setup_test_matrix'
       INTEGER :: handle
 
+      ! we don't reserve blocks prior to putting them, so this time is meaningless and should not
+      ! be considered in benchmark!
       CALL timeset(routineN, handle)
 
       IF (PRESENT(reuse_comm)) THEN
