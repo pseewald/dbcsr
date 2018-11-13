@@ -122,7 +122,7 @@ CONTAINS
       DO row = 1, dbcsr_r_nblkrows_total(matrix)
          DO col = 1, dbcsr_r_nblkcols_total(matrix)
             CALL RANDOM_NUMBER(rn)
-            IF (rn .GT. sparsity) THEN
+            IF (rn .LT. sparsity) THEN
                tr = .FALSE.
                row_s = row; col_s = col
                CALL dbcsr_r_get_stored_coordinates(matrix, row_s, col_s, node_holds_blk)
