@@ -274,6 +274,11 @@ CONTAINS
       TYPE(dbcsr_r_dist_cyclic) :: new_row_dist, new_col_dist
       TYPE(dbcsr_r_distribution_type) :: dist
       LOGICAL :: nodata_prv
+      CHARACTER(LEN=*), PARAMETER :: routineN = 'reshape_mm_small', &
+                                     routineP = moduleN//':'//routineN
+      INTEGER :: handle
+
+      CALL timeset(routineN, handle)
 
       IF(PRESENT(nodata)) THEN
          nodata_prv = nodata
@@ -310,6 +315,8 @@ CONTAINS
       ENDIF
       IF(.NOT. nodata_prv) CALL dbcsr_r_reshape(matrix_in, matrix_out, transposed=transposed)
 
+      CALL timestop(handle)
+
    END SUBROUTINE
 
 
@@ -321,7 +328,11 @@ CONTAINS
       LOGICAL, OPTIONAL, INTENT(IN) :: nodata1, nodata2
 
       INTEGER(KIND=int_8), DIMENSION(2) :: dims1, dims2
+      CHARACTER(LEN=*), PARAMETER :: routineN = 'reshape_mm_compatible', &
+                                     routineP = moduleN//':'//routineN
+      INTEGER :: handle
 
+      CALL timeset(routineN, handle)
       new1 = .FALSE.; new2 = .FALSE.
 
       IF (dist_compatible(matrix1_in, matrix2_in)) THEN
@@ -344,6 +355,8 @@ CONTAINS
             matrix2_out => matrix2_in
          ENDIF
       ENDIF
+
+      CALL timestop(handle)
 
    CONTAINS
 
@@ -440,8 +453,13 @@ CONTAINS
          INTEGER :: mp_comm, dim_split_template, dim_split_matrix
          LOGICAL :: nodata_prv
          INTEGER, DIMENSION(2)                              :: pcoord, pdims
-         INTEGER :: numnodes
+         INTEGER :: numnodes, handle
          LOGICAL :: transposed
+
+         CHARACTER(LEN=*), PARAMETER :: routineN = 'reshape_mm_template', &
+                                        routineP = moduleN//':'//routineN
+
+         CALL timeset(routineN, handle)
 
          IF (PRESENT(nodata)) THEN
             nodata_prv = nodata
@@ -497,6 +515,8 @@ CONTAINS
          ENDIF
 
          IF (.NOT. nodata_prv) CALL dbcsr_r_reshape(matrix_in, matrix_out, transposed=transposed)
+
+         CALL timestop(handle)
 
       END SUBROUTINE
 

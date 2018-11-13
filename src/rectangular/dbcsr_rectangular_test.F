@@ -83,6 +83,10 @@ CONTAINS
       TYPE(dbcsr_r_blk_size_arb)                         :: cbsize_obj, rbsize_obj
       TYPE(dbcsr_r_dist_cyclic)                          :: col_dist_obj, row_dist_obj
       TYPE(dbcsr_r_distribution_type)                    :: dist
+      CHARACTER(LEN=*), PARAMETER :: routineN = 'dbcsr_r_setup_test_matrix'
+      INTEGER :: handle
+
+      CALL timeset(routineN, handle)
 
       IF (PRESENT(reuse_comm)) THEN
          reuse_comm_prv = reuse_comm
@@ -135,6 +139,8 @@ CONTAINS
       ENDDO
 
       CALL dbcsr_r_finalize(matrix)
+
+      CALL timestop(handle)
 
    END SUBROUTINE
 
