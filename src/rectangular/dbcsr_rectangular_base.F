@@ -453,6 +453,8 @@ CONTAINS
       TYPE(dbcsr_mp_obj)                                 :: mp_environ_tmp
       TYPE(dbcsr_r_iterator)                             :: iter
       TYPE(dbcsr_r_split_info)                           :: info
+      INTEGER                                            :: block_number, rb_count, nblks_local
+      INTEGER, DIMENSION(:), ALLOCATABLE                 :: nz_rows, nz_cols
 
       CALL timeset(routineN, handle)
 
@@ -490,11 +492,35 @@ CONTAINS
 
       CALL dbcsr_data_init(block)
       CALL dbcsr_data_new(block, dbcsr_type_1d_to_2d(dbcsr_r_get_data_type(matrix_rect)))
+
+
+      CALL dbcsr_r_iterator_start(iter, matrix_rect)
+      nblks_local = 0
+      DO WHILE (dbcsr_r_iterator_blocks_left(iter))
+         CALL dbcsr_r_iterator_next_block(iter, row, col, block_number)
+         nblks_local = nblks_local+1
+      ENDDO
+      CALL dbcsr_r_iterator_stop(iter)
+
+      CALL dbcsr_r_iterator_start(iter, matrix_rect)
+      ALLOCATE(nz_rows(nblks_local), nz_cols(nblks_local))
+      rb_count = 0
+      DO WHILE (dbcsr_r_iterator_blocks_left(iter))
+         CALL dbcsr_r_iterator_next_block(iter, row, col, block_number)
+         rb_count = rb_count + 1
+         nz_rows(rb_count) = INT(row)
+         nz_cols(rb_count) = INT(col)
+      ENDDO
+
+      CALL dbcsr_reserve_blocks(matrix_dbcsr, nz_rows, nz_cols)
+
+      CALL dbcsr_r_iterator_stop(iter)
       CALL dbcsr_r_iterator_start(iter, matrix_rect)
       DO WHILE (dbcsr_r_iterator_blocks_left(iter))
          CALL dbcsr_r_iterator_next_block(iter, row, col, block, tr)
          CALL dbcsr_put_block(matrix_dbcsr, INT(row), INT(col), block)
       ENDDO
+
       CALL dbcsr_r_iterator_stop(iter)
       CALL dbcsr_data_clear_pointer(block)
       CALL dbcsr_data_release(block)
