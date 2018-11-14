@@ -37,6 +37,7 @@ MODULE dbcsr_tensor_reshape
                                               mp_irecv,&
                                               mp_isend,&
                                               mp_waitall
+   USE dbcsr_operations,                ONLY: dbcsr_clear
 
 
 #include "base/dbcsr_base_uses.f90"
@@ -88,6 +89,8 @@ CONTAINS
       INTEGER, DIMENSION(ndims_tensor(tensor_in))       :: blk_size, ind_nd, index
 
       IF (tensor_out%valid) THEN
+
+         CALL dbcsr_clear(tensor_out%matrix_rep%matrix)
 
          mp_comm = tensor_in%comm_2d
          CALL mp_environ(numnodes, mynode, mp_comm)

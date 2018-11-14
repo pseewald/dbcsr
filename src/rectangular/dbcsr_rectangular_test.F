@@ -33,7 +33,7 @@ MODULE dbcsr_rectangular_test
    USE dbcsr_dist_methods,            ONLY: dbcsr_distribution_new
    USE dbcsr_work_operations,         ONLY: dbcsr_create, dbcsr_finalize
    USE dbcsr_dist_util,             ONLY: dbcsr_checksum
-   USE dbcsr_operations,            ONLY: dbcsr_frobenius_norm, dbcsr_add
+   USE dbcsr_operations,            ONLY: dbcsr_maxabs, dbcsr_add
    USE dbcsr_transformations,       ONLY: dbcsr_complete_redistribute
 #include "../base/dbcsr_base_uses.f90"
 
@@ -271,7 +271,7 @@ CONTAINS
          WRITE(io_unit, *) "checksum r", TRIM(matrix_b%matrix%name), cs_b ! checksum ok
       ENDIF
 
-      CALL dbcsr_r_multiply(transa, transb, transc, dbcsr_scalar(1.0_real_8), matrix_a, matrix_b, matrix_c)
+      CALL dbcsr_r_multiply(transa, transb, transc, dbcsr_scalar(1.0_real_8), matrix_a, matrix_b, matrix_c, io_unit)
 
       cs_c = dbcsr_r_checksum(matrix_c)
 
@@ -340,8 +340,7 @@ CONTAINS
       sq_cs = dbcsr_checksum(dbcsr_c_mm)
       rc_cs = dbcsr_checksum(dbcsr_c_mm_check)
       CALL dbcsr_add(dbcsr_c_mm_check, dbcsr_c_mm, -1.0_real_8, 1.0_real_8)
-      norm = dbcsr_frobenius_norm(dbcsr_c_mm_check)
-      norm = norm/dbcsr_get_nze(dbcsr_c_mm_check)
+      norm = dbcsr_maxabs(dbcsr_c_mm_check)
 
       IF (io_unit > 0) THEN
       IF (ABS(norm) .GT. test_tol) THEN

@@ -266,7 +266,7 @@ CONTAINS
       TYPE(dbcsr_r_type), INTENT(INOUT) :: matrix_in
       TYPE(dbcsr_r_type), INTENT(OUT) :: matrix_out
       LOGICAL, INTENT(IN) :: transposed
-      CHARACTER(LEN=1) :: trans
+      CHARACTER(LEN=1), INTENT(OUT) :: trans
       LOGICAL, INTENT(IN), OPTIONAL :: nodata
       INTEGER :: numnodes
       INTEGER(KIND=int_8), DIMENSION(2) :: dims

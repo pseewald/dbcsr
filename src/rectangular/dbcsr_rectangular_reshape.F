@@ -29,7 +29,7 @@ MODULE dbcsr_rectangular_reshape
                                               dbcsr_iterator_stop
    USE dbcsr_methods,                   ONLY: dbcsr_blk_column_size,&
                                               dbcsr_blk_row_size
-   USE dbcsr_operations,                ONLY: dbcsr_get_info
+   USE dbcsr_operations,                ONLY: dbcsr_get_info, dbcsr_clear
    USE dbcsr_rectangular_base,          ONLY: &
         dbcsr_r_blk_sizes, dbcsr_r_create, dbcsr_r_distribution_new, dbcsr_r_finalize, &
         dbcsr_r_get_data_type, dbcsr_r_get_stored_coordinates, dbcsr_r_info, &
@@ -147,6 +147,9 @@ CONTAINS
       TYPE(dbcsr_r_split_info)                           :: info
 
       CALL timeset(routineN, handle)
+
+      CALL dbcsr_clear(matrix_out%matrix)
+
       IF (PRESENT(transposed)) THEN
          tr_in = transposed
       ELSE
@@ -472,6 +475,8 @@ CONTAINS
       TYPE(dbcsr_r_split_info)                           :: info
 
       CALL timeset(routineN, handle)
+
+      CALL dbcsr_clear(matrix_out)
 
       data_type = dbcsr_r_get_data_type(matrix_in)
 

@@ -23,8 +23,7 @@ PROGRAM dbcsr_rectangular_unittest
                                               dbcsr_row_block_sizes
    USE dbcsr_mp_methods,                ONLY: dbcsr_mp_release
    USE dbcsr_multiply_api,              ONLY: dbcsr_multiply
-   USE dbcsr_operations,                ONLY: dbcsr_add,&
-                                              dbcsr_frobenius_norm
+   USE dbcsr_operations,                ONLY: dbcsr_add
    USE dbcsr_rectangular_base,          ONLY: dbcsr_r_convert_to_dbcsr,&
                                               dbcsr_r_destroy,&
                                               dbcsr_r_info,&
