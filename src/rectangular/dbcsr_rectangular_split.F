@@ -372,8 +372,9 @@ CONTAINS
 !> \brief ...
 !> \param info ...
 ! **************************************************************************************************
-   SUBROUTINE dbcsr_r_print_info(info)
+   SUBROUTINE dbcsr_r_print_info(info, name)
       TYPE(dbcsr_r_split_info), INTENT(IN)               :: info
+      CHARACTER(len=*), INTENT(IN)                       :: name
 
       INTEGER                                            :: groupsize, igroup, io_unit, mp_comm, &
                                                             mp_comm_group, mynode, nsplit, &
@@ -392,22 +393,23 @@ CONTAINS
       IF (io_unit > 0) THEN
          SELECT CASE (split_rowcol)
          CASE (rowsplit)
-            WRITE (io_unit, "(A,I4,1X,A,I4)") "DBCSR RECT |    splitting rows by factor", nsplit
+            WRITE (io_unit, "(A,I4,1X,A,I4)") "DBCSR RECT | "//TRIM(name)//"   splitting rows by factor", nsplit
          CASE (colsplit)
-            WRITE (io_unit, "(A,I4,1X,A,I4)") "DBCSR RECT |    splitting columns by factor", nsplit
+            WRITE (io_unit, "(A,I4,1X,A,I4)") "DBCSR RECT | "//TRIM(name)//"   splitting columns by factor", nsplit
          END SELECT
-         WRITE (io_unit, "(A, I4,A1,I4)") "DBCSR RECT |    global grid sizes:", dims(1), "x", dims(2)
+         WRITE (io_unit, "(A, I4,A1,I4)") "DBCSR RECT | "//TRIM(name)//"   global grid sizes:", dims(1), "x", dims(2)
       ENDIF
 
       IF (io_unit > 0) THEN
-         WRITE (io_unit, "(A,I4,A1,I4,A1,I4)") "DBCSR RECT |    grid sizes on groups 0, ...,", MAX(0, nsplit - 2), ":", &
+         WRITE (io_unit, "(A,I4,A1,I4,A1,I4)") &
+            "DBCSR RECT | "//TRIM(name)//"   grid sizes on groups 0, ...,", MAX(0, nsplit - 2), ":", &
             groupdims(1), "x", groupdims(2)
          SELECT CASE (split_rowcol)
          CASE (rowsplit)
-            WRITE (io_unit, "(A,I4,A1,I4,A1,I4)") "DBCSR RECT |    grid sizes on group", nsplit - 1, ":", &
+            WRITE (io_unit, "(A,I4,A1,I4,A1,I4)") "DBCSR RECT | "//TRIM(name)//"   grid sizes on group", nsplit - 1, ":", &
                dims(1) - groupdims(1)*(nsplit - 1), "x", dims(2)
          CASE (colsplit)
-            WRITE (io_unit, "(A,I4,A1,I4,A1,I4)") "DBCSR RECT |    grid sizes on group", nsplit - 1, ":", &
+            WRITE (io_unit, "(A,I4,A1,I4,A1,I4)") "DBCSR RECT | "//TRIM(name)//"   grid sizes on group", nsplit - 1, ":", &
                dims(1), "x", dims(2) - groupdims(2)*(nsplit - 1)
          END SELECT
       ENDIF

@@ -100,22 +100,22 @@ PROGRAM dbcsr_rectangular_unittest
 
    IF (mynode == 0) WRITE (io_unit, '(A, 1X, A, 1X, A, I10, 1X, A, 1X, I10)') "DBCSR RECT |", "split info for matrix", &
       TRIM(A%matrix%name), dbcsr_r_nblkrows_total(A), 'X', dbcsr_r_nblkcols_total(A)
-   CALL dbcsr_r_print_info(dbcsr_r_info(A))
+   CALL dbcsr_r_print_info(dbcsr_r_info(A), "A")
    IF (mynode == 0) WRITE (io_unit, '(A, 1X, A, 1X, A, I10, 1X, A, 1X, I10)') "DBCSR RECT |", "split info for matrix", &
       TRIM(At%matrix%name), dbcsr_r_nblkrows_total(At), 'X', dbcsr_r_nblkcols_total(At)
-   CALL dbcsr_r_print_info(dbcsr_r_info(At))
+   CALL dbcsr_r_print_info(dbcsr_r_info(At), "At")
    IF (mynode == 0) WRITE (io_unit, '(A, 1X, A, 1X, A, I10, 1X, A, 1X, I10)') "DBCSR RECT |", "split info for matrix", &
       TRIM(B%matrix%name), dbcsr_r_nblkrows_total(B), 'X', dbcsr_r_nblkcols_total(B)
-   CALL dbcsr_r_print_info(dbcsr_r_info(B))
+   CALL dbcsr_r_print_info(dbcsr_r_info(B), "B")
    IF (mynode == 0) WRITE (io_unit, '(A, 1X, A, 1X, A, I10, 1X, A, 1X, I10)') "DBCSR RECT |", "split info for matrix", &
       TRIM(Bt%matrix%name), dbcsr_r_nblkrows_total(Bt), 'X', dbcsr_r_nblkcols_total(Bt)
-   CALL dbcsr_r_print_info(dbcsr_r_info(Bt))
+   CALL dbcsr_r_print_info(dbcsr_r_info(Bt), "Bt")
    IF (mynode == 0) WRITE (io_unit, '(A, 1X, A, 1X, A, I10, 1X, A, 1X, I10)') "DBCSR RECT |", "split info for matrix", &
       TRIM(C%matrix%name), dbcsr_r_nblkrows_total(C), 'X', dbcsr_r_nblkcols_total(C)
-   CALL dbcsr_r_print_info(dbcsr_r_info(C))
+   CALL dbcsr_r_print_info(dbcsr_r_info(C), "C")
    IF (mynode == 0) WRITE (io_unit, '(A, 1X, A, 1X, A, I10, 1X, A, 1X, I10)') "DBCSR RECT |", "split info for matrix", &
       TRIM(Ct%matrix%name), dbcsr_r_nblkrows_total(Ct), 'X', dbcsr_r_nblkcols_total(Ct)
-   CALL dbcsr_r_print_info(dbcsr_r_info(Ct))
+   CALL dbcsr_r_print_info(dbcsr_r_info(Ct), "Ct")
 
    CALL dbcsr_r_test_mm('N', 'N', 'N', B, A, Ct_out, unit_nr=default_output_unit, filter_eps=filter_eps)
    CALL dbcsr_r_test_mm('T', 'N', 'N', Bt, A, Ct_out, unit_nr=default_output_unit, filter_eps=filter_eps)

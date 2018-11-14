@@ -4,9 +4,11 @@ PROGRAM dbcsr_rectangular_benchmark
                                               dbcsr_init_lib
    USE dbcsr_types, ONLY: dbcsr_mp_obj
    USE dbcsr_methods,                   ONLY: dbcsr_mp_release
-   USE dbcsr_rectangular_base,          ONLY: dbcsr_r_destroy
+   USE dbcsr_rectangular_base,          ONLY: dbcsr_r_destroy,&
+                                              dbcsr_r_info
    USE dbcsr_rectangular_base_types,    ONLY: dbcsr_r_type
-   USE dbcsr_rectangular_split,         ONLY: dbcsr_r_mp_comm
+   USE dbcsr_rectangular_split,         ONLY: dbcsr_r_mp_comm,&
+                                              dbcsr_r_print_info
    USE dbcsr_rectangular_test,          ONLY: dbcsr_r_benchmark_mm,&
                                               dbcsr_r_random_bsizes,&
                                               dbcsr_r_setup_test_matrix
@@ -107,6 +109,11 @@ PROGRAM dbcsr_rectangular_benchmark
                                   sparsity, reuse_comm=.TRUE.)
    CALL dbcsr_r_setup_test_matrix(C, mp_comm_cart_, mp_comm_cart, dmin, dmin, bsize_min, bsize_min, [2, 3], "C", &
                                   sparsity, reuse_comm=.TRUE.)
+
+
+   CALL dbcsr_r_print_info(dbcsr_r_info(A), "A")
+   CALL dbcsr_r_print_info(dbcsr_r_info(B), "B")
+   CALL dbcsr_r_print_info(dbcsr_r_info(C), "C")
 
    CALL dbcsr_r_benchmark_mm('T', 'N', 'N', A, B, C, compare_dbcsr, filter_eps=filter_eps)
 
