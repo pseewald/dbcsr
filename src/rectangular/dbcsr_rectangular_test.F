@@ -153,10 +153,11 @@ CONTAINS
 !> \param matrix_a ...
 !> \param matrix_b ...
 ! **************************************************************************************************
-   SUBROUTINE dbcsr_r_benchmark_mm(transa, transb, transc, matrix_a, matrix_b, matrix_c, compare_dbcsr, io_unit)
+   SUBROUTINE dbcsr_r_benchmark_mm(transa, transb, transc, matrix_a, matrix_b, matrix_c, compare_dbcsr, filter_eps, io_unit)
       CHARACTER(LEN=1), INTENT(IN)                       :: transa, transb, transc
       TYPE(dbcsr_r_type), INTENT(INOUT)                  :: matrix_a, matrix_b, matrix_c
 
+      REAL(KIND=real_8), INTENT(IN), OPTIONAL            :: filter_eps
       INTEGER, INTENT(IN), OPTIONAL                      :: io_unit
       LOGICAL, INTENT(IN) :: compare_dbcsr
 
@@ -170,7 +171,8 @@ CONTAINS
       TYPE(dbcsr_mp_obj)                                 :: mp_environ_tmp
 
       CALL timeset("benchmark_rectangular_mm", handle1)
-      CALL dbcsr_r_multiply(transa, transb, transc, dbcsr_scalar(1.0_real_8), matrix_a, matrix_b, matrix_c, io_unit=io_unit)
+      CALL dbcsr_r_multiply(transa, transb, transc, dbcsr_scalar(1.0_real_8), matrix_a, matrix_b, matrix_c, &
+         filter_eps=filter_eps, io_unit=io_unit)
       CALL timestop(handle1)
 
       IF (compare_dbcsr) THEN
@@ -214,7 +216,7 @@ CONTAINS
 
          CALL timeset("benchmark_dbcsr_mm", handle2)
          CALL dbcsr_multiply(transa, transb, dbcsr_scalar(1.0_real_8), dbcsr_a_mm, dbcsr_b_mm, &
-                             dbcsr_scalar(0.0_real_8), dbcsr_c_mm)
+                             dbcsr_scalar(0.0_real_8), dbcsr_c_mm, filter_eps=filter_eps)
          CALL timestop(handle2)
 
          CALL dbcsr_release(dbcsr_a)
@@ -240,10 +242,11 @@ CONTAINS
 !> \param matrix_b ...
 !> \param unit_nr ...
 ! **************************************************************************************************
-   SUBROUTINE dbcsr_r_test_mm(transa, transb, transc, matrix_a, matrix_b, matrix_c, unit_nr)
+   SUBROUTINE dbcsr_r_test_mm(transa, transb, transc, matrix_a, matrix_b, matrix_c, filter_eps, unit_nr)
       CHARACTER(LEN=1), INTENT(IN)                       :: transa, transb, transc
       TYPE(dbcsr_r_type), INTENT(INOUT)                  :: matrix_a, matrix_b, matrix_c
       INTEGER, INTENT(IN)                                :: unit_nr
+      REAL(KIND=real_8), INTENT(IN), OPTIONAL            :: filter_eps
 
       CHARACTER(LEN=1)                                   :: transa_prv, transb_prv
       INTEGER                                            :: comm_dbcsr, io_unit, mp_comm, mynode, &
@@ -271,7 +274,8 @@ CONTAINS
          WRITE(io_unit, *) "checksum r", TRIM(matrix_b%matrix%name), cs_b ! checksum ok
       ENDIF
 
-      CALL dbcsr_r_multiply(transa, transb, transc, dbcsr_scalar(1.0_real_8), matrix_a, matrix_b, matrix_c, io_unit)
+      CALL dbcsr_r_multiply(transa, transb, transc, dbcsr_scalar(1.0_real_8), matrix_a, matrix_b, matrix_c, &
+         filter_eps=filter_eps, io_unit=io_unit)
 
       cs_c = dbcsr_r_checksum(matrix_c)
 
@@ -329,12 +333,12 @@ CONTAINS
 
       IF (transc == dbcsr_no_transpose) THEN
          CALL dbcsr_multiply(transa_prv, transb_prv, dbcsr_scalar(1.0_real_8), &
-                             dbcsr_a_mm, dbcsr_b_mm, dbcsr_scalar(0.0_real_8), dbcsr_c_mm)
+                             dbcsr_a_mm, dbcsr_b_mm, dbcsr_scalar(0.0_real_8), dbcsr_c_mm, filter_eps=filter_eps)
       ELSEIF (transc == dbcsr_transpose) THEN
          CALL invert_transpose_flag(transa_prv)
          CALL invert_transpose_flag(transb_prv)
          CALL dbcsr_multiply(transb_prv, transa_prv, dbcsr_scalar(1.0_real_8), &
-                             dbcsr_b_mm, dbcsr_a_mm, dbcsr_scalar(0.0_real_8), dbcsr_c_mm)
+                             dbcsr_b_mm, dbcsr_a_mm, dbcsr_scalar(0.0_real_8), dbcsr_c_mm, filter_eps=filter_eps)
       ENDIF
 
       sq_cs = dbcsr_checksum(dbcsr_c_mm)

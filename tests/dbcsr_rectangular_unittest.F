@@ -69,6 +69,7 @@ PROGRAM dbcsr_rectangular_unittest
    INTEGER :: numnodes, mynode
    INTEGER :: io_unit
    INTEGER :: mp_comm_A, mp_comm_At, mp_comm_B, mp_comm_Bt, mp_comm_C, mp_comm_Ct
+   REAL(KIND=real_8), PARAMETER :: filter_eps = 1.0E-08
 
    CALL mp_world_init(mp_comm)
 
@@ -116,34 +117,34 @@ PROGRAM dbcsr_rectangular_unittest
       TRIM(Ct%matrix%name), dbcsr_r_nblkrows_total(Ct), 'X', dbcsr_r_nblkcols_total(Ct)
    CALL dbcsr_r_print_info(dbcsr_r_info(Ct))
 
-   CALL dbcsr_r_test_mm('N', 'N', 'N', B, A, Ct_out, default_output_unit)
-   CALL dbcsr_r_test_mm('T', 'N', 'N', Bt, A, Ct_out, default_output_unit)
-   CALL dbcsr_r_test_mm('N', 'T', 'N', B, At, Ct_out, default_output_unit)
-   CALL dbcsr_r_test_mm('T', 'T', 'N', Bt, At, Ct_out, default_output_unit)
-   CALL dbcsr_r_test_mm('N', 'N', 'T', B, A, C_out, default_output_unit)
-   CALL dbcsr_r_test_mm('T', 'N', 'T', Bt, A, C_out, default_output_unit)
-   CALL dbcsr_r_test_mm('N', 'T', 'T', B, At, C_out, default_output_unit)
-   CALL dbcsr_r_test_mm('T', 'T', 'T', Bt, At, C_out, default_output_unit)
+   CALL dbcsr_r_test_mm('N', 'N', 'N', B, A, Ct_out, unit_nr=default_output_unit, filter_eps=filter_eps)
+   CALL dbcsr_r_test_mm('T', 'N', 'N', Bt, A, Ct_out, unit_nr=default_output_unit, filter_eps=filter_eps)
+   CALL dbcsr_r_test_mm('N', 'T', 'N', B, At, Ct_out, unit_nr=default_output_unit, filter_eps=filter_eps)
+   CALL dbcsr_r_test_mm('T', 'T', 'N', Bt, At, Ct_out, unit_nr=default_output_unit, filter_eps=filter_eps)
+   CALL dbcsr_r_test_mm('N', 'N', 'T', B, A, C_out, unit_nr=default_output_unit, filter_eps=filter_eps)
+   CALL dbcsr_r_test_mm('T', 'N', 'T', Bt, A, C_out, unit_nr=default_output_unit, filter_eps=filter_eps)
+   CALL dbcsr_r_test_mm('N', 'T', 'T', B, At, C_out, unit_nr=default_output_unit, filter_eps=filter_eps)
+   CALL dbcsr_r_test_mm('T', 'T', 'T', Bt, At, C_out, unit_nr=default_output_unit, filter_eps=filter_eps)
 
-   CALL dbcsr_r_test_mm('N', 'N', 'N', A, C, Bt_out, default_output_unit)
-   CALL dbcsr_r_test_mm('T', 'N', 'N', At, C, Bt_out, default_output_unit)
-   CALL dbcsr_r_test_mm('N', 'T', 'N', A, Ct, Bt_out, default_output_unit)
-   CALL dbcsr_r_test_mm('T', 'T', 'N', At, Ct, Bt_out, default_output_unit)
+   CALL dbcsr_r_test_mm('N', 'N', 'N', A, C, Bt_out, unit_nr=default_output_unit, filter_eps=filter_eps)
+   CALL dbcsr_r_test_mm('T', 'N', 'N', At, C, Bt_out, unit_nr=default_output_unit, filter_eps=filter_eps)
+   CALL dbcsr_r_test_mm('N', 'T', 'N', A, Ct, Bt_out, unit_nr=default_output_unit, filter_eps=filter_eps)
+   CALL dbcsr_r_test_mm('T', 'T', 'N', At, Ct, Bt_out, unit_nr=default_output_unit, filter_eps=filter_eps)
 
-   CALL dbcsr_r_test_mm('N', 'N', 'T', A, C, B_out, default_output_unit)
-   CALL dbcsr_r_test_mm('T', 'N', 'T', At, C, B_out, default_output_unit)
-   CALL dbcsr_r_test_mm('N', 'T', 'T', A, Ct, B_out, default_output_unit)
-   CALL dbcsr_r_test_mm('T', 'T', 'T', At, Ct, B_out, default_output_unit)
+   CALL dbcsr_r_test_mm('N', 'N', 'T', A, C, B_out, unit_nr=default_output_unit, filter_eps=filter_eps)
+   CALL dbcsr_r_test_mm('T', 'N', 'T', At, C, B_out, unit_nr=default_output_unit, filter_eps=filter_eps)
+   CALL dbcsr_r_test_mm('N', 'T', 'T', A, Ct, B_out, unit_nr=default_output_unit, filter_eps=filter_eps)
+   CALL dbcsr_r_test_mm('T', 'T', 'T', At, Ct, B_out, unit_nr=default_output_unit, filter_eps=filter_eps)
 
-   CALL dbcsr_r_test_mm('N', 'N', 'N', C, B, At_out, default_output_unit)
-   CALL dbcsr_r_test_mm('T', 'N', 'N', Ct, B, At_out, default_output_unit)
-   CALL dbcsr_r_test_mm('N', 'T', 'N', C, Bt, At_out, default_output_unit)
-   CALL dbcsr_r_test_mm('T', 'T', 'N', Ct, Bt, At_out, default_output_unit)
+   CALL dbcsr_r_test_mm('N', 'N', 'N', C, B, At_out, unit_nr=default_output_unit, filter_eps=filter_eps)
+   CALL dbcsr_r_test_mm('T', 'N', 'N', Ct, B, At_out, unit_nr=default_output_unit, filter_eps=filter_eps)
+   CALL dbcsr_r_test_mm('N', 'T', 'N', C, Bt, At_out, unit_nr=default_output_unit, filter_eps=filter_eps)
+   CALL dbcsr_r_test_mm('T', 'T', 'N', Ct, Bt, At_out, unit_nr=default_output_unit, filter_eps=filter_eps)
 
-   CALL dbcsr_r_test_mm('N', 'N', 'T', C, B, A_out, default_output_unit)
-   CALL dbcsr_r_test_mm('T', 'N', 'T', Ct, B, A_out, default_output_unit)
-   CALL dbcsr_r_test_mm('N', 'T', 'T', C, Bt, A_out, default_output_unit)
-   CALL dbcsr_r_test_mm('T', 'T', 'T', Ct, Bt, A_out, default_output_unit)
+   CALL dbcsr_r_test_mm('N', 'N', 'T', C, B, A_out, unit_nr=default_output_unit, filter_eps=filter_eps)
+   CALL dbcsr_r_test_mm('T', 'N', 'T', Ct, B, A_out, unit_nr=default_output_unit, filter_eps=filter_eps)
+   CALL dbcsr_r_test_mm('N', 'T', 'T', C, Bt, A_out, unit_nr=default_output_unit, filter_eps=filter_eps)
+   CALL dbcsr_r_test_mm('T', 'T', 'T', Ct, Bt, A_out, unit_nr=default_output_unit, filter_eps=filter_eps)
 
    CALL dbcsr_r_destroy(A)
    CALL dbcsr_r_destroy(At)

@@ -46,6 +46,7 @@ PROGRAM dbcsr_rectangular_benchmark
    INTEGER, DIMENSION(2) :: pcoord, pdims
    TYPE(dbcsr_mp_obj)            :: mp_env
    INTEGER :: handle
+   REAL(KIND=real_8), PARAMETER :: filter_eps=1.0E-08
 
    !mp_collect_timings = .TRUE.
    CALL mp_world_init(mp_comm)
@@ -107,7 +108,7 @@ PROGRAM dbcsr_rectangular_benchmark
    CALL dbcsr_r_setup_test_matrix(C, mp_comm_cart_, mp_comm_cart, dmin, dmin, bsize_min, bsize_min, [2, 3], "C", &
                                   sparsity, reuse_comm=.TRUE.)
 
-   CALL dbcsr_r_benchmark_mm('T', 'N', 'N', A, B, C, compare_dbcsr)
+   CALL dbcsr_r_benchmark_mm('T', 'N', 'N', A, B, C, compare_dbcsr, filter_eps=filter_eps)
 
    CALL dbcsr_r_destroy(A)
    CALL dbcsr_r_destroy(B)
