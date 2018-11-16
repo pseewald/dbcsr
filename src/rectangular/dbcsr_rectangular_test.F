@@ -170,10 +170,20 @@ CONTAINS
       INTEGER, DIMENSION(:), POINTER                     :: cd_a, cd_b, cd_c, rd_a, rd_b, rd_c
       TYPE(dbcsr_mp_obj)                                 :: mp_environ_tmp
 
+      IF(PRESENT(io_unit)) THEN
+      IF(io_unit > 0) THEN
+         WRITE(io_unit, *) "starting rectangular benchmark"
+      ENDIF
+      ENDIF
       CALL timeset("benchmark_rectangular_mm", handle1)
       CALL dbcsr_r_multiply(transa, transb, transc, dbcsr_scalar(1.0_real_8), matrix_a, matrix_b, matrix_c, &
          filter_eps=filter_eps, io_unit=io_unit)
       CALL timestop(handle1)
+      IF(PRESENT(io_unit)) THEN
+      IF(io_unit > 0) THEN
+         WRITE(io_unit, *) "rectangular benchmark completed"
+      ENDIF
+      ENDIF
 
       IF (compare_dbcsr) THEN
          CALL dbcsr_r_convert_to_dbcsr(matrix_a, dbcsr_a)
@@ -213,11 +223,20 @@ CONTAINS
 
          CALL dbcsr_complete_redistribute(dbcsr_a, dbcsr_a_mm)
          CALL dbcsr_complete_redistribute(dbcsr_b, dbcsr_b_mm)
-
+         IF(PRESENT(io_unit)) THEN
+         IF(io_unit > 0) THEN
+            WRITE(io_unit, *) "starting dbcsr benchmark"
+         ENDIF
+         ENDIF
          CALL timeset("benchmark_dbcsr_mm", handle2)
          CALL dbcsr_multiply(transa, transb, dbcsr_scalar(1.0_real_8), dbcsr_a_mm, dbcsr_b_mm, &
                              dbcsr_scalar(0.0_real_8), dbcsr_c_mm, filter_eps=filter_eps)
          CALL timestop(handle2)
+         IF(PRESENT(io_unit)) THEN
+         IF(io_unit > 0) THEN
+            WRITE(io_unit, *) "dbcsr benchmark completed"
+         ENDIF
+         ENDIF
 
          CALL dbcsr_release(dbcsr_a)
          CALL dbcsr_release(dbcsr_b)
