@@ -66,10 +66,13 @@ MODULE dbcsr_tensor
                                               blk_dims_tensor,&
                                               dbcsr_t_hold
    USE dbcsr_kinds,                     ONLY: ${uselist(dtype_float_prec)}$,&
-                                              default_string_length
+                                              default_string_length,&
+                                              int_8
    USE dbcsr_mpiwrap,                   ONLY: mp_environ
    USE dbcsr_toollib,                   ONLY: sort
    USE dbcsr_tensor_reshape,            ONLY: dbcsr_t_reshape
+   USE dbcsr_mpiwrap,                   ONLY: mp_comm_free
+   USE dbcsr_rectangular_split,         ONLY: dbcsr_r_mp_comm
 
 #include "base/dbcsr_base_uses.f90"
 
@@ -291,7 +294,7 @@ CONTAINS
 
          CALL reshape_mm_compatible(tensor_tmp_1, tensor_tmp_3, tensor_contr_1, tensor_contr_3, &
                                     contract_1_mod, notcontract_1_mod, map_2_mod, map_1_mod, &
-                                    trans_1, trans_3, nodata2=.TRUE., new2=new_3)
+                                    trans_1, trans_3, nodata2=.TRUE., new2=new_3, optimize_dist=optimize_dist)
 
          CALL reshape_mm_small(tensor_tmp_2, contract_2_mod, notcontract_2_mod, tensor_contr_2, trans_2)
 
@@ -310,7 +313,7 @@ CONTAINS
 
          CALL reshape_mm_compatible(tensor_tmp_1, tensor_tmp_2, tensor_contr_1, tensor_contr_2, &
                                     notcontract_1_mod, contract_1_mod, notcontract_2_mod, contract_2_mod, &
-                                    trans_1, trans_2)
+                                    trans_1, trans_2, optimize_dist=optimize_dist)
          CALL invert_transpose_flag(trans_1)
 
          CALL reshape_mm_small(tensor_tmp_3, map_1_mod, map_2_mod, tensor_contr_3, trans_3, nodata=.TRUE., new=new_3)
@@ -330,7 +333,7 @@ CONTAINS
 
          CALL reshape_mm_compatible(tensor_tmp_2, tensor_tmp_3, tensor_contr_2, tensor_contr_3, &
                                     contract_2_mod, notcontract_2_mod, map_1_mod, map_2_mod, &
-                                    trans_2, trans_3, nodata2=.TRUE., new2=new_3)
+                                    trans_2, trans_3, nodata2=.TRUE., new2=new_3, optimize_dist=optimize_dist)
 
          CALL invert_transpose_flag(trans_2)
          CALL invert_transpose_flag(trans_3)
@@ -344,7 +347,7 @@ CONTAINS
 
       CALL dbcsr_r_multiply(trans_1, trans_2, trans_3, dbcsr_scalar(1.0_real_8), &
                             tensor_contr_1%matrix_rep, tensor_contr_2%matrix_rep, &
-                            tensor_contr_3%matrix_rep, optimize_dist=optimize_dist)
+                            tensor_contr_3%matrix_rep)
 
 
       IF(new_3) THEN
@@ -404,7 +407,8 @@ CONTAINS
 !> \param trans2 'N' if tensor 2 out has format (ind linked, ind free), 'T' otherwise
 ! **************************************************************************************************
       SUBROUTINE reshape_mm_compatible(tensor1, tensor2, tensor1_out, tensor2_out, ind1_free, ind1_linked, &
-                                       ind2_free, ind2_linked, trans1, trans2, nodata1, nodata2, new1, new2)
+                                       ind2_free, ind2_linked, trans1, trans2, nodata1, nodata2, new1, new2, &
+                                       optimize_dist)
          TYPE(dbcsr_t_type), INTENT(INOUT)           :: tensor1
          TYPE(dbcsr_t_type), INTENT(INOUT)           :: tensor2
          TYPE(dbcsr_t_type), INTENT(OUT)             :: tensor1_out, tensor2_out
@@ -413,15 +417,24 @@ CONTAINS
          CHARACTER(LEN=1), INTENT(OUT)               :: trans1, trans2
          LOGICAL, INTENT(IN), OPTIONAL               :: nodata1, nodata2
          LOGICAL, INTENT(OUT), OPTIONAL              :: new1, new2
-         INTEGER                                     :: ref_tensor, compat1, compat2
+         LOGICAL, INTENT(IN), OPTIONAL            :: optimize_dist
+         INTEGER                                     :: ref_tensor, compat1, compat2, comm_2d
          TYPE(array_list)                            :: dist_list
-         INTEGER, DIMENSION(:), ALLOCATABLE                        :: mp_dims
+         INTEGER, DIMENSION(:), ALLOCATABLE          :: mp_dims, dims
          TYPE(dbcsr_t_distribution_type)             :: dist_in
+         INTEGER(KIND=int_8)                         :: nblkrows, nblkcols
+         LOGICAL                                     :: optimize_dist_prv
 
          IF (SIZE(ind1_free) .GE. SIZE(ind2_free)) THEN
             ref_tensor = 1
          ELSE
             ref_tensor = 2
+         ENDIF
+
+         IF(PRESENT(optimize_dist)) THEN
+            optimize_dist_prv = optimize_dist
+         ELSE
+            optimize_dist_prv = .FALSE.
          ENDIF
 
          compat1 = compat_map(tensor1%nd_index, ind1_linked)
@@ -430,22 +443,28 @@ CONTAINS
          IF(PRESENT(new1)) new1 = .FALSE.
          IF(PRESENT(new2)) new2 = .FALSE.
 
-         IF(compat1 == 0) THEN
+         IF(compat1 == 0 .OR. optimize_dist_prv) THEN
             IF(PRESENT(new1)) new1 = .TRUE.
          ENDIF
 
-         IF(compat2 == 0) THEN
+         IF(compat2 == 0 .OR. optimize_dist_prv) THEN
             IF(PRESENT(new2)) new2 = .TRUE.
          ENDIF
 
          IF (ref_tensor == 1) THEN ! tensor 1 is reference and tensor 2 is reshaped compatible with tensor 1
-            IF (compat1 == 0) THEN ! tensor 1 is not contraction compatible --> reshape
-               CALL dbcsr_t_remap(tensor1, ind1_linked, ind1_free, tensor1_out, nodata=nodata1)
+            IF (compat1 == 0 .OR. optimize_dist_prv) THEN ! tensor 1 is not contraction compatible --> reshape
+               ALLOCATE(dims(dbcsr_t_ndims(tensor1)))
+               CALL blk_dims_tensor(tensor1, dims)
+               nblkrows = PRODUCT(INT(dims(ind1_linked), KIND=int_8))
+               nblkcols = PRODUCT(INT(dims(ind1_free), KIND=int_8))
+               comm_2d = dbcsr_r_mp_comm(tensor1%comm_2d, nblkrows, nblkcols)
+               CALL dbcsr_t_remap(tensor1, ind1_linked, ind1_free, tensor1_out, comm_2d=comm_2d, nodata=nodata1)
+               CALL mp_comm_free(comm_2d)
                compat1 = 1
             ELSE
                CALL dbcsr_t_copy(tensor1, tensor1_out)
             ENDIF
-            IF (compat2 == 0) THEN ! tensor 2 is not contraction compatible --> reshape
+            IF (compat2 == 0 .OR. optimize_dist_prv) THEN ! tensor 2 is not contraction compatible --> reshape
                dist_in = dbcsr_t_distribution(tensor1_out)
                dist_list = array_sublist(dist_in%nd_dist, ind1_linked)
                IF (compat1 == 1) THEN ! linked index is first 2d dimension
@@ -467,13 +486,19 @@ CONTAINS
                CALL dbcsr_t_copy(tensor2, tensor2_out)
             ENDIF
          ELSE ! tensor 2 is reference and tensor 1 is reshaped compatible with tensor 2
-            IF (compat2 == 0) THEN ! tensor 2 is not contraction compatible --> reshape
+            IF (compat2 == 0 .OR. optimize_dist_prv) THEN ! tensor 2 is not contraction compatible --> reshape
+               ALLOCATE(dims(dbcsr_t_ndims(tensor2)))
+               CALL blk_dims_tensor(tensor2, dims)
+               nblkrows = PRODUCT(INT(dims(ind2_linked), KIND=int_8))
+               nblkcols = PRODUCT(INT(dims(ind2_free), KIND=int_8))
+               comm_2d = dbcsr_r_mp_comm(tensor2%comm_2d, nblkrows, nblkcols)
                CALL dbcsr_t_remap(tensor2, ind2_linked, ind2_free, tensor2_out, nodata=nodata2)
+               CALL mp_comm_free(comm_2d)
                compat2 = 1
             ELSE
                CALL dbcsr_t_copy(tensor2, tensor2_out)
             ENDIF
-            IF (compat1 == 0) THEN ! tensor 1 is not contraction compatible --> reshape
+            IF (compat1 == 0 .OR. optimize_dist_prv) THEN ! tensor 1 is not contraction compatible --> reshape
                dist_in = dbcsr_t_distribution(tensor2_out)
                dist_list = array_sublist(dist_in%nd_dist, ind2_linked)
                IF (compat2 == 1) THEN
