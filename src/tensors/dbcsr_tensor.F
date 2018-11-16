@@ -197,11 +197,13 @@ CONTAINS
    SUBROUTINE dbcsr_t_contract(tensor_1, tensor_2, tensor_3, &
                                contract_1, notcontract_1, &
                                contract_2, notcontract_2, &
-                               map_1, map_2)
+                               map_1, map_2, optimize_dist)
       TYPE(dbcsr_t_type), INTENT(INOUT)                 :: tensor_1, tensor_2
       INTEGER, DIMENSION(:), INTENT(IN)              :: contract_1, contract_2, map_1, map_2
       INTEGER, DIMENSION(:), INTENT(IN)              :: notcontract_1, notcontract_2
       TYPE(dbcsr_t_type), INTENT(INOUT)              :: tensor_3
+      LOGICAL, INTENT(IN), OPTIONAL                  :: optimize_dist
+
       TYPE(dbcsr_t_type)                             :: tensor_contr_1, tensor_contr_2, tensor_contr_3, &
                                                         tensor_tmp_1, tensor_tmp_2, tensor_tmp_3
       LOGICAL                                        :: assert_stmt
@@ -342,7 +344,7 @@ CONTAINS
 
       CALL dbcsr_r_multiply(trans_1, trans_2, trans_3, dbcsr_scalar(1.0_real_8), &
                             tensor_contr_1%matrix_rep, tensor_contr_2%matrix_rep, &
-                            tensor_contr_3%matrix_rep)
+                            tensor_contr_3%matrix_rep, optimize_dist=optimize_dist)
 
 
       IF(new_3) THEN

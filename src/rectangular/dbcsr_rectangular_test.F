@@ -275,7 +275,7 @@ CONTAINS
       ENDIF
 
       CALL dbcsr_r_multiply(transa, transb, transc, dbcsr_scalar(1.0_real_8), matrix_a, matrix_b, matrix_c, &
-         filter_eps=filter_eps, io_unit=io_unit)
+         filter_eps=filter_eps, io_unit=io_unit, optimize_dist=.TRUE.)
 
       cs_c = dbcsr_r_checksum(matrix_c)
 
