@@ -306,7 +306,11 @@ CONTAINS
       INTEGER, DIMENSION(SIZE(map1_2d)) :: dims1_nd_prv
       INTEGER, DIMENSION(SIZE(map2_2d)) :: dims2_nd_prv
       INTEGER, DIMENSION(SIZE(map1_2d) + SIZE(map2_2d)) :: dims_nd_prv, pos
-      INTEGER                                           :: dbcsr_t_nd_mp_comm
+      INTEGER                                           :: dbcsr_t_nd_mp_comm, handle
+      CHARACTER(LEN=*), PARAMETER :: routineN = 'dbcsr_t_nd_mp_comm', &
+         routineP = moduleN//':'//routineN
+
+      CALL timeset(routineN, handle)
 
       ndim1 = SIZE(map1_2d); ndim2 = SIZE(map2_2d)
 
@@ -335,21 +339,29 @@ CONTAINS
 
       CALL mp_cart_create(comm_2d, ndim1+ndim2, dims_nd_prv, pos, dbcsr_t_nd_mp_comm)
 
+      CALL timestop(handle)
+
    END FUNCTION
 
    FUNCTION dbcsr_t_2d_mp_comm(comm_nd, map1_2d, map2_2d)
       INTEGER, INTENT(IN) :: comm_nd
       INTEGER, DIMENSION(:), INTENT(IN) :: map1_2d, map2_2d
       INTEGER, DIMENSION(2) :: pos, dims_2d
-      INTEGER :: dbcsr_t_2d_mp_comm
+      INTEGER :: dbcsr_t_2d_mp_comm, handle
       INTEGER, DIMENSION(SIZE(map1_2d) + SIZE(map2_2d)) :: dims_nd, pcoord
       LOGICAL, DIMENSION(SIZE(map1_2d) + SIZE(map2_2d)) :: periods
+      CHARACTER(LEN=*), PARAMETER :: routineN = 'dbcsr_t_2d_mp_comm', &
+         routineP = moduleN//':'//routineN
+
+      CALL timeset(routineN, handle)
 
       CALL mp_environ(comm_nd, SIZE(dims_nd), dims_nd, pcoord, periods)
 
       dims_2d = [PRODUCT(dims_nd(map1_2d)), PRODUCT(dims_nd(map2_2d))]
 
       CALL mp_cart_create(comm_nd, 2, dims_2d, pos, dbcsr_t_2d_mp_comm)
+
+      CALL timestop(handle)
 
    END FUNCTION
 

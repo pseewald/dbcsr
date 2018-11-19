@@ -841,7 +841,7 @@ CONTAINS
       INTEGER, DIMENSION(:), ALLOCATABLE              :: ${varlist("nd_blk_size_split")}$
       INTEGER, DIMENSION(:), ALLOCATABLE              :: ${varlist("index_split_offset")}$
       INTEGER                                         :: ${varlist("split_blk")}$
-      INTEGER :: idim, i, isplit_sum, blk_remainder, blk, nsplit, isplit
+      INTEGER :: idim, i, isplit_sum, blk_remainder, blk, nsplit, isplit, handle
       INTEGER, DIMENSION(:), ALLOCATABLE :: dist_d, blk_size_d, blk_size_split_d, dist_split_d, &
          map1_2d, map2_2d
       INTEGER, DIMENSION(dbcsr_t_ndims(tensor_in)) :: blk_index, blk_size, blk_offset, nsplit_blk, &
@@ -853,6 +853,11 @@ CONTAINS
       ${dtype}$, DIMENSION(${shape_colon(n=ndim)}$), ALLOCATABLE :: block_${dsuffix}$_${ndim}$d
 #:endfor
 #:endfor
+      CHARACTER(LEN=*), PARAMETER :: routineN = 'dbcsr_t_copy', &
+         routineP = moduleN//':'//routineN
+
+
+      CALL timeset(routineN, handle)
 
       dist_old = dbcsr_t_distribution(tensor_in)
 
@@ -973,6 +978,8 @@ CONTAINS
       CALL dbcsr_t_iterator_stop(iter)
 
       CALL dbcsr_r_finalize(tensor_out%matrix_rep)
+
+      CALL timestop(handle)
 
    END SUBROUTINE
 

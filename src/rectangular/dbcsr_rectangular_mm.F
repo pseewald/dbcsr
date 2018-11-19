@@ -38,8 +38,7 @@ MODULE dbcsr_rectangular_mm
    USE dbcsr_kinds, ONLY: default_string_length, &
       int_8, &
       real_8
-   USE dbcsr_mpiwrap, ONLY: mp_cart_create, &
-      mp_comm_compare, &
+   USE dbcsr_mpiwrap, ONLY: mp_comm_compare, &
       mp_environ, mp_sum, mp_comm_free
    USE dbcsr_io, ONLY: dbcsr_print
 #include "../base/dbcsr_base_uses.f90"
