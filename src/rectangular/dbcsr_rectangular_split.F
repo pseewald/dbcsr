@@ -237,9 +237,13 @@ CONTAINS
       INTEGER, INTENT(IN)                                :: igroup, split_rowcol
 
       INTEGER :: igroup_check, iproc, iproc_group, iproc_group_check, mp_comm_group, numproc, &
-                 numproc_group, numproc_group_check
+                 numproc_group, numproc_group_check, handle
       INTEGER, DIMENSION(2)                              :: pcoord, pcoord_group, pdims, pdims_group
       LOGICAL                                            :: to_assert
+      CHARACTER(LEN=*), PARAMETER :: routineN = 'dbcsr_r_split_rows_or_cols', &
+                                     routineP = moduleN//':'//routineN
+
+      CALL timeset(routineN, handle)
 
       CALL mp_comm_dup(mp_comm, split_info%mp_comm)
       split_info%igroup = igroup
@@ -292,6 +296,8 @@ CONTAINS
 
       ALLOCATE (split_info%refcount)
       split_info%refcount = 1
+
+      CALL timestop(handle)
 
    END SUBROUTINE
 
