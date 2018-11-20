@@ -853,7 +853,7 @@ CONTAINS
       ${dtype}$, DIMENSION(${shape_colon(n=ndim)}$), ALLOCATABLE :: block_${dsuffix}$_${ndim}$d
 #:endfor
 #:endfor
-      CHARACTER(LEN=*), PARAMETER :: routineN = 'dbcsr_t_copy', &
+      CHARACTER(LEN=*), PARAMETER :: routineN = 'dbcsr_t_split_blocks', &
          routineP = moduleN//':'//routineN
 
 
