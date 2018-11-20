@@ -35,7 +35,10 @@ MODULE dbcsr_tensor_api
                                               dbcsr_t_distribution_type,&
                                               dbcsr_t_nd_mp_comm,&
                                               dbcsr_t_nd_mp_free,&
-                                              dbcsr_t_type
+                                              dbcsr_t_type,&
+                                              dbcsr_t_pgrid_type,&
+                                              dbcsr_t_pgrid_create,&
+                                              dbcsr_t_pgrid_destroy
 
    IMPLICIT NONE
 
@@ -62,5 +65,8 @@ MODULE dbcsr_tensor_api
    PUBLIC :: dbcsr_t_iterator_start
    PUBLIC :: dbcsr_t_iterator_type
    PUBLIC :: dbcsr_t_split_blocks
+   PUBLIC :: dbcsr_t_pgrid_type
+   PUBLIC :: dbcsr_t_pgrid_create
+   PUBLIC :: dbcsr_t_pgrid_destroy
 
 END MODULE dbcsr_tensor_api

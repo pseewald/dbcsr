@@ -64,7 +64,9 @@ MODULE dbcsr_tensor
                                               dbcsr_t_distribution_new,&
                                               dbcsr_t_get_stored_coordinates,&
                                               blk_dims_tensor,&
-                                              dbcsr_t_hold
+                                              dbcsr_t_hold,&
+                                              dbcsr_t_pgrid_type,&
+                                              mp_environ_pgrid
    USE dbcsr_kinds,                     ONLY: ${uselist(dtype_float_prec)}$,&
                                               default_string_length,&
                                               int_8
@@ -457,7 +459,7 @@ CONTAINS
                CALL blk_dims_tensor(tensor1, dims)
                nblkrows = PRODUCT(INT(dims(ind1_linked), KIND=int_8))
                nblkcols = PRODUCT(INT(dims(ind1_free), KIND=int_8))
-               comm_2d = dbcsr_r_mp_comm(tensor1%comm_2d, nblkrows, nblkcols)
+               comm_2d = dbcsr_r_mp_comm(tensor1%pgrid%mp_comm_2d, nblkrows, nblkcols)
                CALL dbcsr_t_remap(tensor1, ind1_linked, ind1_free, tensor1_out, comm_2d=comm_2d, nodata=nodata1)
                CALL mp_comm_free(comm_2d)
                compat1 = 1
@@ -470,18 +472,19 @@ CONTAINS
                IF (compat1 == 1) THEN ! linked index is first 2d dimension
                   ! get distribution of linked index, tensor 2 must adopt this distribution
                   ! get grid dimensions of linked index
-                  CALL get_mapping_info(dist_in%nd_index_grid, dims1_2d=mp_dims)
-                  CALL dbcsr_t_remap(tensor2, ind2_linked, ind2_free, tensor2_out, comm_2d=dist_in%comm_2d, &
+                  CALL get_mapping_info(dist_in%pgrid%nd_index_grid, dims1_2d=mp_dims)
+                  CALL dbcsr_t_remap(tensor2, ind2_linked, ind2_free, tensor2_out, comm_2d=dist_in%pgrid%mp_comm_2d, &
                                      dist1=dist_list, mp_dims_1=mp_dims, nodata=nodata2)
                ELSEIF (compat1 == 2) THEN ! linked index is second 2d dimension
                   ! get distribution of linked index, tensor 2 must adopt this distribution
                   ! get grid dimensions of linked index
-                  CALL get_mapping_info(dist_in%nd_index_grid, dims2_2d=mp_dims)
-                  CALL dbcsr_t_remap(tensor2, ind2_free, ind2_linked, tensor2_out, comm_2d=dist_in%comm_2d, &
+                  CALL get_mapping_info(dist_in%pgrid%nd_index_grid, dims2_2d=mp_dims)
+                  CALL dbcsr_t_remap(tensor2, ind2_free, ind2_linked, tensor2_out, comm_2d=dist_in%pgrid%mp_comm_2d, &
                                      dist2=dist_list, mp_dims_2=mp_dims, nodata=nodata2)
                ELSE
                   DBCSR_ABORT("should not happen")
                ENDIF
+               compat2 = compat1
             ELSE
                CALL dbcsr_t_copy(tensor2, tensor2_out)
             ENDIF
@@ -491,7 +494,7 @@ CONTAINS
                CALL blk_dims_tensor(tensor2, dims)
                nblkrows = PRODUCT(INT(dims(ind2_linked), KIND=int_8))
                nblkcols = PRODUCT(INT(dims(ind2_free), KIND=int_8))
-               comm_2d = dbcsr_r_mp_comm(tensor2%comm_2d, nblkrows, nblkcols)
+               comm_2d = dbcsr_r_mp_comm(tensor2%pgrid%mp_comm_2d, nblkrows, nblkcols)
                CALL dbcsr_t_remap(tensor2, ind2_linked, ind2_free, tensor2_out, nodata=nodata2)
                CALL mp_comm_free(comm_2d)
                compat2 = 1
@@ -502,16 +505,17 @@ CONTAINS
                dist_in = dbcsr_t_distribution(tensor2_out)
                dist_list = array_sublist(dist_in%nd_dist, ind2_linked)
                IF (compat2 == 1) THEN
-                  CALL get_mapping_info(dist_in%nd_index_grid, dims1_2d=mp_dims)
-                  CALL dbcsr_t_remap(tensor1, ind1_linked, ind1_free, tensor1_out, comm_2d=dist_in%comm_2d, &
+                  CALL get_mapping_info(dist_in%pgrid%nd_index_grid, dims1_2d=mp_dims)
+                  CALL dbcsr_t_remap(tensor1, ind1_linked, ind1_free, tensor1_out, comm_2d=dist_in%pgrid%mp_comm_2d, &
                                      dist1=dist_list, mp_dims_1=mp_dims, nodata=nodata1)
                ELSEIF (compat1 == 2) THEN
-                  CALL get_mapping_info(dist_in%nd_index_grid, dims2_2d=mp_dims)
-                  CALL dbcsr_t_remap(tensor1, ind1_free, ind1_linked, tensor1_out, comm_2d=dist_in%comm_2d, &
+                  CALL get_mapping_info(dist_in%pgrid%nd_index_grid, dims2_2d=mp_dims)
+                  CALL dbcsr_t_remap(tensor1, ind1_free, ind1_linked, tensor1_out, comm_2d=dist_in%pgrid%mp_comm_2d, &
                                      dist2=dist_list, mp_dims_2=mp_dims, nodata=nodata1)
                ELSE
                   DBCSR_ABORT("should not happen")
                ENDIF
+               compat1 = compat2
             ELSE
                CALL dbcsr_t_copy(tensor1, tensor1_out)
             ENDIF
@@ -534,7 +538,6 @@ CONTAINS
          CASE DEFAULT
             DBCSR_ABORT("should not happen")
          END SELECT
-
 
       END SUBROUTINE
 
@@ -667,12 +670,12 @@ CONTAINS
       INTEGER, DIMENSION(:), ALLOCATABLE     :: ${varlist("blk_sizes")}$,&
                                                 ${varlist("nd_dist")}$
       TYPE(dbcsr_t_distribution_type)        :: dist
-      INTEGER                                :: comm_2d_prv, comm_nd, handle, i
+      INTEGER                                :: comm_2d_prv, handle, i
       INTEGER, DIMENSION(dbcsr_t_ndims(tensor_in)) :: pdims, myploc
-      LOGICAL, DIMENSION(dbcsr_t_ndims(tensor_in)) :: periods
       CHARACTER(LEN=*), PARAMETER :: routineN = 'dbcsr_t_remap', &
          routineP = moduleN//':'//routineN
       LOGICAL                               :: nodata_prv
+      TYPE(dbcsr_t_pgrid_type)              :: comm_nd
 
       CALL timeset(routineN, handle)
 
@@ -692,11 +695,11 @@ CONTAINS
       IF(PRESENT(comm_2d)) THEN
          comm_2d_prv = comm_2d
       ELSE
-         comm_2d_prv = tensor_in%comm_2d
+         comm_2d_prv = tensor_in%pgrid%mp_comm_2d
       ENDIF
 
       comm_nd = dbcsr_t_nd_mp_comm(comm_2d_prv, map1_2d, map2_2d, dims1_nd=mp_dims_1, dims2_nd=mp_dims_2)
-      CALL mp_environ(comm_nd, dbcsr_t_ndims(tensor_in), pdims, myploc, periods)
+      CALL mp_environ_pgrid(comm_nd, pdims, myploc)
 
 #:for ndim in ndims
       IF (ndims_tensor(tensor_in) == ${ndim}$) THEN
@@ -791,7 +794,7 @@ CONTAINS
       INTEGER, DIMENSION(ndims_tensor(tensor_in)), &
          INTENT(IN)                                   :: order
 
-      TYPE(nd_to_2d_mapping)                          :: nd_index_blk_rs, nd_index_rs, nd_index_grid_rs
+      TYPE(nd_to_2d_mapping)                          :: nd_index_blk_rs, nd_index_rs
       CHARACTER(LEN=*), PARAMETER :: routineN = 'dbcsr_t_permute_index', &
          routineP = moduleN//':'//routineN
       INTEGER                                         :: handle
@@ -800,7 +803,7 @@ CONTAINS
 
       CALL permute_index(tensor_in%nd_index, nd_index_rs, order)
       CALL permute_index(tensor_in%nd_index_blk, nd_index_blk_rs, order)
-      CALL permute_index(tensor_in%nd_index_grid, nd_index_grid_rs, order)
+      CALL permute_index(tensor_in%pgrid%nd_index_grid, tensor_out%pgrid%nd_index_grid, order)
 
       CALL dbcsr_r_create(tensor_in%matrix_rep, tensor_out%matrix_rep)
       CALL dbcsr_r_finalize(tensor_out%matrix_rep)
@@ -808,9 +811,11 @@ CONTAINS
       CALL dbcsr_r_copy(tensor_out%matrix_rep, tensor_in%matrix_rep, shallow_data=.TRUE.)
       tensor_out%nd_index = nd_index_rs
       tensor_out%nd_index_blk = nd_index_blk_rs
-      tensor_out%nd_index_grid = nd_index_grid_rs
-      tensor_out%comm_nd = tensor_in%comm_nd
-      tensor_out%comm_2d = tensor_in%comm_2d
+      !tensor_out%nd_index_grid = nd_index_grid_rs
+      !tensor_out%comm_nd = tensor_in%comm_nd
+      !tensor_out%comm_2d = tensor_in%comm_2d
+      !tensor_out%pgrid%mp_comm_nd = tensor_in%mp_comm_nd
+      tensor_out%pgrid%mp_comm_2d = tensor_in%pgrid%mp_comm_2d
       tensor_out%refcount => tensor_in%refcount
       CALL dbcsr_t_hold(tensor_out)
 
@@ -912,7 +917,7 @@ CONTAINS
 
 #:for ndim in ndims
       IF (ndims_tensor(tensor_in) == ${ndim}$) THEN
-         CALL dbcsr_t_distribution_new(dist_split, tensor_in%comm_nd, map1_2d, map2_2d, &
+         CALL dbcsr_t_distribution_new(dist_split, tensor_in%pgrid, map1_2d, map2_2d, &
                                        ${varlist("nd_dist_split", nmax=ndim)}$)
          CALL dbcsr_t_create(tensor_out, tensor_in%name, dist_split, map1_2d, map2_2d, &
                              dbcsr_t_get_data_type(tensor_in), ${varlist("nd_blk_size_split", nmax=ndim)}$)

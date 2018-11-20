@@ -92,7 +92,7 @@ CONTAINS
 
          CALL dbcsr_clear(tensor_out%matrix_rep%matrix)
 
-         mp_comm = tensor_in%comm_2d
+         mp_comm = tensor_in%pgrid%mp_comm_2d
          CALL mp_environ(numnodes, mynode, mp_comm)
          ALLOCATE (buffer_send(0:numnodes - 1))
          ALLOCATE (buffer_recv(0:numnodes - 1))

@@ -33,7 +33,11 @@ MODULE dbcsr_tensor_test
                                               dims_tensor,&
                                               dbcsr_t_distribution_new,&
                                               dbcsr_t_nd_mp_comm,&
-                                              dbcsr_t_get_data_type
+                                              dbcsr_t_get_data_type,&
+                                              mp_environ_pgrid,&
+                                              dbcsr_t_pgrid_type,&
+                                              dbcsr_t_pgrid_create,&
+                                              dbcsr_t_pgrid_destroy
    USE dbcsr_kinds,                     ONLY: ${uselist(dtype_float_prec)}$,&
                                               default_string_length,&
                                               int_8
@@ -218,15 +222,14 @@ CONTAINS
       INTEGER                                     :: iperm, idist, icount
       INTEGER, DIMENSION(:), ALLOCATABLE          :: map1, map2, map1_ref, map2_ref
       INTEGER, DIMENSION(ndims, factorial(ndims)) :: perm
-      LOGICAL, DIMENSION(ndims)                   :: periods
       INTEGER                                     :: io_unit
       INTEGER                                     :: mynode, numnodes
-      INTEGER                                     :: comm_nd
+      TYPE(dbcsr_t_pgrid_type)                    :: comm_nd
       CHARACTER(LEN=default_string_length)        :: tensor_name
 
       ! Process grid
       pdims(:) = 0
-      CALL mp_cart_create(mp_comm, ndims, pdims, myploc, comm_nd)
+      CALL dbcsr_t_pgrid_create(mp_comm, pdims, comm_nd)
       CALL mp_environ(numnodes, mynode, mp_comm)
 
       io_unit = 0
@@ -286,14 +289,14 @@ CONTAINS
             CALL allocate_any(map1, source=perm(1:isep,iperm))
             CALL allocate_any(map2, source=perm(isep+1:ndims,iperm))
 
-            CALL mp_environ(numnodes, mynode, comm_nd)
-            CALL mp_environ(comm_nd, ndims, pdims, myploc, periods)
+            CALL mp_environ(numnodes, mynode, mp_comm)
+            CALL mp_environ_pgrid(comm_nd, pdims, myploc)
 
 #:for dim in range(1, maxdim+1)
             IF (${dim}$ <= ndims) THEN
                nblks = SIZE(blk_size_${dim}$)
-               CALL dbcsr_t_random_dist(dist1_${dim}$, nblks, pdims(${dim}$), comm_nd)
-               CALL dbcsr_t_random_dist(dist2_${dim}$, nblks, pdims(${dim}$), comm_nd)
+               CALL dbcsr_t_random_dist(dist1_${dim}$, nblks, pdims(${dim}$), mp_comm)
+               CALL dbcsr_t_random_dist(dist2_${dim}$, nblks, pdims(${dim}$), mp_comm)
             ENDIF
 #:endfor
 
@@ -340,7 +343,7 @@ CONTAINS
                CALL dbcsr_t_distribution_new(dist2, comm_nd, map1_ref, map2_ref, ${varlist("dist2", nmax=ndim)}$)
                CALL dbcsr_t_create(tensor2, "Ref", dist2, map1_ref, map2_ref, &
                                    dbcsr_type_real_8, ${varlist("blk_size", nmax=ndim)}$)
-               CALL dbcsr_t_setup_test_tensor(tensor2, comm_nd, ${varlist("blk_ind", nmax=ndim)}$)
+               CALL dbcsr_t_setup_test_tensor(tensor2, comm_nd%mp_comm_2d, ${varlist("blk_ind", nmax=ndim)}$)
             ENDIF
 #:endfor
 
@@ -351,7 +354,7 @@ CONTAINS
                CALL dbcsr_t_distribution_new(dist1, comm_nd, map1, map2, ${varlist("dist1", nmax=ndim)}$)
                CALL dbcsr_t_create(tensor1, tensor_name, dist1, map1, map2, &
                                    dbcsr_type_real_8, ${varlist("blk_size", nmax=ndim)}$)
-               CALL dbcsr_t_setup_test_tensor(tensor1, comm_nd, ${varlist("blk_ind", nmax=ndim)}$)
+               CALL dbcsr_t_setup_test_tensor(tensor1, comm_nd%mp_comm_2d, ${varlist("blk_ind", nmax=ndim)}$)
             ENDIF
 #:endfor
 
@@ -376,7 +379,7 @@ CONTAINS
 
          ENDDO
       ENDDO
-      CALL mp_comm_free(comm_nd)
+      CALL dbcsr_t_pgrid_destroy(comm_nd)
    END SUBROUTINE
 
 ! **************************************************************************************************
@@ -539,7 +542,7 @@ CONTAINS
       DO WHILE (dbcsr_t_iterator_blocks_left(iterator))
          CALL dbcsr_t_iterator_next_block(iterator, blk_index, blk, blk_size=blk_size)
          CALL dbcsr_t_get_stored_coordinates(tensor, blk_index, proc)
-         CALL mp_environ(numnodes, mynode, tensor%comm_nd)
+         CALL mp_environ(numnodes, mynode, tensor%pgrid%mp_comm_2d)
          DBCSR_ASSERT(proc .EQ. mynode)
 #:for ndim in ndims
          IF(dbcsr_t_ndims(tensor) == ${ndim}$) THEN
@@ -577,7 +580,7 @@ CONTAINS
       DO WHILE (dbcsr_t_iterator_blocks_left(iterator))
          CALL dbcsr_t_iterator_next_block(iterator, blk_index, blk, blk_size=blk_size)
          CALL dbcsr_t_get_stored_coordinates(tensor, blk_index, proc)
-         CALL mp_environ(numnodes, mynode, tensor%comm_nd)
+         CALL mp_environ(numnodes, mynode, tensor%pgrid%mp_comm_2d)
          DBCSR_ASSERT(proc .EQ. mynode)
 #:for ndim in ndims
          IF(dbcsr_t_ndims(tensor) == ${ndim}$) THEN
@@ -688,7 +691,7 @@ CONTAINS
          DEALLOCATE(block)
       ENDDO
       CALL dbcsr_t_iterator_stop(iterator)
-      CALL mp_sum(array, tensor%comm_nd)
+      CALL mp_sum(array, tensor%pgrid%mp_comm_2d)
 
    END SUBROUTINE
 #:endfor
@@ -778,7 +781,7 @@ CONTAINS
       LOGICAL, PARAMETER                  :: debug = .FALSE.
       REAL(KIND=real_8)                   :: cs_1, cs_2, cs_3
 
-      mp_comm = tensor_1%comm_2d
+      mp_comm = tensor_1%pgrid%mp_comm_2d
       CALL mp_environ(numnodes, mynode, mp_comm)
       io_unit = 0
       IF (mynode .EQ. 0) io_unit = unit_nr

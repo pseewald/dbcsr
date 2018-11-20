@@ -3088,7 +3088,7 @@ CONTAINS
       INTEGER                                            :: ierr
 
       ierr = 0
-      
+
       version = ''
 
 #if defined(__parallel)
