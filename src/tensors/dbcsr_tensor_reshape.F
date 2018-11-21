@@ -78,11 +78,11 @@ CONTAINS
       TYPE(dbcsr_t_type), INTENT(INOUT)               :: tensor_in, tensor_out
 
       INTEGER                                            :: blk, iproc, mp_comm, mynode, ndata, &
-                                                            numnodes
+                                                            numnodes, bcount, nblk
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: num_blocks_recv, num_blocks_send, &
                                                             num_entries_recv, num_entries_send, &
                                                             num_rec, num_send
-      INTEGER, ALLOCATABLE, DIMENSION(:, :)              :: req_array, index_recv
+      INTEGER, ALLOCATABLE, DIMENSION(:, :)              :: req_array, index_recv, blks_to_allocate
       TYPE(dbcsr_t_iterator_type)                        :: iter
       TYPE(block_nd)                                     :: blk_data
       TYPE(block_buffer_type), ALLOCATABLE, DIMENSION(:) :: buffer_recv, buffer_send
@@ -136,10 +136,21 @@ CONTAINS
 
          CALL communicate_buffer(mp_comm, buffer_recv, buffer_send, req_array)
 
+         nblk = SUM(num_blocks_recv)
+         ALLOCATE (blks_to_allocate(nblk, ndims_tensor(tensor_in)))
+
+         bcount = 0
          DO iproc = 0, numnodes - 1
-            ! First, we need to get the index to create block
             CALL block_buffer_get_index(buffer_recv(iproc), index_recv)
-            CALL dbcsr_t_reserve_blocks(tensor_out, index_recv)
+            blks_to_allocate(bcount + 1:bcount + SIZE(index_recv, 1), :) = index_recv(:, :)
+            bcount = bcount + SIZE(index_recv, 1)
+            DEALLOCATE(index_recv)
+         ENDDO
+
+         CALL dbcsr_t_reserve_blocks(tensor_out, blks_to_allocate)
+         DEALLOCATE(blks_to_allocate)
+
+         DO iproc = 0, numnodes - 1
             DO WHILE (block_buffer_blocks_left(buffer_recv(iproc)))
                CALL block_buffer_get_next_anyd_block(buffer_recv(iproc), ndata, index)
                CALL dbcsr_t_blk_sizes(tensor_in, index, blk_size)
