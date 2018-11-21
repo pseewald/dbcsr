@@ -903,9 +903,14 @@ CONTAINS
       INTEGER, DIMENSION(:), INTENT(INOUT) :: dims
       TYPE(dbcsr_t_pgrid_type), INTENT(OUT) :: pgrid
       INTEGER, DIMENSION(:), INTENT(IN), OPTIONAL :: map1_2d, map2_2d
-      INTEGER :: nproc, iproc, ndims, i
+      INTEGER :: nproc, iproc, ndims, i, handle
       INTEGER, DIMENSION(2) :: pdims_2d, pos
       INTEGER, DIMENSION(:), ALLOCATABLE :: map1_2d_prv, map2_2d_prv
+
+      CHARACTER(LEN=*), PARAMETER :: routineN = 'dbcsr_t_pgrid_create', &
+         routineP = moduleN//':'//routineN
+
+      CALL timeset(routineN, handle)
 
       ndims = SIZE(dims)
       IF(PRESENT(map1_2d) .AND. PRESENT(map2_2d)) THEN
@@ -923,6 +928,8 @@ CONTAINS
       CALL create_nd_to_2d_mapping(pgrid%nd_index_grid, dims, map1_2d_prv, map2_2d_prv, base=0, col_major=.FALSE.)
       CALL get_mapping_info(pgrid%nd_index_grid, dims_2d=pdims_2d)
       CALL mp_cart_create(mp_comm, 2, pdims_2d, pos, pgrid%mp_comm_2d)
+
+      CALL timestop(handle)
    END SUBROUTINE
 
    SUBROUTINE dbcsr_t_pgrid_destroy(pgrid)
