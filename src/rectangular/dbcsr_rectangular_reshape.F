@@ -132,8 +132,8 @@ CONTAINS
          routineP = moduleN//':'//routineN
 
       INTEGER                                            :: handle, handle2, iproc, mp_comm, mynode, nblock, &
-                                                            ndata, numnodes
-      INTEGER(KIND=int_8), ALLOCATABLE, DIMENSION(:, :)  :: index_recv
+                                                            ndata, numnodes, bcount, nblk
+      INTEGER(KIND=int_8), ALLOCATABLE, DIMENSION(:, :)  :: index_recv, blks_to_allocate
       INTEGER(KIND=int_8), DIMENSION(2)                  :: blk_index
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: num_blocks_recv, num_blocks_send, &
                                                             num_entries_recv, num_entries_send, &
@@ -238,10 +238,23 @@ CONTAINS
       CALL timestop(handle2)
 
       CALL timeset(routineN//"_buffer_obtain", handle2)
+
+      nblk = SUM(num_blocks_recv)
+      ALLOCATE (blks_to_allocate(nblk, 2))
+
+      bcount = 0
+      DO iproc = 0, numnodes - 1
+         CALL block_buffer_get_index(buffer_recv(iproc), index_recv)
+         blks_to_allocate(bcount + 1:bcount + SIZE(index_recv, 1), :) = index_recv(:, :)
+         bcount = bcount + SIZE(index_recv, 1)
+         DEALLOCATE(index_recv)
+      ENDDO
+
+      CALL dbcsr_r_reserve_blocks(matrix_out, blks_to_allocate(:, 1), blks_to_allocate(:, 2))
+      DEALLOCATE(blks_to_allocate)
+
       DO iproc = 0, numnodes-1
          ! First, we need to get the index to create block
-         CALL block_buffer_get_index(buffer_recv(iproc), index_recv)
-         CALL dbcsr_r_reserve_blocks(matrix_out, index_recv(:, 1), index_recv(:, 2))
          DO WHILE (block_buffer_blocks_left(buffer_recv(iproc)))
             CALL block_buffer_get_next_block(buffer_recv(iproc), ndata, blk_index)
             CALL dbcsr_r_blk_sizes(matrix_out, blk_index(1), blk_index(2), blk_size(1), blk_size(2))
@@ -295,12 +308,12 @@ CONTAINS
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: num_blocks_recv, num_blocks_send, &
                                                             num_entries_recv, num_entries_send, &
                                                             num_rec, num_send
-      INTEGER, ALLOCATABLE, DIMENSION(:, :) :: req_array
+      INTEGER, ALLOCATABLE, DIMENSION(:, :) :: req_array, blks_to_allocate
       INTEGER, DIMENSION(2) :: blk_size
       INTEGER, DIMENSION(2) :: blk_index
       INTEGER(KIND=int_8), DIMENSION(2) :: blk_index_i8
       TYPE(dbcsr_iterator) :: iter
-      INTEGER :: nblock, i, iproc
+      INTEGER :: nblock, i, iproc, bcount, nblk
       INTEGER, DIMENSION(:), ALLOCATABLE :: iprocs
       LOGICAL :: tr, nodata_prv
       INTEGER(KIND=int_8), ALLOCATABLE, DIMENSION(:, :) :: index_recv
@@ -423,10 +436,22 @@ CONTAINS
       CALL communicate_buffer(mp_comm, buffer_recv, buffer_send, req_array)
       CALL timestop(handle2)
 
+      nblk = SUM(num_blocks_recv)
+      ALLOCATE (blks_to_allocate(nblk, 2))
+
+      bcount = 0
+      DO iproc = 0, numnodes - 1
+         CALL block_buffer_get_index(buffer_recv(iproc), index_recv)
+         blks_to_allocate(bcount + 1:bcount + SIZE(index_recv, 1), :) = INT(index_recv(:, :))
+         bcount = bcount + SIZE(index_recv, 1)
+         DEALLOCATE(index_recv)
+      ENDDO
+
+      CALL dbcsr_reserve_blocks(matrix_out%matrix, blks_to_allocate(:, 1), blks_to_allocate(:, 2))
+      DEALLOCATE(blks_to_allocate)
+
       DO iproc = 0, numnodes-1
          ! First, we need to get the index to create block
-         CALL block_buffer_get_index(buffer_recv(iproc), index_recv)
-         CALL dbcsr_reserve_blocks(matrix_out%matrix, INT(index_recv(:, 1)), INT(index_recv(:, 2)))
          DO WHILE (block_buffer_blocks_left(buffer_recv(iproc)))
             CALL block_buffer_get_next_block(buffer_recv(iproc), ndata, blk_index_i8)
             CALL dbcsr_r_blk_sizes(matrix_out, blk_index_i8(1), blk_index_i8(2), blk_size(1), blk_size(2))
@@ -460,13 +485,13 @@ CONTAINS
       CHARACTER(LEN=*), PARAMETER :: routineN = 'dbcsr_r_merge', routineP = moduleN//':'//routineN
 
       INTEGER                                            :: data_type, handle, handle2, iproc, mp_comm, &
-                                                            mynode, nblock, ndata, numnodes
-      INTEGER(KIND=int_8), ALLOCATABLE, DIMENSION(:, :)  :: index_recv, index_recv_u
+                                                            mynode, nblock, ndata, numnodes, nblk, bcount
+      INTEGER(KIND=int_8), ALLOCATABLE, DIMENSION(:, :)  :: index_recv
       INTEGER(KIND=int_8), DIMENSION(2)                  :: blk_index_i8
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: iprocs, num_blocks_recv, &
                                                             num_blocks_send, num_entries_recv, &
                                                             num_entries_send, num_rec, num_send
-      INTEGER, ALLOCATABLE, DIMENSION(:, :)              :: req_array
+      INTEGER, ALLOCATABLE, DIMENSION(:, :)              :: req_array, blks_to_allocate, blks_to_allocate_u
       INTEGER, DIMENSION(2)                              :: blk_index, blk_size
       LOGICAL                                            :: tr
       TYPE(block_buffer_type), ALLOCATABLE, DIMENSION(:) :: buffer_recv, buffer_send
@@ -541,11 +566,24 @@ CONTAINS
       CALL communicate_buffer(mp_comm, buffer_recv, buffer_send, req_array)
       CALL timestop(handle2)
 
+      nblk = SUM(num_blocks_recv)
+      ALLOCATE (blks_to_allocate(nblk, 2))
+
+      bcount = 0
+      DO iproc = 0, numnodes - 1
+         CALL block_buffer_get_index(buffer_recv(iproc), index_recv)
+         blks_to_allocate(bcount + 1:bcount + SIZE(index_recv, 1), :) = INT(index_recv(:, :))
+         bcount = bcount + SIZE(index_recv, 1)
+         DEALLOCATE(index_recv)
+      ENDDO
+
+      CALL index_unique(blks_to_allocate, blks_to_allocate_u)
+
+      CALL dbcsr_reserve_blocks(matrix_out, blks_to_allocate_u(:, 1), blks_to_allocate_u(:, 2))
+      DEALLOCATE(blks_to_allocate, blks_to_allocate_u)
+
       DO iproc = 0, numnodes-1
          ! First, we need to get the index to create block
-         CALL block_buffer_get_index(buffer_recv(iproc), index_recv)
-         CALL index_unique(index_recv, index_recv_u)
-         CALL dbcsr_reserve_blocks(matrix_out, INT(index_recv_u(:, 1)), INT(index_recv_u(:, 2)))
          DO WHILE (block_buffer_blocks_left(buffer_recv(iproc)))
             CALL block_buffer_get_next_block(buffer_recv(iproc), ndata, blk_index_i8)
             blk_size(1) = dbcsr_blk_row_size(matrix_out, INT(blk_index_i8(1)))
@@ -572,14 +610,14 @@ CONTAINS
 !> \param index_out ...
 ! **************************************************************************************************
    SUBROUTINE index_unique(index_in, index_out)
-      INTEGER(KIND=int_8), DIMENSION(:, :), INTENT(IN)   :: index_in
-      INTEGER(KIND=int_8), ALLOCATABLE, &
+      INTEGER, DIMENSION(:, :), INTENT(IN)   :: index_in
+      INTEGER, ALLOCATABLE, &
          DIMENSION(:, :), INTENT(OUT)                    :: index_out
 
       INTEGER                                            :: blk, count, orig_size
-      INTEGER(KIND=int_8), ALLOCATABLE, DIMENSION(:, :)  :: index_tmp
-      INTEGER(KIND=int_8), DIMENSION(2)                  :: prev_index
-      INTEGER(KIND=int_8), DIMENSION(1:SIZE(index_in, 1)&
+      INTEGER, ALLOCATABLE, DIMENSION(:, :)  :: index_tmp
+      INTEGER, DIMENSION(2)                  :: prev_index
+      INTEGER, DIMENSION(1:SIZE(index_in, 1)&
          , 1:SIZE(index_in, 2))                          :: index_sorted
 
       orig_size = SIZE(index_in, 1)
