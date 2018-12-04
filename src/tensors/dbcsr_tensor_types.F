@@ -897,7 +897,7 @@ CONTAINS
       CALL dbcsr_r_get_stored_coordinates(tensor%matrix_rep, ind_2d(1), ind_2d(2), processor)
    END SUBROUTINE
 
-   ! todo: map1_2d and map2_2d should be optional
+   ! todo: should map1_2d and map2_2d be optional? It is not said that it is consistent with nd grid
    SUBROUTINE dbcsr_t_pgrid_create(mp_comm, dims, pgrid, map1_2d, map2_2d)
       INTEGER, INTENT(IN) :: mp_comm
       INTEGER, DIMENSION(:), INTENT(INOUT) :: dims
