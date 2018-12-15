@@ -65,7 +65,7 @@ CONTAINS
 !> \param matrix_c ...
 ! **************************************************************************************************
    SUBROUTINE dbcsr_r_multiply(transa, transb, transc, alpha, matrix_a, matrix_b, beta, matrix_c, &
-                               optimize_dist, filter_eps, io_unit)
+                               optimize_dist, filter_eps, flop, io_unit)
       CHARACTER(LEN=1), INTENT(IN)                       :: transa, transb, transc
       TYPE(dbcsr_scalar_type), INTENT(IN) :: alpha
       TYPE(dbcsr_r_type), TARGET, INTENT(INOUT) :: matrix_a, matrix_b
@@ -75,6 +75,7 @@ CONTAINS
       TYPE(dbcsr_r_type), TARGET, INTENT(INOUT) :: matrix_c
       LOGICAL, INTENT(IN), OPTIONAL             :: optimize_dist
       REAL(KIND=real_8), INTENT(IN), OPTIONAL            :: filter_eps
+      INTEGER(KIND=int_8), INTENT(OUT), OPTIONAL        :: flop
       REAL(KIND=real_8)                                  :: filter_eps_prv
       INTEGER(KIND=int_8), DIMENSION(2) :: dims_a, dims_b, dims_c
       INTEGER(KIND=int_8), DIMENSION(3) :: dims
@@ -234,11 +235,11 @@ CONTAINS
             CALL mp_environ(numproc, iproc, mp_comm)
             CALL dbcsr_multiply(transa=dbcsr_no_transpose, transb=dbcsr_no_transpose, alpha=alpha, &
                                 matrix_a=matrix_a_rs%matrix, matrix_b=matrix_b_rep%matrix, beta=beta, matrix_c=matrix_c_rs%matrix, &
-                                filter_eps=filter_eps_prv)
+                                filter_eps=filter_eps_prv, flop=flop)
          CASE (dbcsr_transpose)
             CALL dbcsr_multiply(transa=dbcsr_transpose, transb=dbcsr_no_transpose, alpha=alpha, &
                                 matrix_a=matrix_b_rep%matrix, matrix_b=matrix_a_rs%matrix, beta=beta, matrix_c=matrix_c_rs%matrix, &
-                                filter_eps=filter_eps_prv)
+                                filter_eps=filter_eps_prv, flop=flop)
          END SELECT
          CALL dbcsr_r_distribution_destroy(matrix_b_rep%dist)
          CALL dbcsr_r_destroy(matrix_b_rep)
@@ -247,7 +248,7 @@ CONTAINS
 
          CALL dbcsr_multiply(transa=transa_prv, transb=transb_prv, alpha=alpha, matrix_a=matrix_a_rs%matrix, &
                              matrix_b=matrix_b_rs%matrix, beta=beta, matrix_c=matrix_c_rep%matrix, &
-                             filter_eps=filter_eps_prv)
+                             filter_eps=filter_eps_prv, flop=flop)
 
          CALL dbcsr_r_merge(matrix_c_rs%matrix, matrix_c_rep)
          CALL dbcsr_r_distribution_destroy(matrix_c_rep%dist)
@@ -258,11 +259,11 @@ CONTAINS
          CASE (dbcsr_no_transpose)
             CALL dbcsr_multiply(transa=dbcsr_no_transpose, transb=dbcsr_no_transpose, alpha=alpha, &
                                 matrix_a=matrix_a_rep%matrix, matrix_b=matrix_b_rs%matrix, beta=beta, matrix_c=matrix_c_rs%matrix, &
-                                filter_eps=filter_eps_prv)
+                                filter_eps=filter_eps_prv, flop=flop)
          CASE (dbcsr_transpose)
             CALL dbcsr_multiply(transa=dbcsr_no_transpose, transb=dbcsr_transpose, alpha=alpha, &
                                 matrix_a=matrix_b_rs%matrix, matrix_b=matrix_a_rep%matrix, beta=beta, matrix_c=matrix_c_rs%matrix, &
-                                filter_eps=filter_eps_prv)
+                                filter_eps=filter_eps_prv, flop=flop)
          END SELECT
          CALL dbcsr_r_distribution_destroy(matrix_a_rep%dist)
          CALL dbcsr_r_destroy(matrix_a_rep)
@@ -281,6 +282,11 @@ CONTAINS
          CALL dbcsr_r_reshape(matrix_c_rs, matrix_c, summation=.TRUE., transposed=transc_prv/=transc)
          CALL dbcsr_r_destroy(matrix_c_rs)
          DEALLOCATE(matrix_c_rs)
+      ENDIF
+
+      IF(PRESENT(flop)) THEN
+         CALL mp_sum(flop, mp_comm)
+         flop = (flop+numnodes-1)/numnodes
       ENDIF
 
       IF(PRESENT(optimize_dist)) THEN

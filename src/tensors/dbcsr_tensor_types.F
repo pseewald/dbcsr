@@ -132,6 +132,7 @@ MODULE dbcsr_tensor_types
    INTERFACE dbcsr_t_create
       MODULE PROCEDURE dbcsr_t_create_new
       MODULE PROCEDURE dbcsr_t_create_template
+      MODULE PROCEDURE dbcsr_t_create_matrix
    END INTERFACE
 
    INTERFACE dbcsr_r_dist_t

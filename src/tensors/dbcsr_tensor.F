@@ -204,7 +204,7 @@ CONTAINS
    SUBROUTINE dbcsr_t_contract(alpha, tensor_1, tensor_2, beta, tensor_3, &
                                contract_1, notcontract_1, &
                                contract_2, notcontract_2, &
-                               map_1, map_2, optimize_dist)
+                               map_1, map_2, optimize_dist, filter_eps, flop, io_unit)
       TYPE(dbcsr_scalar_type), INTENT(IN) :: alpha
       TYPE(dbcsr_t_type), INTENT(INOUT)                 :: tensor_1, tensor_2
       TYPE(dbcsr_scalar_type), INTENT(IN) :: beta
@@ -212,6 +212,9 @@ CONTAINS
       INTEGER, DIMENSION(:), INTENT(IN)              :: notcontract_1, notcontract_2
       TYPE(dbcsr_t_type), INTENT(INOUT)              :: tensor_3
       LOGICAL, INTENT(IN), OPTIONAL                  :: optimize_dist
+      REAL(KIND=real_8), INTENT(IN), OPTIONAL        :: filter_eps
+      INTEGER(KIND=int_8), INTENT(OUT), OPTIONAL       :: flop
+      INTEGER, OPTIONAL, INTENT(IN)                  :: io_unit
 
       TYPE(dbcsr_t_type)                             :: tensor_contr_1, tensor_contr_2, tensor_contr_3, &
                                                         tensor_tmp_1, tensor_tmp_2, tensor_tmp_3
@@ -354,7 +357,7 @@ CONTAINS
       CALL dbcsr_r_multiply(trans_1, trans_2, trans_3, alpha, &
                             tensor_contr_1%matrix_rep, tensor_contr_2%matrix_rep, &
                             beta, &
-                            tensor_contr_3%matrix_rep)
+                            tensor_contr_3%matrix_rep, filter_eps=filter_eps, flop=flop, io_unit=io_unit)
 
 
       IF(new_3) THEN
