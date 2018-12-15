@@ -51,6 +51,7 @@ MODULE dbcsr_tensor_test
    USE dbcsr_tensor_index,              ONLY: combine_index, &
                                               get_mapping_info
    USE dbcsr_rectangular_test,          ONLY: dbcsr_r_checksum
+   USE dbcsr_data_types,                ONLY: dbcsr_scalar_type
 #include "base/dbcsr_base_uses.f90"
 
    IMPLICIT NONE
@@ -749,11 +750,13 @@ CONTAINS
 !> \param map_2 ...
 !> \param unit_nr
 ! **************************************************************************************************
-   SUBROUTINE dbcsr_t_contract_test(tensor_1, tensor_2, tensor_3, &
+   SUBROUTINE dbcsr_t_contract_test(alpha, tensor_1, tensor_2, beta, tensor_3, &
                                     contract_1, notcontract_1, &
                                     contract_2, notcontract_2, &
                                     map_1, map_2, unit_nr, write_int)
+      TYPE(dbcsr_scalar_type), INTENT(IN) :: alpha
       TYPE(dbcsr_t_type), INTENT(INOUT)    :: tensor_1, tensor_2, tensor_3
+      TYPE(dbcsr_scalar_type), INTENT(IN) :: beta
       INTEGER, DIMENSION(:), INTENT(IN)    :: contract_1, contract_2, &
                                               notcontract_1, notcontract_2,&
                                               map_1, map_2
@@ -806,7 +809,7 @@ CONTAINS
          WRITE(io_unit, '(A)') repeat("-",80)
       ENDIF
 
-      CALL dbcsr_t_contract(tensor_1, tensor_2, tensor_3, &
+      CALL dbcsr_t_contract(alpha, tensor_1, tensor_2, beta, tensor_3, &
                             contract_1, notcontract_1, &
                             contract_2, notcontract_2, &
                             map_1, map_2)

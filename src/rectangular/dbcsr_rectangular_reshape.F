@@ -18,7 +18,7 @@ MODULE dbcsr_rectangular_reshape
                                               dbcsr_type_1d_to_2d
    USE dbcsr_data_methods_low,          ONLY: internal_data_allocate,&
                                               internal_data_deallocate
-   USE dbcsr_data_types,                ONLY: dbcsr_data_obj
+   USE dbcsr_data_types,                ONLY: dbcsr_data_obj, dbcsr_scalar_type
    USE dbcsr_dist_methods,              ONLY: dbcsr_distribution_col_dist,&
                                               dbcsr_distribution_row_dist
    USE dbcsr_dist_operations,           ONLY: dbcsr_get_stored_coordinates
@@ -124,8 +124,9 @@ CONTAINS
 !> \param matrix_out ...
 !> \param transposed ...
 ! **************************************************************************************************
-   RECURSIVE SUBROUTINE dbcsr_r_reshape(matrix_in, matrix_out, transposed)
+   RECURSIVE SUBROUTINE dbcsr_r_reshape(matrix_in, matrix_out, summation, transposed)
       TYPE(dbcsr_r_type), INTENT(INOUT)                  :: matrix_in, matrix_out
+      LOGICAL, INTENT(IN), OPTIONAL                      :: summation
       LOGICAL, INTENT(IN), OPTIONAL                      :: transposed
 
       CHARACTER(LEN=*), PARAMETER :: routineN = 'dbcsr_r_reshape', &
@@ -148,7 +149,11 @@ CONTAINS
 
       CALL timeset(routineN, handle)
 
-      CALL dbcsr_clear(matrix_out%matrix)
+      IF(PRESENT(summation)) THEN
+         IF(.NOT. summation) CALL dbcsr_clear(matrix_out%matrix)
+      ELSE
+         CALL dbcsr_clear(matrix_out%matrix)
+      ENDIF
 
       IF (PRESENT(transposed)) THEN
          tr_in = transposed
@@ -260,7 +265,7 @@ CONTAINS
             CALL dbcsr_r_blk_sizes(matrix_out, blk_index(1), blk_index(2), blk_size(1), blk_size(2))
             CALL internal_data_allocate(block%d, blk_size)
             CALL block_buffer_get_next_block(buffer_recv(iproc), ndata, blk_index, block)
-            CALL dbcsr_r_put_block(matrix_out, blk_index(1), blk_index(2), block)
+            CALL dbcsr_r_put_block(matrix_out, blk_index(1), blk_index(2), block, summation=summation)
             CALL internal_data_deallocate(block%d)
          ENDDO
          CALL block_buffer_destroy(buffer_recv(iproc))

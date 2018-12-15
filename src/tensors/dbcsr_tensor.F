@@ -75,6 +75,8 @@ MODULE dbcsr_tensor
    USE dbcsr_tensor_reshape,            ONLY: dbcsr_t_reshape
    USE dbcsr_mpiwrap,                   ONLY: mp_comm_free
    USE dbcsr_rectangular_split,         ONLY: dbcsr_r_mp_comm
+   USE dbcsr_operations,                ONLY: dbcsr_scale, dbcsr_add, dbcsr_filter
+   USE dbcsr_data_types,                ONLY: dbcsr_scalar_type
 
 #include "base/dbcsr_base_uses.f90"
 
@@ -199,11 +201,13 @@ CONTAINS
 !> \param tensor_3 contracted tensor (out)
 !> \todo Generate input arguments (contract_*, notcontract_*, map_*) from Einstein notation
 ! **************************************************************************************************
-   SUBROUTINE dbcsr_t_contract(tensor_1, tensor_2, tensor_3, &
+   SUBROUTINE dbcsr_t_contract(alpha, tensor_1, tensor_2, beta, tensor_3, &
                                contract_1, notcontract_1, &
                                contract_2, notcontract_2, &
                                map_1, map_2, optimize_dist)
+      TYPE(dbcsr_scalar_type), INTENT(IN) :: alpha
       TYPE(dbcsr_t_type), INTENT(INOUT)                 :: tensor_1, tensor_2
+      TYPE(dbcsr_scalar_type), INTENT(IN) :: beta
       INTEGER, DIMENSION(:), INTENT(IN)              :: contract_1, contract_2, map_1, map_2
       INTEGER, DIMENSION(:), INTENT(IN)              :: notcontract_1, notcontract_2
       TYPE(dbcsr_t_type), INTENT(INOUT)              :: tensor_3
@@ -347,18 +351,21 @@ CONTAINS
       CALL dbcsr_t_destroy(tensor_tmp_1)
       CALL dbcsr_t_destroy(tensor_tmp_2)
 
-      CALL dbcsr_r_multiply(trans_1, trans_2, trans_3, dbcsr_scalar(1.0_real_8), &
+      CALL dbcsr_r_multiply(trans_1, trans_2, trans_3, alpha, &
                             tensor_contr_1%matrix_rep, tensor_contr_2%matrix_rep, &
+                            beta, &
                             tensor_contr_3%matrix_rep)
 
 
       IF(new_3) THEN
          ! need redistribute if we created new tensor for tensor 3
          CALL dbcsr_t_copy(tensor_contr_3, tensor_tmp_3)
-         CALL dbcsr_r_copy(tensor_3%matrix_rep, tensor_tmp_3%matrix_rep, shallow_data=.TRUE.)
+         CALL dbcsr_t_scale(tensor_3, beta)
+         CALL dbcsr_add(tensor_3%matrix_rep%matrix, tensor_tmp_3%matrix_rep%matrix)
       ELSE
          ! shallow copy sufficient since no new matrix has been created for tensor 3
-         CALL dbcsr_r_copy(tensor_3%matrix_rep, tensor_contr_3%matrix_rep, shallow_data=.TRUE.)
+         CALL dbcsr_t_scale(tensor_3, beta)
+         CALL dbcsr_add(tensor_3%matrix_rep%matrix, tensor_contr_3%matrix_rep%matrix)
       ENDIF
 
       CALL dbcsr_t_destroy(tensor_tmp_3)
@@ -986,6 +993,12 @@ CONTAINS
 
       CALL timestop(handle)
 
+   END SUBROUTINE
+
+   SUBROUTINE dbcsr_t_scale(tensor, alpha)
+      TYPE(dbcsr_t_type), INTENT(INOUT) :: tensor
+      TYPE(dbcsr_scalar_type), INTENT(IN) :: alpha
+      CALL dbcsr_scale(tensor%matrix_rep%matrix, alpha)
    END SUBROUTINE
 
 END MODULE

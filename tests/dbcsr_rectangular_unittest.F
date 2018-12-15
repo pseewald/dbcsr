@@ -12,7 +12,6 @@ PROGRAM dbcsr_rectangular_unittest
                                               dbcsr_init_lib,&
                                               dbcsr_type_no_symmetry,&
                                               dbcsr_type_real_8
-   USE dbcsr_data_methods,              ONLY: dbcsr_scalar
    USE dbcsr_dist_methods,              ONLY: dbcsr_distribution_new,&
                                               dbcsr_distribution_release
    USE dbcsr_methods,                   ONLY: dbcsr_col_block_sizes,&

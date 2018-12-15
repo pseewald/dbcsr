@@ -193,7 +193,7 @@ PROGRAM dbcsr_rectangular_example
    DEALLOCATE (values)
    CALL dbcsr_r_finalize(matrix_C)
 
-   CALL dbcsr_r_multiply('T', 'N', transc, dbcsr_scalar(1.0_real_8), matrix_A, matrix_B, matrix_MM)
+   CALL dbcsr_r_multiply('T', 'N', transc, dbcsr_scalar(1.0_real_8), matrix_A, matrix_B, dbcsr_scalar(0.0_real_8), matrix_MM)
 
    CALL dbcsr_r_destroy(matrix_A)
    CALL dbcsr_r_destroy(matrix_B)

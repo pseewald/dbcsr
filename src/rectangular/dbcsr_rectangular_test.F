@@ -176,7 +176,8 @@ CONTAINS
       ENDIF
       ENDIF
       CALL timeset("benchmark_rectangular_mm", handle1)
-      CALL dbcsr_r_multiply(transa, transb, transc, dbcsr_scalar(1.0_real_8), matrix_a, matrix_b, matrix_c, &
+      CALL dbcsr_r_multiply(transa, transb, transc, dbcsr_scalar(1.0_real_8), matrix_a, matrix_b, &
+                            dbcsr_scalar(0.0_real_8), matrix_c, &
          filter_eps=filter_eps, io_unit=io_unit)
       CALL timestop(handle1)
       IF(PRESENT(io_unit)) THEN
@@ -293,7 +294,8 @@ CONTAINS
          WRITE(io_unit, *) "checksum r", TRIM(matrix_b%matrix%name), cs_b ! checksum ok
       ENDIF
 
-      CALL dbcsr_r_multiply(transa, transb, transc, dbcsr_scalar(1.0_real_8), matrix_a, matrix_b, matrix_c, &
+      CALL dbcsr_r_multiply(transa, transb, transc, dbcsr_scalar(1.0_real_8), matrix_a, matrix_b, &
+                            dbcsr_scalar(0.0_real_8), matrix_c, &
          filter_eps=filter_eps, io_unit=io_unit, optimize_dist=.TRUE.)
 
       cs_c = dbcsr_r_checksum(matrix_c)

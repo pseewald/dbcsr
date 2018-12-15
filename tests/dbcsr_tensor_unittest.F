@@ -35,6 +35,8 @@ PROGRAM dbcsr_tensor_unittest
                                               dbcsr_t_pgrid_type,&
                                               dbcsr_t_pgrid_create,&
                                               dbcsr_t_pgrid_destroy
+   USE dbcsr_data_methods,                ONLY: dbcsr_scalar
+   USE dbcsr_kinds,                       ONLY: real_8
 #include "base/dbcsr_base_uses.f90"
 
    IMPLICIT NONE
@@ -263,7 +265,7 @@ PROGRAM dbcsr_tensor_unittest
       CALL dbcsr_t_setup_test_tensor(tensor_A, mp_comm, blk_ind_1, blk_ind_2, blk_ind_3_1)
       CALL dbcsr_t_setup_test_tensor(tensor_B, mp_comm, blk_ind_3_2, blk_ind_4)
 
-      CALL dbcsr_t_contract_test(tensor_A, tensor_B, tensor_C, &
+      CALL dbcsr_t_contract_test(dbcsr_scalar(1.0_real_8), tensor_A, tensor_B, dbcsr_scalar(0.0_real_8), tensor_C, &
                                  [3], [2, 1], &
                                  [1], [2], &
                                  [2, 1], [3], &
@@ -305,7 +307,7 @@ PROGRAM dbcsr_tensor_unittest
       CALL dbcsr_t_setup_test_tensor(tensor_A, mp_comm, blk_ind_1, blk_ind_2, blk_ind_3_1)
       CALL dbcsr_t_setup_test_tensor(tensor_B, mp_comm, blk_ind_3_2, blk_ind_4)
 
-      CALL dbcsr_t_contract_test(tensor_A, tensor_B, tensor_C, &
+      CALL dbcsr_t_contract_test(dbcsr_scalar(1.0_real_8), tensor_A, tensor_B, dbcsr_scalar(0.0_real_8), tensor_C, &
                                  [3], [1, 2], &
                                  [1], [2], &
                                  [1, 2], [3], &
@@ -348,7 +350,7 @@ PROGRAM dbcsr_tensor_unittest
       CALL dbcsr_t_setup_test_tensor(tensor_A, mp_comm, blk_ind_1, blk_ind_2, blk_ind_3_1)
       CALL dbcsr_t_setup_test_tensor(tensor_B, mp_comm, blk_ind_3_2, blk_ind_4)
 
-      CALL dbcsr_t_contract_test(tensor_B, tensor_A, tensor_C, &
+      CALL dbcsr_t_contract_test(dbcsr_scalar(1.0_real_8), tensor_B, tensor_A, dbcsr_scalar(0.0_real_8), tensor_C, &
                                  [1], [2], &
                                  [3], [1, 2], &
                                  [3], [1, 2], &
