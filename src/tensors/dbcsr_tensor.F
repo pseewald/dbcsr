@@ -157,7 +157,7 @@ CONTAINS
 !> \param matrix_in ...
 !> \param tensor_out ...
 ! **************************************************************************************************
-   SUBROUTINE dbcsr_t_copy_matrix(matrix_in, tensor_out)
+   SUBROUTINE dbcsr_t_copy_matrix_to_tensor(matrix_in, tensor_out)
       TYPE(dbcsr_type), INTENT(IN)                        :: matrix_in
       TYPE(dbcsr_t_type), INTENT(INOUT)                  :: tensor_out
 
@@ -167,7 +167,7 @@ CONTAINS
       TYPE(dbcsr_iterator_type)                          :: iter
 
       INTEGER                                            :: handle
-      CHARACTER(LEN=*), PARAMETER :: routineN = 'dbcsr_t_copy_matrix', &
+      CHARACTER(LEN=*), PARAMETER :: routineN = 'dbcsr_t_copy_matrix_to_tensor', &
          routineP = moduleN//':'//routineN
 
       CALL timeset(routineN, handle)
@@ -183,6 +183,33 @@ CONTAINS
          DEALLOCATE (block_arr)
       ENDDO
       CALL dbcsr_iterator_stop(iter)
+
+      CALL timestop(handle)
+
+   END SUBROUTINE
+
+   SUBROUTINE dbcsr_t_copy_tensor_to_matrix(tensor_in, matrix_out)
+      TYPE(dbcsr_t_type), INTENT(INOUT)      :: tensor_in
+      TYPE(dbcsr_type), INTENT(INOUT)           :: matrix_out
+      TYPE(dbcsr_t_iterator_type)            :: iter
+      INTEGER                                :: blk, handle
+      INTEGER, DIMENSION(2)                  :: ind_2d
+      REAL(KIND=real_8), DIMENSION(:, :), ALLOCATABLE :: block
+      CHARACTER(LEN=*), PARAMETER :: routineN = 'dbcsr_t_copy_tensor_to_matrix', &
+         routineP = moduleN//':'//routineN
+
+      CALL timeset(routineN, handle)
+
+      CALL dbcsr_t_reserve_blocks(tensor_in, matrix_out)
+
+      CALL dbcsr_t_iterator_start(iter, tensor_in)
+      DO WHILE(dbcsr_t_iterator_blocks_left(iter))
+         CALL dbcsr_t_iterator_next_block(iter, ind_2d, blk)
+         CALL dbcsr_t_get_block(tensor_in, ind_2d, block)
+         CALL dbcsr_put_block(matrix_out, ind_2d(1), ind_2d(2), block)
+         DEALLOCATE(block)
+      ENDDO
+      CALL dbcsr_t_iterator_stop(iter)
 
       CALL timestop(handle)
 

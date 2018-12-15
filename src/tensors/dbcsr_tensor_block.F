@@ -24,7 +24,8 @@ MODULE dbcsr_tensor_block
                                               dbcsr_iterator_next_block, &
                                               dbcsr_iterator_start,&
                                               dbcsr_iterator_stop, &
-                                              dbcsr_type
+                                              dbcsr_type, &
+                                              dbcsr_reserve_blocks
    USE dbcsr_rectangular_base_types,    ONLY: dbcsr_r_iterator
    USE dbcsr_rectangular_base,          ONLY: dbcsr_r_iterator_next_block,&
                                               dbcsr_r_iterator_blocks_left,&
@@ -151,7 +152,8 @@ MODULE dbcsr_tensor_block
       MODULE PROCEDURE dbcsr_t_reserve_blocks_index_list
       MODULE PROCEDURE dbcsr_t_reserve_blocks_index_array
       MODULE PROCEDURE dbcsr_t_reserve_blocks_template
-      MODULE PROCEDURE dbcsr_t_reserve_blocks_matrix
+      MODULE PROCEDURE dbcsr_t_reserve_blocks_tensor_to_matrix
+      MODULE PROCEDURE dbcsr_t_reserve_blocks_matrix_to_tensor
    END INTERFACE
 
 CONTAINS
@@ -421,7 +423,7 @@ CONTAINS
 !> \param matrix_in ...
 !> \param tensor_out ...
 ! **************************************************************************************************
-   SUBROUTINE dbcsr_t_reserve_blocks_matrix(matrix_in, tensor_out)
+   SUBROUTINE dbcsr_t_reserve_blocks_matrix_to_tensor(matrix_in, tensor_out)
       TYPE(dbcsr_type), INTENT(IN)        :: matrix_in
       TYPE(dbcsr_t_type), INTENT(INOUT)  :: tensor_out
 
@@ -430,7 +432,7 @@ CONTAINS
       INTEGER, DIMENSION(2)              :: ind_2d
       TYPE(dbcsr_iterator_type)          :: iter
       INTEGER                            :: handle
-      CHARACTER(LEN=*), PARAMETER :: routineN = 'dbcsr_t_reserve_blocks_matrix', &
+      CHARACTER(LEN=*), PARAMETER :: routineN = 'dbcsr_t_reserve_blocks_matrix_to_tensor', &
          routineP = moduleN//':'//routineN
 
       CALL timeset(routineN, handle)
@@ -451,6 +453,38 @@ CONTAINS
       CALL dbcsr_iterator_stop(iter)
 
       CALL dbcsr_t_reserve_blocks(tensor_out, blk_ind_1, blk_ind_2)
+      CALL timestop(handle)
+   END SUBROUTINE
+
+   SUBROUTINE dbcsr_t_reserve_blocks_tensor_to_matrix(tensor_in, matrix_out)
+      TYPE(dbcsr_t_type), INTENT(IN)        :: tensor_in
+      TYPE(dbcsr_type), INTENT(INOUT)       :: matrix_out
+      TYPE(dbcsr_t_iterator_type)           :: iter
+      INTEGER, ALLOCATABLE, DIMENSION(:) :: blk_ind_1, blk_ind_2
+
+      CHARACTER(LEN=*), PARAMETER :: routineN = 'dbcsr_t_reserve_blocks_tensor_to_matrix', &
+         routineP = moduleN//':'//routineN
+      INTEGER :: handle, blk, iblk, nblk
+      INTEGER, DIMENSION(2)              :: ind_2d
+
+      CALL timeset(routineN, handle)
+      nblk = 0
+      CALL dbcsr_t_iterator_start(iter, tensor_in)
+      DO WHILE(dbcsr_t_iterator_blocks_left(iter))
+         CALL dbcsr_t_iterator_next_block(iter, ind_2d, blk)
+         nblk = nblk + 1
+      ENDDO
+      CALL dbcsr_t_iterator_stop(iter)
+
+      ALLOCATE(blk_ind_1(nblk), blk_ind_2(nblk))
+      CALL dbcsr_t_iterator_start(iter, tensor_in)
+      DO iblk=1, nblk
+         CALL dbcsr_t_iterator_next_block(iter, ind_2d, blk)
+         blk_ind_1(iblk) = ind_2d(1); blk_ind_2(iblk) = ind_2d(2)
+      ENDDO
+      CALL dbcsr_t_iterator_stop(iter)
+
+      CALL dbcsr_reserve_blocks(matrix_out, blk_ind_1, blk_ind_2)
       CALL timestop(handle)
    END SUBROUTINE
 
