@@ -35,7 +35,7 @@ MODULE dbcsr_tensor_types
       dbcsr_r_create, dbcsr_r_distribution_new,&
       dbcsr_r_distribution_destroy, dbcsr_r_finalize, dbcsr_r_get_info, &
       dbcsr_r_destroy, dbcsr_r_get_stored_coordinates
-   USE dbcsr_rectangular_base_types,    ONLY: dbcsr_r_type, dbcsr_r_distribution_type
+   USE dbcsr_rectangular_base_types,    ONLY: dbcsr_r_type, dbcsr_r_distribution_type, dbcsr_r_split_info
    USE dbcsr_tensor_index,              ONLY: get_2d_indices,&
                                               get_nd_indices,&
                                               create_nd_to_2d_mapping,&
@@ -45,6 +45,7 @@ MODULE dbcsr_tensor_types
                                               split_index,&
                                               combine_index,&
                                               ndims_mapping
+   USE dbcsr_rectangular_split,         ONLY: dbcsr_r_split_rows_or_cols
    USE dbcsr_kinds,                     ONLY: default_string_length, int_8
    USE dbcsr_mpiwrap,                   ONLY: mp_cart_create,&
                                               mp_cart_rank,&
@@ -406,12 +407,13 @@ CONTAINS
 !> \param nd_dist_2 distribution vector for second dimension
 !> \param nd_dist_3 ...
 ! **************************************************************************************************
-   SUBROUTINE dbcsr_t_distribution_new(dist, pgrid, map1_2d, map2_2d, ${varlist("nd_dist")}$, own_comm)
+   SUBROUTINE dbcsr_t_distribution_new(dist, pgrid, map1_2d, map2_2d, ${varlist("nd_dist")}$, groupsize, own_comm)
 
       TYPE(dbcsr_t_distribution_type), INTENT(OUT)    :: dist
       TYPE(dbcsr_t_pgrid_type), INTENT(IN)            :: pgrid
       INTEGER, DIMENSION(:), INTENT(IN)               :: map1_2d, map2_2d
       INTEGER, DIMENSION(:), INTENT(IN), OPTIONAL     :: ${varlist("nd_dist")}$
+      INTEGER, INTENT(IN), OPTIONAL                   :: groupsize
       LOGICAL, INTENT(IN), OPTIONAL                   :: own_comm
       INTEGER                                         :: ndims, comm_2d
       INTEGER, DIMENSION(2)                           :: pdims_2d_check, &
@@ -425,6 +427,8 @@ CONTAINS
       TYPE(dbcsr_t_pgrid_type)                        :: pgrid_prv
       LOGICAL                                         :: need_pgrid_remap
       INTEGER,DIMENSION(:), ALLOCATABLE               :: map1_2d_check, map2_2d_check
+      INTEGER                                         :: dimsplit, s, igroup
+      TYPE(dbcsr_r_split_info)                        :: split_info
       CHARACTER(LEN=*), PARAMETER :: routineN = 'dbcsr_t_distribution_new', &
          routineP = moduleN//':'//routineN
 
@@ -473,7 +477,26 @@ CONTAINS
          DBCSR_ABORT("inconsistent process grid dimensions")
       ENDIF
 
-      CALL dbcsr_r_distribution_new(dist%dist, comm_2d, row_dist_obj, col_dist_obj)
+      IF(PRESENT(groupsize)) THEN
+         dimsplit = MAXLOC(pdims_2d, dim=1)
+
+         IF(MOD(PRODUCT(pdims_2d), groupsize) .NE. 0) THEN
+            DBCSR_ABORT("groupsize must divide number of MPI ranks")
+         ENDIF
+
+         s = PRODUCT(pdims_2d)/groupsize
+
+         IF(MOD(pdims_2d(dimsplit), s) .NE. 0) THEN
+            DBCSR_ABORT("split factor must divide process grid dimension")
+         ENDIF
+
+         igroup = task_coor_2d(dimsplit)/(pdims_2d(dimsplit)/s)
+
+         CALL dbcsr_r_split_rows_or_cols(split_info, comm_2d, s, igroup, dimsplit)
+         CALL dbcsr_r_distribution_new(dist%dist, comm_2d, row_dist_obj, col_dist_obj, split_info=split_info)
+      ELSE
+         CALL dbcsr_r_distribution_new(dist%dist, comm_2d, row_dist_obj, col_dist_obj)
+      ENDIF
 
       dist%nd_dist = nd_dist
       !dist%comm_2d = comm_2d
