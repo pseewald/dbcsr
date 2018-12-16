@@ -38,7 +38,9 @@ MODULE dbcsr_tensor_api
                                               dbcsr_t_type,&
                                               dbcsr_t_pgrid_type,&
                                               dbcsr_t_pgrid_create,&
-                                              dbcsr_t_pgrid_destroy
+                                              dbcsr_t_pgrid_destroy,&
+                                              dbcsr_t_set,&
+                                              dbcsr_t_filter
 
    IMPLICIT NONE
 
@@ -68,5 +70,7 @@ MODULE dbcsr_tensor_api
    PUBLIC :: dbcsr_t_pgrid_type
    PUBLIC :: dbcsr_t_pgrid_create
    PUBLIC :: dbcsr_t_pgrid_destroy
+   PUBLIC :: dbcsr_t_set
+   PUBLIC :: dbcsr_t_filter
 
 END MODULE dbcsr_tensor_api

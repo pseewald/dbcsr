@@ -39,7 +39,9 @@ MODULE dbcsr_rectangular_base
                                               dbcsr_get_info
    USE dbcsr_rectangular_base_low,      ONLY: dbcsr_r_get_block_p,&
                                               dbcsr_r_iterator_next_block,&
-                                              dbcsr_r_put_block
+                                              dbcsr_r_put_block,&
+                                              dbcsr_r_set,&
+                                              dbcsr_r_filter
    USE dbcsr_rectangular_base_types,    ONLY: dbcsr_r_distribution_type,&
                                               dbcsr_r_iterator,&
                                               dbcsr_r_split_info,&
@@ -78,7 +80,7 @@ MODULE dbcsr_rectangular_base
              dbcsr_r_put_block, dbcsr_r_get_data_type, dbcsr_r_iterator_next_block, dbcsr_r_get_block_p, &
              dbcsr_r_nblkcols_local, dbcsr_r_nblkrows_local, dbcsr_r_iterator_blocks_left, &
              dbcsr_r_blk_sizes, dbcsr_r_iterator_start, dbcsr_r_iterator_stop, dbcsr_r_reserve_blocks, &
-             dbcsr_r_get_info
+             dbcsr_r_get_info, dbcsr_r_set, dbcsr_r_filter
 
    INTERFACE dbcsr_r_create
       MODULE PROCEDURE dbcsr_r_create_new

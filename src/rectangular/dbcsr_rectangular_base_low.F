@@ -25,7 +25,8 @@ MODULE dbcsr_rectangular_base_low
 
    CHARACTER(len=*), PARAMETER, PRIVATE :: moduleN = 'dbcsr_rectangular_base_low'
 
-   PUBLIC :: dbcsr_r_iterator_next_block, dbcsr_r_put_block, dbcsr_r_get_block_p
+   PUBLIC :: dbcsr_r_iterator_next_block, dbcsr_r_put_block, dbcsr_r_get_block_p, &
+             dbcsr_r_set, dbcsr_r_filter
 
    INTERFACE dbcsr_r_iterator_next_block
 #:for dparam, dtype, dsuffix in dtype_float_list
@@ -42,6 +43,18 @@ MODULE dbcsr_rectangular_base_low
    INTERFACE dbcsr_r_get_block_p
 #:for dparam, dtype, dsuffix in dtype_float_list
       MODULE PROCEDURE dbcsr_r_get_block_p_${dsuffix}$
+#:endfor
+   END INTERFACE
+
+   INTERFACE dbcsr_r_set
+#:for dparam, dtype, dsuffix in dtype_float_list
+      MODULE PROCEDURE dbcsr_r_set_${dsuffix}$
+#:endfor
+   END INTERFACE
+
+   INTERFACE dbcsr_r_filter
+#:for dparam, dtype, dsuffix in dtype_float_list
+      MODULE PROCEDURE dbcsr_r_filter_${dsuffix}$
 #:endfor
    END INTERFACE
 
@@ -151,6 +164,26 @@ CONTAINS
       CALL dbcsr_get_block_p(matrix%matrix, row_group, col_group, block, transposed, found, row_size=row_size, col_size=col_size)
 
       CALL timestop(handle)
+   END SUBROUTINE
+#:endfor
+
+#:for dparam, dtype, dsuffix in dtype_float_list
+   SUBROUTINE dbcsr_r_set_${dsuffix}$(matrix, alpha)
+      TYPE(dbcsr_r_type), INTENT(INOUT)    :: matrix
+      ${dtype}$, INTENT(IN)                :: alpha
+      CALL dbcsr_set(matrix%matrix, alpha)
+   END SUBROUTINE
+#:endfor
+
+#:for dparam, dtype, dsuffix in dtype_float_list
+   SUBROUTINE dbcsr_r_filter_${dsuffix}$(matrix, eps, method, use_absolute)
+      TYPE(dbcsr_r_type), INTENT(INOUT)    :: matrix
+      ${dtype}$, INTENT(IN)                :: eps
+      INTEGER, INTENT(IN), OPTIONAL        :: method
+      LOGICAL, INTENT(IN), OPTIONAL        :: use_absolute
+
+      CALL dbcsr_filter(matrix%matrix, eps, method, use_absolute)
+
    END SUBROUTINE
 #:endfor
 

@@ -30,11 +30,14 @@ MODULE dbcsr_tensor_types
    USE dbcsr_api,                       ONLY: &
         dbcsr_distribution_get, &
         dbcsr_distribution_type, &
-        dbcsr_get_info, dbcsr_type
+        dbcsr_get_info, dbcsr_type,&
+        ${uselist(dtype_float_param)}$
+   USE dbcsr_kinds,                     ONLY: &
+        ${uselist(dtype_float_prec)}$
    USE dbcsr_rectangular_base,          ONLY: &
       dbcsr_r_create, dbcsr_r_distribution_new,&
       dbcsr_r_distribution_destroy, dbcsr_r_finalize, dbcsr_r_get_info, &
-      dbcsr_r_destroy, dbcsr_r_get_stored_coordinates
+      dbcsr_r_destroy, dbcsr_r_get_stored_coordinates, dbcsr_r_set, dbcsr_r_filter
    USE dbcsr_rectangular_base_types,    ONLY: dbcsr_r_type, dbcsr_r_distribution_type, dbcsr_r_split_info
    USE dbcsr_tensor_index,              ONLY: get_2d_indices,&
                                               get_nd_indices,&
@@ -81,7 +84,9 @@ MODULE dbcsr_tensor_types
       dbcsr_t_pgrid_type,&
       mp_environ_pgrid,&
       dbcsr_t_pgrid_create,&
-      dbcsr_t_pgrid_destroy
+      dbcsr_t_pgrid_destroy, &
+      dbcsr_t_set,&
+      dbcsr_t_filter
 
    TYPE dbcsr_t_pgrid_type
       TYPE(nd_to_2d_mapping) :: nd_index_grid
@@ -143,6 +148,19 @@ MODULE dbcsr_tensor_types
    INTERFACE dbcsr_r_blk_size_t
       MODULE PROCEDURE new_dbcsr_r_blk_size_t
    END INTERFACE
+
+   INTERFACE dbcsr_t_set
+#:for dparam, dtype, dsuffix in dtype_float_list
+      MODULE PROCEDURE dbcsr_t_set_${dsuffix}$
+#:endfor
+   END INTERFACE
+
+   INTERFACE dbcsr_t_filter
+#:for dparam, dtype, dsuffix in dtype_float_list
+      MODULE PROCEDURE dbcsr_t_filter_${dsuffix}$
+#:endfor
+   END INTERFACE
+
 
 CONTAINS
 
@@ -984,5 +1002,25 @@ CONTAINS
       CALL get_mapping_info(pgrid%nd_index_grid, dims_nd=dims)
       task_coor = get_nd_indices(pgrid%nd_index_grid, INT(task_coor_2d, KIND=int_8))
    END SUBROUTINE
+
+#:for dparam, dtype, dsuffix in dtype_float_list
+   SUBROUTINE dbcsr_t_set_${dsuffix}$(tensor, alpha)
+      TYPE(dbcsr_t_type), INTENT(INOUT)                   :: tensor
+      ${dtype}$, INTENT(IN)                               :: alpha
+      CALL dbcsr_r_set(tensor%matrix_rep, alpha)
+   END SUBROUTINE
+#:endfor
+
+#:for dparam, dtype, dsuffix in dtype_float_list
+   SUBROUTINE dbcsr_t_filter_${dsuffix}$(tensor, eps, method, use_absolute)
+      TYPE(dbcsr_t_type), INTENT(INOUT)    :: tensor
+      ${dtype}$, INTENT(IN)                :: eps
+      INTEGER, INTENT(IN), OPTIONAL        :: method
+      LOGICAL, INTENT(IN), OPTIONAL        :: use_absolute
+
+      CALL dbcsr_r_filter_${dsuffix}$(tensor%matrix_rep, eps, method, use_absolute)
+
+   END SUBROUTINE
+#:endfor
 
 END MODULE
