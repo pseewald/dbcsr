@@ -102,6 +102,7 @@ CONTAINS
       TYPE(dbcsr_t_iterator_type)                :: iter
       TYPE(block_nd)                             :: blk_data1, blk_data2
       INTEGER, DIMENSION(dbcsr_t_ndims(tensor1)) :: blk_size, ind_nd
+      LOGICAL :: found
 
       ! create a copy of tensor2 that has exact same data format as tensor1
       CALL dbcsr_t_create(tensor1, tensor2_tmp)
@@ -115,8 +116,10 @@ CONTAINS
 
       DO WHILE (dbcsr_t_iterator_blocks_left(iter))
          CALL dbcsr_t_iterator_next_block(iter, ind_nd, blk, blk_size=blk_size)
-         CALL dbcsr_t_get_block(tensor1, ind_nd, blk_data1)
-         CALL dbcsr_t_get_block(tensor2_tmp, ind_nd, blk_data2)
+         CALL dbcsr_t_get_block(tensor1, ind_nd, blk_data1, found)
+         DBCSR_ASSERT(found)
+         CALL dbcsr_t_get_block(tensor2_tmp, ind_nd, blk_data2, found)
+         DBCSR_ASSERT(found)
 
          IF (.NOT. blocks_equal(blk_data1, blk_data2)) THEN
             dbcsr_t_equal = .FALSE.
@@ -573,6 +576,7 @@ CONTAINS
 #:endfor
       TYPE(dbcsr_t_iterator_type)                        :: iterator
       INTEGER                                            :: proc, mynode, numnodes
+      LOGICAL                                            :: found
 
       IF(io_unit_master > 0) THEN
          WRITE (io_unit_master, '(T7,A)') "(block index) @ process: (array index) value"
@@ -585,7 +589,8 @@ CONTAINS
          DBCSR_ASSERT(proc .EQ. mynode)
 #:for ndim in ndims
          IF(dbcsr_t_ndims(tensor) == ${ndim}$) THEN
-            CALL dbcsr_t_get_block(tensor, blk_index, blk_values_${ndim}$)
+            CALL dbcsr_t_get_block(tensor, blk_index, blk_values_${ndim}$, found)
+            DBCSR_ASSERT(found)
             CALL write_block(tensor%name, blk_size, blk_index, proc, io_unit_all, &
                              blk_values_${ndim}$=blk_values_${ndim}$, write_int=write_int)
             DEALLOCATE (blk_values_${ndim}$)
@@ -670,6 +675,7 @@ CONTAINS
       TYPE(dbcsr_t_iterator_type)                                     :: iterator
       INTEGER                                                    :: blk, idim
       INTEGER, DIMENSION(dbcsr_t_ndims(tensor))                  :: blk_start, blk_end
+      LOGICAL                                                    :: found
 
 
       DBCSR_ASSERT(dbcsr_t_ndims(tensor) .EQ. ${ndim}$)
@@ -680,7 +686,8 @@ CONTAINS
       CALL dbcsr_t_iterator_start(iterator, tensor)
       DO WHILE (dbcsr_t_iterator_blocks_left(iterator))
          CALL dbcsr_t_iterator_next_block(iterator, ind_nd, blk, blk_size=blk_size, blk_offset=blk_offset)
-         CALL dbcsr_t_get_block(tensor, ind_nd, block)
+         CALL dbcsr_t_get_block(tensor, ind_nd, block, found)
+         DBCSR_ASSERT(found)
 
          DO idim = 1, dbcsr_t_ndims(tensor)
             blk_start(idim) = blk_offset(idim)

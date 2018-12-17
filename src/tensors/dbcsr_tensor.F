@@ -197,6 +197,7 @@ CONTAINS
       REAL(KIND=real_8), DIMENSION(:, :), ALLOCATABLE :: block
       CHARACTER(LEN=*), PARAMETER :: routineN = 'dbcsr_t_copy_tensor_to_matrix', &
          routineP = moduleN//':'//routineN
+      LOGICAL :: found
 
       CALL timeset(routineN, handle)
 
@@ -205,7 +206,8 @@ CONTAINS
       CALL dbcsr_t_iterator_start(iter, tensor_in)
       DO WHILE(dbcsr_t_iterator_blocks_left(iter))
          CALL dbcsr_t_iterator_next_block(iter, ind_2d, blk)
-         CALL dbcsr_t_get_block(tensor_in, ind_2d, block)
+         CALL dbcsr_t_get_block(tensor_in, ind_2d, block, found)
+         DBCSR_ASSERT(found)
          CALL dbcsr_put_block(matrix_out, ind_2d(1), ind_2d(2), block)
          DEALLOCATE(block)
       ENDDO
@@ -889,6 +891,7 @@ CONTAINS
       INTEGER, DIMENSION(dbcsr_t_ndims(tensor_in)) :: blk_index, blk_size, blk_offset, nsplit_blk, &
          isplit_sum_blk, blk_remainder_nd, blk_shape
       INTEGER, DIMENSION(${maxdim}$) :: split_index
+      LOGICAL :: found
 
 #:for dparam, dtype, dsuffix in dtype_float_list
 #:for ndim in ndims
@@ -971,7 +974,8 @@ CONTAINS
          IF (dbcsr_t_get_data_type(tensor_in) == ${dparam}$) THEN
 #:for ndim in ndims
             IF (dbcsr_t_ndims(tensor_in) == ${ndim}$) THEN
-               CALL dbcsr_t_get_block(tensor_in, blk_index, block_${dsuffix}$_${ndim}$d)
+               CALL dbcsr_t_get_block(tensor_in, blk_index, block_${dsuffix}$_${ndim}$d, found)
+               DBCSR_ASSERT(found)
             ENDIF
 #:endfor
          ENDIF

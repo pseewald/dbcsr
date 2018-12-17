@@ -87,6 +87,7 @@ CONTAINS
       TYPE(block_nd)                                     :: blk_data
       TYPE(block_buffer_type), ALLOCATABLE, DIMENSION(:) :: buffer_recv, buffer_send
       INTEGER, DIMENSION(ndims_tensor(tensor_in))       :: blk_size, ind_nd, index
+      LOGICAL :: found
 
       IF (tensor_out%valid) THEN
 
@@ -127,7 +128,8 @@ CONTAINS
          CALL dbcsr_t_iterator_start(iter, tensor_in)
          DO WHILE (dbcsr_t_iterator_blocks_left(iter))
             CALL dbcsr_t_iterator_next_block(iter, ind_nd, blk, blk_size=blk_size)
-            CALL dbcsr_t_get_block(tensor_in, ind_nd, blk_data)
+            CALL dbcsr_t_get_block(tensor_in, ind_nd, blk_data, found)
+            DBCSR_ASSERT(found)
             CALL dbcsr_t_get_stored_coordinates(tensor_out, ind_nd, iproc)
             CALL block_buffer_add_anyd_block(buffer_send(iproc), ind_nd, blk_data)
             CALL destroy_block(blk_data)

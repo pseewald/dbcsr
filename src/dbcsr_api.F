@@ -164,6 +164,7 @@ MODULE dbcsr_api
    PUBLIC :: dbcsr_p_type
    PUBLIC :: dbcsr_distribution_type
    PUBLIC :: dbcsr_iterator_type
+   PUBLIC :: dbcsr_scalar_type
 
    ! lib init/finalize
    PUBLIC :: dbcsr_clear_mempools
