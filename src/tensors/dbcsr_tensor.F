@@ -32,7 +32,7 @@ MODULE dbcsr_tensor
    USE dbcsr_api,                       ONLY: &
         dbcsr_type, dbcsr_iterator_type, dbcsr_iterator_blocks_left, &
         dbcsr_iterator_next_block, dbcsr_iterator_start, dbcsr_iterator_stop, &
-        dbcsr_transpose, dbcsr_no_transpose, dbcsr_scalar, &
+        dbcsr_transpose, dbcsr_no_transpose, dbcsr_scalar, dbcsr_put_block, &
         ${uselist(dtype_float_param)}$
    USE dbcsr_rectangular_base, ONLY:&
         dbcsr_r_copy, dbcsr_r_create, dbcsr_r_finalize, dbcsr_r_get_data_type, dbcsr_r_get_info, dbcsr_r_info
@@ -100,7 +100,9 @@ MODULE dbcsr_tensor
       dbcsr_t_ndims, &
       dbcsr_t_put_block, &
       dbcsr_t_reserve_blocks, &
-      dbcsr_t_split_blocks
+      dbcsr_t_split_blocks,&
+      dbcsr_t_copy_matrix_to_tensor,&
+      dbcsr_t_copy_tensor_to_matrix
 
    INTERFACE dbcsr_t_ndims
       MODULE PROCEDURE ndims_tensor
