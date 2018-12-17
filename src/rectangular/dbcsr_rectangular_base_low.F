@@ -19,6 +19,7 @@ MODULE dbcsr_rectangular_base_low
    USE dbcsr_block_access, ONLY: dbcsr_get_block_p, dbcsr_put_block
    USE dbcsr_kinds, ONLY: int_8, real_4, real_8
    USE dbcsr_iterator_operations, ONLY: dbcsr_iterator_next_block
+   USE dbcsr_operations,          ONLY: dbcsr_filter, dbcsr_set
 
    IMPLICIT NONE
    PRIVATE

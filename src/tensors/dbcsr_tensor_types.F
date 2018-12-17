@@ -425,13 +425,13 @@ CONTAINS
 !> \param nd_dist_2 distribution vector for second dimension
 !> \param nd_dist_3 ...
 ! **************************************************************************************************
-   SUBROUTINE dbcsr_t_distribution_new(dist, pgrid, map1_2d, map2_2d, ${varlist("nd_dist")}$, groupsize, own_comm)
+   SUBROUTINE dbcsr_t_distribution_new(dist, pgrid, map1_2d, map2_2d, ${varlist("nd_dist")}$, ngroup, own_comm)
 
       TYPE(dbcsr_t_distribution_type), INTENT(OUT)    :: dist
       TYPE(dbcsr_t_pgrid_type), INTENT(IN)            :: pgrid
       INTEGER, DIMENSION(:), INTENT(IN)               :: map1_2d, map2_2d
       INTEGER, DIMENSION(:), INTENT(IN), OPTIONAL     :: ${varlist("nd_dist")}$
-      INTEGER, INTENT(IN), OPTIONAL                   :: groupsize
+      INTEGER, INTENT(IN), OPTIONAL                   :: ngroup
       LOGICAL, INTENT(IN), OPTIONAL                   :: own_comm
       INTEGER                                         :: ndims, comm_2d
       INTEGER, DIMENSION(2)                           :: pdims_2d_check, &
@@ -445,7 +445,7 @@ CONTAINS
       TYPE(dbcsr_t_pgrid_type)                        :: pgrid_prv
       LOGICAL                                         :: need_pgrid_remap
       INTEGER,DIMENSION(:), ALLOCATABLE               :: map1_2d_check, map2_2d_check
-      INTEGER                                         :: dimsplit, s, igroup
+      INTEGER                                         :: dimsplit, igroup, ngroup_prv
       TYPE(dbcsr_r_split_info)                        :: split_info
       CHARACTER(LEN=*), PARAMETER :: routineN = 'dbcsr_t_distribution_new', &
          routineP = moduleN//':'//routineN
@@ -495,22 +495,20 @@ CONTAINS
          DBCSR_ABORT("inconsistent process grid dimensions")
       ENDIF
 
-      IF(PRESENT(groupsize)) THEN
+      IF(PRESENT(ngroup)) THEN
          dimsplit = MAXLOC(pdims_2d, dim=1)
 
-         IF(MOD(PRODUCT(pdims_2d), groupsize) .NE. 0) THEN
-            DBCSR_ABORT("groupsize must divide number of MPI ranks")
-         ENDIF
-
-         s = PRODUCT(pdims_2d)/groupsize
-
-         IF(MOD(pdims_2d(dimsplit), s) .NE. 0) THEN
+         IF(MOD(pdims_2d(dimsplit), ngroup) .NE. 0) THEN
             DBCSR_ABORT("split factor must divide process grid dimension")
          ENDIF
 
-         igroup = task_coor_2d(dimsplit)/(pdims_2d(dimsplit)/s)
+         igroup = task_coor_2d(dimsplit)/(pdims_2d(dimsplit)/ngroup)
 
-         CALL dbcsr_r_split_rows_or_cols(split_info, comm_2d, s, igroup, dimsplit)
+         ngroup_prv = ngroup
+         CALL dbcsr_r_split_rows_or_cols(split_info, comm_2d, ngroup_prv, igroup, dimsplit)
+
+         DBCSR_ASSERT(ngroup_prv == ngroup)
+
          CALL dbcsr_r_distribution_new(dist%dist, comm_2d, row_dist_obj, col_dist_obj, split_info=split_info)
       ELSE
          CALL dbcsr_r_distribution_new(dist%dist, comm_2d, row_dist_obj, col_dist_obj)
@@ -1018,7 +1016,7 @@ CONTAINS
       INTEGER, INTENT(IN), OPTIONAL        :: method
       LOGICAL, INTENT(IN), OPTIONAL        :: use_absolute
 
-      CALL dbcsr_r_filter_${dsuffix}$(tensor%matrix_rep, eps, method, use_absolute)
+      CALL dbcsr_r_filter(tensor%matrix_rep, eps, method, use_absolute)
 
    END SUBROUTINE
 #:endfor
