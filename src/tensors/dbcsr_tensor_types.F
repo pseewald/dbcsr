@@ -324,18 +324,24 @@ CONTAINS
 !> \param map1_2d which nd-indices map to first matrix index and in which order
 !> \param map2_2d which nd-indices map to second matrix index and in which order
 !> \param dims_nd nd dimensions
+!> \param dims1_nd
+!> \param dims2_nd
+!> \param pdims_2d if comm_2d does not have a cartesian topology associated, can input dimensions with
+!>                 pdims_2d (hack)
 !> \return with nd cartesian grid
 ! **************************************************************************************************
-   FUNCTION dbcsr_t_nd_mp_comm(comm_2d, map1_2d, map2_2d, dims_nd, dims1_nd, dims2_nd)
+   FUNCTION dbcsr_t_nd_mp_comm(comm_2d, map1_2d, map2_2d, dims_nd, dims1_nd, dims2_nd, pdims_2d)
       INTEGER, INTENT(IN)                               :: comm_2d
       INTEGER, DIMENSION(:), INTENT(IN)                 :: map1_2d, map2_2d
-      INTEGER                                           :: ndim1, ndim2
-      INTEGER                                           :: numtask
-      INTEGER, DIMENSION(2)                             :: dims_2d, task_coor
       INTEGER, DIMENSION(SIZE(map1_2d) + SIZE(map2_2d)), &
          INTENT(IN), OPTIONAL                           :: dims_nd
       INTEGER, DIMENSION(SIZE(map1_2d)), INTENT(IN), OPTIONAL :: dims1_nd
       INTEGER, DIMENSION(SIZE(map2_2d)), INTENT(IN), OPTIONAL :: dims2_nd
+      INTEGER, DIMENSION(2), INTENT(IN), OPTIONAL           :: pdims_2d
+      INTEGER                                           :: ndim1, ndim2
+      INTEGER                                           :: numtask
+      INTEGER, DIMENSION(2)                             :: dims_2d, task_coor
+
       INTEGER, DIMENSION(SIZE(map1_2d)) :: dims1_nd_prv
       INTEGER, DIMENSION(SIZE(map2_2d)) :: dims2_nd_prv
       INTEGER, DIMENSION(SIZE(map1_2d) + SIZE(map2_2d)) :: dims_nd_prv
@@ -348,7 +354,11 @@ CONTAINS
 
       ndim1 = SIZE(map1_2d); ndim2 = SIZE(map2_2d)
 
-      CALL mp_environ(numtask, dims_2d, task_coor, comm_2d)
+      IF(PRESENT(pdims_2d)) THEN
+         dims_2d(:) = pdims_2d
+      ELSE
+         CALL mp_environ(numtask, dims_2d, task_coor, comm_2d)
+      ENDIF
 
       IF(.NOT. PRESENT(dims_nd)) THEN
          dims1_nd_prv = 0; dims2_nd_prv = 0
@@ -757,6 +767,7 @@ CONTAINS
       CHARACTER(LEN=*), PARAMETER :: routineN = 'dbcsr_t_create_matrix', &
          routineP = moduleN//':'//routineN
       TYPE(dbcsr_t_pgrid_type)                  :: comm_nd
+      INTEGER, DIMENSION(2)                     :: pdims_2d
 
       CALL timeset(routineN, handle)
       IF (PRESENT(name)) THEN
@@ -772,8 +783,9 @@ CONTAINS
       ENDIF
 
       CALL dbcsr_get_info(matrix_in, distribution=matrix_dist)
-      CALL dbcsr_distribution_get(matrix_dist, group=comm_2d, row_dist=row_dist, col_dist=col_dist)
-      comm_nd = dbcsr_t_nd_mp_comm(comm_2d, [order_in(1)], [order_in(2)])
+      CALL dbcsr_distribution_get(matrix_dist, group=comm_2d, row_dist=row_dist, col_dist=col_dist, &
+                                  nprows=pdims_2d(1), npcols=pdims_2d(2))
+      comm_nd = dbcsr_t_nd_mp_comm(comm_2d, [order_in(1)], [order_in(2)], pdims_2d = pdims_2d)
 
       CALL dbcsr_t_distribution_new( &
          dist, &

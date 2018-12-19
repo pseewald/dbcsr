@@ -778,9 +778,11 @@ CONTAINS
          DIMENSION(${shape_colon(ndim)}$) :: array_1_${ndim}$d, &
                                              array_2_${ndim}$d, &
                                              array_3_${ndim}$d, &
+                                             array_3_0_${ndim}$d, &
                                              array_1_rs${ndim}$d, &
                                              array_2_rs${ndim}$d, &
-                                             array_3_rs${ndim}$d
+                                             array_3_rs${ndim}$d, &
+                                             array_3_0_rs${ndim}$d
 #:endfor
       REAL(KIND=real_8), ALLOCATABLE, &
          DIMENSION(:,:)                   :: array_1_mm, &
@@ -815,6 +817,13 @@ CONTAINS
             TRIM(tensor_1%name), "x", TRIM(tensor_2%name), "=", TRIM(tensor_3%name)
          WRITE(io_unit, '(A)') repeat("-",80)
       ENDIF
+
+      SELECT CASE(dbcsr_t_ndims(tensor_3))
+#:for ndim in ndims
+      CASE(${ndim}$)
+         CALL dist_sparse_tensor_to_repl_dense_array(tensor_3, array_3_0_${ndim}$d)
+#:endfor
+      END SELECT
 
       CALL dbcsr_t_contract(alpha, tensor_1, tensor_2, beta, tensor_3, &
                             contract_1, notcontract_1, &
@@ -871,8 +880,16 @@ CONTAINS
       END SELECT
 #:endfor
 
-      CALL allocate_any(array_3_test_mm, shape_spec=SHAPE(array_3_mm))
-      array_3_test_mm(:,:) = MATMUL(array_1_mm, transpose(array_2_mm))
+      SELECT CASE(dbcsr_t_ndims(tensor_3))
+#:for ndim in ndims
+      CASE(${ndim}$)
+         CALL allocate_any(array_3_0_rs${ndim}$d, source=array_3_0_${ndim}$d, order=order_t3)
+         CALL allocate_any(array_3_test_mm, sizes_2d(size_3, map_t3_1, map_t3_2))
+         array_3_test_mm(:,:) = RESHAPE(array_3_0_rs${ndim}$d, SHAPE(array_3_mm))
+#:endfor
+      END SELECT
+
+      array_3_test_mm(:,:) = beta%r_dp*array_3_test_mm(:,:) + alpha%r_dp*MATMUL(array_1_mm, transpose(array_2_mm))
 
       END ASSOCIATE
 
