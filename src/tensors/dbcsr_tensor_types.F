@@ -26,7 +26,8 @@ MODULE dbcsr_tensor_types
                                               sizes_of_arrays,&
                                               sum_of_arrays,&
                                               array_sublist,&
-                                              get_arrays
+                                              get_arrays,&
+                                              get_ith_array
    USE dbcsr_api,                       ONLY: &
         dbcsr_distribution_get, &
         dbcsr_distribution_type, &
@@ -86,7 +87,8 @@ MODULE dbcsr_tensor_types
       dbcsr_t_pgrid_create,&
       dbcsr_t_pgrid_destroy, &
       dbcsr_t_set,&
-      dbcsr_t_filter
+      dbcsr_t_filter,&
+      dbcsr_t_get_info
 
    TYPE dbcsr_t_pgrid_type
       TYPE(nd_to_2d_mapping) :: nd_index_grid
@@ -1125,7 +1127,7 @@ CONTAINS
       IF(PRESENT(blks_local_${idim}$)) CALL get_ith_array(tensor%blks_local, ${idim}$, blks_local_${idim}$)
       IF(PRESENT(proc_dist_${idim}$)) CALL get_ith_array(tensor%nd_dist, ${idim}$, proc_dist_${idim}$)
       IF(PRESENT(blk_size_${idim}$)) CALL get_ith_array(tensor%blk_sizes, ${idim}$, blk_size_${idim}$)
-      IF(PRESENT(blk_offset_${idim}$)) CALL get_ith_array(tensor%blk_offsets, ${idim}$, blk_size_${idim}$)
+      IF(PRESENT(blk_offset_${idim}$)) CALL get_ith_array(tensor%blk_offsets, ${idim}$, blk_offset_${idim}$)
 #:endfor
 
       IF(PRESENT(distribution)) distribution = dbcsr_t_distribution(tensor)
