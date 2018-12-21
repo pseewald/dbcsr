@@ -46,6 +46,7 @@ MODULE dbcsr_tensor_api
                                               dbcsr_t_filter,&
                                               mp_environ_pgrid,&
                                               dbcsr_t_blk_sizes
+   USE dbcsr_tensor_test,               ONLY: dbcsr_t_contract_test
 
    IMPLICIT NONE
 
@@ -53,7 +54,7 @@ MODULE dbcsr_tensor_api
 
    CHARACTER(len=*), PARAMETER, PRIVATE :: moduleN = 'dbcsr_tensor_api'
 
-   PUBLIC :: dbcsr_t_contract
+   PUBLIC :: dbcsr_t_contract, dbcsr_t_contract_test
    PUBLIC :: dbcsr_t_get_block
    PUBLIC :: dbcsr_t_get_stored_coordinates
    PUBLIC :: dbcsr_t_put_block

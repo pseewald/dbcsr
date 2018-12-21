@@ -800,15 +800,6 @@ CONTAINS
 
       cs_1 = dbcsr_t_checksum(tensor_1)
       cs_2 = dbcsr_t_checksum(tensor_2)
-      IF(io_unit > 0) THEN
-         WRITE(io_unit, *) "checksum t", TRIM(tensor_1%name), cs_1
-         WRITE(io_unit, *) "checksum t", TRIM(tensor_2%name), cs_2
-      ENDIF
-
-      IF (debug) THEN
-         CALL write_tensor_block_indices(tensor_1, io_unit, unit_nr)
-         CALL write_tensor_blocks(tensor_1, io_unit, unit_nr, write_int)
-      ENDIF
 
       IF(io_unit > 0) THEN
          WRITE(io_unit, *)
@@ -816,6 +807,16 @@ CONTAINS
          WRITE(io_unit, '(A,1X,A,1X,A,1X,A,1X,A,1X,A)') "Testing tensor contraction", &
             TRIM(tensor_1%name), "x", TRIM(tensor_2%name), "=", TRIM(tensor_3%name)
          WRITE(io_unit, '(A)') repeat("-",80)
+      ENDIF
+
+      IF(io_unit > 0) THEN
+         WRITE(io_unit, *) "checksum ", TRIM(tensor_1%name), cs_1
+         WRITE(io_unit, *) "checksum ", TRIM(tensor_2%name), cs_2
+      ENDIF
+
+      IF (debug) THEN
+         CALL write_tensor_block_indices(tensor_1, io_unit, unit_nr)
+         CALL write_tensor_blocks(tensor_1, io_unit, unit_nr, write_int)
       ENDIF
 
       SELECT CASE(dbcsr_t_ndims(tensor_3))
@@ -832,7 +833,7 @@ CONTAINS
 
       cs_3 = dbcsr_t_checksum(tensor_3)
       IF(io_unit > 0) THEN
-         WRITE(io_unit, *) "checksum t", TRIM(tensor_3%name), cs_3
+         WRITE(io_unit, *) "checksum ", TRIM(tensor_3%name), cs_3
       ENDIF
 
       ! Convert tensors to simple multidimensional arrays

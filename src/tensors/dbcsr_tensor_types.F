@@ -104,6 +104,9 @@ MODULE dbcsr_tensor_types
       !INTEGER                                :: comm_nd
       !INTEGER                                :: comm_2d
       TYPE(dbcsr_t_pgrid_type)               :: pgrid
+      TYPE(array_list)                       :: blks_local
+      INTEGER, DIMENSION(:), ALLOCATABLE     :: nblks_local
+      INTEGER, DIMENSION(:), ALLOCATABLE     :: nfull_local
       LOGICAL                                :: valid = .FALSE.
       CHARACTER(LEN=default_string_length)   :: name
       INTEGER, POINTER :: refcount => NULL() ! lightweight reference counting for communicators
@@ -639,13 +642,18 @@ CONTAINS
       INTEGER, DIMENSION(:), INTENT(IN), OPTIONAL       :: ${varlist("blk_size")}$
       INTEGER                                           :: ndims
       INTEGER(KIND=int_8), DIMENSION(2)                             :: dims_2d
-      INTEGER, DIMENSION(SIZE(map1_2d) + SIZE(map2_2d)) :: dims
+      INTEGER, DIMENSION(SIZE(map1_2d) + SIZE(map2_2d)) :: dims, pdims, task_coor
       TYPE(dbcsr_r_blk_size_t)                          :: col_blk_size_obj, row_blk_size_obj
-      TYPE(array_list)                                  :: blk_size
+      TYPE(array_list)                                  :: blk_size, blks_local
       TYPE(nd_to_2d_mapping)                            :: map
       INTEGER                                   :: handle
       CHARACTER(LEN=*), PARAMETER :: routineN = 'dbcsr_t_create_new', &
          routineP = moduleN//':'//routineN
+      INTEGER, DIMENSION(:), ALLOCATABLE              :: ${varlist("blks_local")}$
+      INTEGER, DIMENSION(:), ALLOCATABLE              :: ${varlist("dist")}$
+      INTEGER                                         :: iblk_count, iblk
+      INTEGER, DIMENSION(:), ALLOCATABLE              :: nblks_local, nfull_local
+
 
       CALL timeset(routineN, handle)
       ndims = SIZE(map1_2d)+SIZE(map2_2d)
@@ -675,6 +683,46 @@ CONTAINS
       CALL create_nd_to_2d_mapping(map, sum_of_arrays(blk_size), map1_2d, map2_2d)
       tensor%nd_index = map
       tensor%blk_sizes = blk_size
+
+      CALL mp_environ_pgrid(dist%pgrid, pdims, task_coor)
+
+#:for ndim in range(1, maxdim+1)
+      IF (ndims == ${ndim}$) THEN
+         CALL get_arrays(dist%nd_dist, ${varlist("dist", nmax=ndim)}$)
+         !CALL get_arrays(dist%blk_sizes, ${varlist("blk_sizes", nmax=ndim)}$)
+      ENDIF
+#:endfor
+
+      ALLOCATE(nblks_local(ndims))
+      ALLOCATE(nfull_local(ndims))
+      nfull_local(:) = 0
+#:for idim in range(1, maxdim+1)
+      IF (ndims .GE. ${idim}$) THEN
+         nblks_local(${idim}$) = COUNT(dist_${idim}$ == task_coor(${idim}$))
+         ALLOCATE (blks_local_${idim}$ (nblks_local(${idim}$)))
+         iblk_count = 0
+         DO iblk = 1, SIZE(dist_${idim}$)
+            IF (dist_${idim}$(iblk) == task_coor(${idim}$)) THEN
+               iblk_count = iblk_count + 1
+               blks_local_${idim}$ (iblk_count) = iblk
+               nfull_local(${idim}$) = nfull_local(${idim}$) + blk_size_${idim}$ (iblk)
+            ENDIF
+         ENDDO
+      ENDIF
+#:endfor
+
+#:for ndim in range(1, maxdim+1)
+      IF (ndims == ${ndim}$) THEN
+         CALL create_array_list(blks_local, ${ndim}$, ${varlist("blks_local", nmax=ndim)}$)
+      ENDIF
+#:endfor
+
+      ALLOCATE(tensor%nblks_local(ndims))
+      ALLOCATE(tensor%nfull_local(ndims))
+      tensor%nblks_local(:) = nblks_local
+      tensor%nfull_local(:) = nfull_local
+
+      tensor%blks_local = blks_local
 
       !tensor%nd_index_grid = dist%nd_index_grid
       tensor%nd_dist = dist%nd_dist
@@ -727,6 +775,11 @@ CONTAINS
       tensor%blk_sizes = tensor_in%blk_sizes
       tensor%blk_offsets = tensor_in%blk_offsets
       tensor%nd_dist = tensor_in%nd_dist
+      tensor%blks_local = tensor_in%blks_local
+      ALLOCATE(tensor%nblks_local(ndims_tensor(tensor_in)))
+      tensor%nblks_local(:) = tensor_in%nblks_local
+      ALLOCATE(tensor%nfull_local(ndims_tensor(tensor_in)))
+      tensor%nfull_local(:) = tensor_in%nfull_local
       !tensor%comm_nd = tensor_in%comm_nd
       !tensor%comm_2d = tensor_in%comm_2d
       tensor%pgrid = tensor_in%pgrid
@@ -825,6 +878,9 @@ CONTAINS
       CALL destroy_array_list(tensor%blk_sizes)
       CALL destroy_array_list(tensor%blk_offsets)
       CALL destroy_array_list(tensor%nd_dist)
+      CALL destroy_array_list(tensor%blks_local)
+
+      DEALLOCATE(tensor%nblks_local, tensor%nfull_local)
 
       abort = .FALSE.
       IF (.NOT. ASSOCIATED(tensor%refcount)) THEN
@@ -1033,4 +1089,48 @@ CONTAINS
    END SUBROUTINE
 #:endfor
 
+   SUBROUTINE dbcsr_t_get_info(tensor, nblks_total, &
+                               nfull_total, &
+                               nblks_local, &
+                               nfull_local, &
+                               my_ploc, &
+                               ${varlist("blks_local")}$, &
+                               ${varlist("proc_dist")}$, &
+                               ${varlist("blk_size")}$, &
+                               ${varlist("blk_offset")}$, &
+                               distribution, &
+                               name, &
+                               data_type)
+      TYPE(dbcsr_t_type), INTENT(IN) :: tensor
+      INTEGER, INTENT(OUT), OPTIONAL, DIMENSION(ndims_tensor(tensor)) :: nblks_total, nfull_total, &
+                                                                  nblks_local, nfull_local, &
+                                                                  my_ploc
+      INTEGER, DIMENSION(:), ALLOCATABLE, INTENT(OUT), OPTIONAL :: ${varlist("blks_local")}$
+      INTEGER, DIMENSION(:), ALLOCATABLE, INTENT(OUT), OPTIONAL :: ${varlist("proc_dist")}$
+      INTEGER, DIMENSION(:), ALLOCATABLE, INTENT(OUT), OPTIONAL :: ${varlist("blk_size")}$
+      INTEGER, DIMENSION(:), ALLOCATABLE, INTENT(OUT), OPTIONAL :: ${varlist("blk_offset")}$
+      TYPE(dbcsr_t_distribution_type), INTENT(OUT), OPTIONAL         :: distribution
+      CHARACTER(len=*), INTENT(OUT), OPTIONAL                   :: name
+      INTEGER, INTENT(OUT), OPTIONAL                            :: data_type
+      INTEGER, DIMENSION(ndims_tensor(tensor))                         :: pdims
+
+      IF(PRESENT(nblks_total)) CALL get_mapping_info(tensor%nd_index_blk, dims_nd=nblks_total)
+      IF(PRESENT(nfull_total)) CALL get_mapping_info(tensor%nd_index, dims_nd=nfull_total)
+      IF(PRESENT(nblks_local)) nblks_local(:) = tensor%nblks_local
+      IF(PRESENT(nfull_local)) nfull_local(:) = tensor%nfull_local
+
+      IF(PRESENT(my_ploc)) CALL mp_environ_pgrid(tensor%pgrid, pdims, my_ploc)
+
+#:for idim in range(1, maxdim+1)
+      IF(PRESENT(blks_local_${idim}$)) CALL get_ith_array(tensor%blks_local, ${idim}$, blks_local_${idim}$)
+      IF(PRESENT(proc_dist_${idim}$)) CALL get_ith_array(tensor%nd_dist, ${idim}$, proc_dist_${idim}$)
+      IF(PRESENT(blk_size_${idim}$)) CALL get_ith_array(tensor%blk_sizes, ${idim}$, blk_size_${idim}$)
+      IF(PRESENT(blk_offset_${idim}$)) CALL get_ith_array(tensor%blk_offsets, ${idim}$, blk_size_${idim}$)
+#:endfor
+
+      IF(PRESENT(distribution)) distribution = dbcsr_t_distribution(tensor)
+      IF(PRESENT(name)) name = tensor%name
+      IF(PRESENT(data_type)) data_type = dbcsr_t_get_data_type(tensor)
+
+   END SUBROUTINE
 END MODULE

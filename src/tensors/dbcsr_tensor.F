@@ -15,6 +15,7 @@
 !> Support for arbitrary tensor contractions
 !> DBCSR routines are generalized to n dimensions by light-weight wrapper routines.
 !> \todo implement checks and error messages
+!> \todo avoid implicit creation of tensors at various places, always use dbcsr_t_create
 !> \author Patrick Seewald
 ! **************************************************************************************************
 MODULE dbcsr_tensor
@@ -828,6 +829,7 @@ CONTAINS
 !> \param tensor_in ...
 !> \param tensor_out ...
 !> \param order ...
+!> todo: use dbcsr_t_create for safety instead of manual copying
 ! **************************************************************************************************
    SUBROUTINE dbcsr_t_permute_index(tensor_in, tensor_out, order)
       TYPE(dbcsr_t_type), INTENT(INOUT)                  :: tensor_in
@@ -839,8 +841,11 @@ CONTAINS
       CHARACTER(LEN=*), PARAMETER :: routineN = 'dbcsr_t_permute_index', &
          routineP = moduleN//':'//routineN
       INTEGER                                         :: handle
+      INTEGER                                         :: ndims
 
       CALL timeset(routineN, handle)
+
+      ndims = ndims_tensor(tensor_in)
 
       CALL permute_index(tensor_in%nd_index, nd_index_rs, order)
       CALL permute_index(tensor_in%nd_index_blk, nd_index_blk_rs, order)
@@ -863,6 +868,11 @@ CONTAINS
       CALL reorder_arrays(tensor_in%blk_sizes, tensor_out%blk_sizes, order)
       CALL reorder_arrays(tensor_in%blk_offsets, tensor_out%blk_offsets, order)
       CALL reorder_arrays(tensor_in%nd_dist, tensor_out%nd_dist, order)
+      CALL reorder_arrays(tensor_in%blks_local, tensor_out%blks_local, order)
+      ALLOCATE(tensor_out%nblks_local(ndims))
+      ALLOCATE(tensor_out%nfull_local(ndims))
+      tensor_out%nblks_local(order) = tensor_in%nblks_local(:)
+      tensor_out%nfull_local(order) = tensor_in%nfull_local(:)
       tensor_out%name = tensor_in%name
       tensor_out%valid = .TRUE.
 
