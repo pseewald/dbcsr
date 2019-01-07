@@ -439,14 +439,18 @@ CONTAINS
 !> \param nd_dist_1 distribution vector for first dimension
 !> \param nd_dist_2 distribution vector for second dimension
 !> \param nd_dist_3 ...
+!> \param ngroup How many subgroups (splits) for longest matrix dimension
+!> \param dimsplit which dimension to split (1: row, 2: column)
+!> \param own_comm whether distribution should own communicator
 ! **************************************************************************************************
-   SUBROUTINE dbcsr_t_distribution_new(dist, pgrid, map1_2d, map2_2d, ${varlist("nd_dist")}$, ngroup, own_comm)
+   SUBROUTINE dbcsr_t_distribution_new(dist, pgrid, map1_2d, map2_2d, ${varlist("nd_dist")}$, ngroup, dimsplit, own_comm)
 
       TYPE(dbcsr_t_distribution_type), INTENT(OUT)    :: dist
       TYPE(dbcsr_t_pgrid_type), INTENT(IN)            :: pgrid
       INTEGER, DIMENSION(:), INTENT(IN)               :: map1_2d, map2_2d
       INTEGER, DIMENSION(:), INTENT(IN), OPTIONAL     :: ${varlist("nd_dist")}$
       INTEGER, INTENT(IN), OPTIONAL                   :: ngroup
+      INTEGER, INTENT(IN), OPTIONAL                   :: dimsplit
       LOGICAL, INTENT(IN), OPTIONAL                   :: own_comm
       INTEGER                                         :: ndims, comm_2d
       INTEGER, DIMENSION(2)                           :: pdims_2d_check, &
@@ -460,7 +464,7 @@ CONTAINS
       TYPE(dbcsr_t_pgrid_type)                        :: pgrid_prv
       LOGICAL                                         :: need_pgrid_remap
       INTEGER,DIMENSION(:), ALLOCATABLE               :: map1_2d_check, map2_2d_check
-      INTEGER                                         :: dimsplit, igroup, ngroup_prv
+      INTEGER                                         :: igroup, ngroup_prv
       TYPE(dbcsr_r_split_info)                        :: split_info
       CHARACTER(LEN=*), PARAMETER :: routineN = 'dbcsr_t_distribution_new', &
          routineP = moduleN//':'//routineN
@@ -511,7 +515,7 @@ CONTAINS
       ENDIF
 
       IF(PRESENT(ngroup)) THEN
-         dimsplit = MAXLOC(pdims_2d, dim=1)
+         DBCSR_ASSERT(PRESENT(dimsplit))
 
          IF(MOD(pdims_2d(dimsplit), ngroup) .NE. 0) THEN
             DBCSR_ABORT("split factor must divide process grid dimension")
