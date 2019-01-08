@@ -49,7 +49,8 @@ MODULE dbcsr_tensor_types
                                               split_index,&
                                               combine_index,&
                                               ndims_mapping
-   USE dbcsr_rectangular_split,         ONLY: dbcsr_r_split_rows_or_cols
+   USE dbcsr_rectangular_split,         ONLY: dbcsr_r_split_rows_or_cols, &
+                                              dbcsr_r_release_info
    USE dbcsr_kinds,                     ONLY: default_string_length, int_8
    USE dbcsr_mpiwrap,                   ONLY: mp_cart_create,&
                                               mp_cart_rank,&
@@ -529,6 +530,7 @@ CONTAINS
          DBCSR_ASSERT(ngroup_prv == ngroup)
 
          CALL dbcsr_r_distribution_new(dist%dist, comm_2d, row_dist_obj, col_dist_obj, split_info=split_info)
+         CALL dbcsr_r_release_info(split_info)
       ELSE
          CALL dbcsr_r_distribution_new(dist%dist, comm_2d, row_dist_obj, col_dist_obj)
       ENDIF
@@ -862,6 +864,8 @@ CONTAINS
                               data_type, &
                               row_blk_size, &
                               col_blk_size)
+
+      CALL dbcsr_t_distribution_destroy(dist)
       CALL timestop(handle)
    END SUBROUTINE
 
