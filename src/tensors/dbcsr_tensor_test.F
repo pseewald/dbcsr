@@ -62,7 +62,8 @@ MODULE dbcsr_tensor_test
       dbcsr_t_setup_test_tensor,&
       dbcsr_t_random_dist,&
       dbcsr_t_contract_test,&
-      dbcsr_t_test_formats
+      dbcsr_t_test_formats,&
+      dbcsr_t_checksum
 
    INTERFACE repl_dense_array_to_dist_sparse_tensor
 #:for dparam, dtype, dsuffix in dtype_float_list

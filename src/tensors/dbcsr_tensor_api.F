@@ -47,7 +47,8 @@ MODULE dbcsr_tensor_api
                                               mp_environ_pgrid,&
                                               dbcsr_t_blk_sizes, &
                                               dbcsr_t_get_info
-   USE dbcsr_tensor_test,               ONLY: dbcsr_t_contract_test
+   USE dbcsr_tensor_test,               ONLY: dbcsr_t_contract_test, &
+                                              dbcsr_t_checksum
 
    IMPLICIT NONE
 
@@ -85,5 +86,6 @@ MODULE dbcsr_tensor_api
    PUBLIC :: dbcsr_t_copy
    PUBLIC :: dbcsr_t_copy_tensor_to_matrix
    PUBLIC :: dbcsr_t_get_info
+   PUBLIC :: dbcsr_t_checksum
 
 END MODULE dbcsr_tensor_api
