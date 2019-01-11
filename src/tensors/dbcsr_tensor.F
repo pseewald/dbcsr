@@ -29,7 +29,8 @@ MODULE dbcsr_tensor
                                               reorder_arrays,&
                                               get_ith_array,&
                                               array_list, &
-                                              array_sublist
+                                              array_sublist, &
+                                              check_equal
    USE dbcsr_api,                       ONLY: &
         dbcsr_type, dbcsr_iterator_type, dbcsr_iterator_blocks_left, &
         dbcsr_iterator_next_block, dbcsr_iterator_start, dbcsr_iterator_stop, &
@@ -130,25 +131,53 @@ CONTAINS
 !> \param order Permutation of target tensor index. Exact same convention as order argument of RESHAPE
 !>              intrinsic
 ! **************************************************************************************************
-   SUBROUTINE dbcsr_t_copy(tensor_in, tensor_out, order)
+   SUBROUTINE dbcsr_t_copy(tensor_in, tensor_out, order, name, keep_sparsity, shallow_data)
       TYPE(dbcsr_t_type), INTENT(INOUT)              :: tensor_in, tensor_out
       INTEGER, DIMENSION(ndims_tensor(tensor_in)), &
          INTENT(IN), OPTIONAL                        :: order
+      CHARACTER(LEN=*), INTENT(IN), OPTIONAL             :: name
+      LOGICAL, INTENT(IN), OPTIONAL                      :: keep_sparsity, shallow_data
 
       TYPE(dbcsr_t_type)                             :: tensor_tmp
       INTEGER                                        :: handle
+      INTEGER, DIMENSION(:), ALLOCATABLE             :: map1_in_1, map1_in_2, map2_in_1, map2_in_2
 
       CHARACTER(LEN=*), PARAMETER :: routineN = 'dbcsr_t_copy', &
          routineP = moduleN//':'//routineN
+      LOGICAL                    :: dist_compatible
 
       CALL timeset(routineN, handle)
 
-      IF (PRESENT(order)) THEN
-         CALL dbcsr_t_permute_index(tensor_in, tensor_tmp, order)
-         CALL dbcsr_t_reshape(tensor_tmp, tensor_out)
-         CALL dbcsr_t_destroy(tensor_tmp)
+      dist_compatible = .FALSE.
+
+      IF (tensor_out%valid) THEN
+         CALL get_mapping_info(tensor_in%nd_index, map1_2d=map1_in_1, map2_2d=map1_in_2)
+         CALL get_mapping_info(tensor_out%nd_index, map1_2d=map2_in_1, map2_2d=map2_in_2)
+
+         IF (.NOT. PRESENT(order)) THEN
+            IF (array_eq_i(map1_in_1, map2_in_1) .AND. array_eq_i(map1_in_2, map2_in_2)) THEN
+               dist_compatible = check_equal(tensor_in%nd_dist, tensor_out%nd_dist)
+            ENDIF
+         ENDIF
+      ENDIF
+
+      IF(.NOT. dist_compatible) THEN
+         IF(PRESENT(keep_sparsity) .OR. PRESENT(shallow_data)) THEN
+            CALL dbcsr_abort(__LOCATION__, &
+               "for keep_sparsity or shallow_data present, distribution and mapping of both tensors must be the same")
+         ENDIF
+      ENDIF
+
+      IF (dist_compatible) THEN
+         CALL dbcsr_r_copy(tensor_out%matrix_rep, tensor_in%matrix_rep, name, keep_sparsity, shallow_data)
       ELSE
-         CALL dbcsr_t_reshape(tensor_in, tensor_out)
+         IF (PRESENT(order)) THEN
+            CALL dbcsr_t_permute_index(tensor_in, tensor_tmp, order)
+            CALL dbcsr_t_reshape(tensor_tmp, tensor_out)
+            CALL dbcsr_t_destroy(tensor_tmp)
+         ELSE
+            CALL dbcsr_t_reshape(tensor_in, tensor_out)
+         ENDIF
       ENDIF
 
       CALL timestop(handle)
@@ -638,20 +667,7 @@ CONTAINS
 
       END FUNCTION
 
-! **************************************************************************************************
-!> \brief Check if 2 arrays are equal
-!> \param arr1 ...
-!> \param arr2
-! **************************************************************************************************
-      PURE FUNCTION array_eq_i(arr1, arr2)
-         INTEGER, INTENT(IN), DIMENSION(:) :: arr1
-         INTEGER, INTENT(IN), DIMENSION(:) :: arr2
-         LOGICAL                           :: array_eq_i
 
-         array_eq_i = .FALSE.
-         IF (SIZE(arr1) .EQ. SIZE(arr2)) array_eq_i = ALL(arr1 == arr2)
-
-      END FUNCTION
 
       SUBROUTINE invert_transpose_flag(trans_flag)
          CHARACTER(LEN=1), INTENT(INOUT)                    :: trans_flag
@@ -673,6 +689,21 @@ CONTAINS
       END SUBROUTINE
 
    END SUBROUTINE
+
+! **************************************************************************************************
+!> \brief Check if 2 arrays are equal
+!> \param arr1 ...
+!> \param arr2
+! **************************************************************************************************
+      PURE FUNCTION array_eq_i(arr1, arr2)
+         INTEGER, INTENT(IN), DIMENSION(:) :: arr1
+         INTEGER, INTENT(IN), DIMENSION(:) :: arr2
+         LOGICAL                           :: array_eq_i
+
+         array_eq_i = .FALSE.
+         IF (SIZE(arr1) .EQ. SIZE(arr2)) array_eq_i = ALL(arr1 == arr2)
+
+      END FUNCTION
 
 ! **************************************************************************************************
 !> \brief set up cyclic distribution. This is used for all internally created temporary tensors.

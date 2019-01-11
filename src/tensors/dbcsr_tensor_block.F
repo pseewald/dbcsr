@@ -810,12 +810,15 @@ CONTAINS
       ind_2d(:) = get_2d_indices(tensor%nd_index_blk, ind)
       CALL dbcsr_r_get_block_p(tensor%matrix_rep, ind_2d(1), ind_2d(2), block_2d_ptr, tr, found)
       DBCSR_ASSERT(.NOT. tr)
-      ! convert pointer to allocatable
-      CALL allocate_any(block_2d, source=block_2d_ptr)
 
-      CALL get_mapping_info(tensor%nd_index_blk, map1_2d=map1_2d, map2_2d=map2_2d)
-      CALL create_nd_to_2d_mapping(map_blk, sizes, map1_2d, map2_2d)
-      CALL reshape_2d_to_nd_block(map_blk, block_2d, block)
+      IF (found) THEN
+         ! convert pointer to allocatable
+         CALL allocate_any(block_2d, source=block_2d_ptr)
+
+         CALL get_mapping_info(tensor%nd_index_blk, map1_2d=map1_2d, map2_2d=map2_2d)
+         CALL create_nd_to_2d_mapping(map_blk, sizes, map1_2d, map2_2d)
+         CALL reshape_2d_to_nd_block(map_blk, block_2d, block)
+      ENDIF
 
       CALL timestop(handle)
    END SUBROUTINE

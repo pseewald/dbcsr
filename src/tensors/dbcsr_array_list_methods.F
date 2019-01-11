@@ -39,7 +39,8 @@ MODULE dbcsr_array_list_methods
       number_of_arrays, &
       reorder_arrays,&
       sizes_of_arrays, &
-      sum_of_arrays
+      sum_of_arrays, &
+      check_equal
 
    TYPE array_list
       INTEGER, DIMENSION(:), ALLOCATABLE :: col_data
@@ -285,6 +286,25 @@ CONTAINS
 #:endfor
 
    END SUBROUTINE
+
+   FUNCTION check_equal(list1, list2)
+      TYPE(array_list), INTENT(IN)  :: list1, list2
+      LOGICAL :: check_equal
+
+      check_equal = array_eq_i(list1%col_data, list2%col_data) .AND. array_eq_i(list1%ptr, list2%ptr)
+   END FUNCTION
+
+   ! todo: make utility module
+   PURE FUNCTION array_eq_i(arr1, arr2)
+      INTEGER, INTENT(IN), DIMENSION(:) :: arr1
+      INTEGER, INTENT(IN), DIMENSION(:) :: arr2
+      LOGICAL                           :: array_eq_i
+
+      array_eq_i = .FALSE.
+      IF (SIZE(arr1) .EQ. SIZE(arr2)) array_eq_i = ALL(arr1 == arr2)
+
+   END FUNCTION
+
 
 END MODULE dbcsr_array_list_methods
 
