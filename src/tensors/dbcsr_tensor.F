@@ -621,6 +621,13 @@ CONTAINS
          LOGICAL, INTENT(IN), OPTIONAL               :: nodata
          LOGICAL, INTENT(OUT), OPTIONAL              :: new
          INTEGER                                     :: compat1, compat2
+         LOGICAL                                     :: nodata_prv
+
+         IF(PRESENT(nodata)) THEN
+            nodata_prv = nodata
+         ELSE
+            nodata_prv = .FALSE.
+         ENDIF
 
          IF(PRESENT(new)) new = .FALSE.
          compat1 = compat_map(tensor_in%nd_index, ind1)
@@ -631,7 +638,8 @@ CONTAINS
             compat2 = 2
             IF(PRESENT(new)) new = .TRUE.
          ELSE
-            CALL dbcsr_t_copy(tensor_in, tensor_out)
+            CALL dbcsr_t_create(tensor_in, tensor_out)
+            IF(.NOT. nodata_prv) CALL dbcsr_t_copy(tensor_in, tensor_out)
          ENDIF
 
          IF(compat1 == 1 .AND. compat2 == 2) THEN
