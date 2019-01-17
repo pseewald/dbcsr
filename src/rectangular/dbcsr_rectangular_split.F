@@ -378,11 +378,12 @@ CONTAINS
 !> \brief ...
 !> \param info ...
 ! **************************************************************************************************
-   SUBROUTINE dbcsr_r_print_info(info, name)
+   SUBROUTINE dbcsr_r_print_info(info, name, io_unit)
       TYPE(dbcsr_r_split_info), INTENT(IN)               :: info
       CHARACTER(len=*), INTENT(IN)                       :: name
+      INTEGER, INTENT(IN) :: io_unit
 
-      INTEGER                                            :: groupsize, igroup, io_unit, mp_comm, &
+      INTEGER                                            :: groupsize, igroup, mp_comm, &
                                                             mp_comm_group, mynode, nsplit, &
                                                             numnodes, split_rowcol
       INTEGER, DIMENSION(2)                              :: coord, dims, groupcoord, groupdims, &
@@ -392,9 +393,6 @@ CONTAINS
       CALL mp_environ(numnodes, mynode, mp_comm)
       CALL mp_environ(numnodes, dims, coord, mp_comm)
       CALL mp_environ(groupsize, groupdims, groupcoord, mp_comm_group)
-
-      io_unit = 0
-      IF (mynode .EQ. 0) io_unit = default_output_unit
 
       IF (io_unit > 0) THEN
          SELECT CASE (split_rowcol)

@@ -34,7 +34,9 @@ MODULE dbcsr_rectangular_base
                                               dbcsr_mp_release,&
                                               dbcsr_nblkcols_total,&
                                               dbcsr_nblkrows_total,&
-                                              dbcsr_release
+                                              dbcsr_release,&
+                                              dbcsr_get_data_size,&
+                                              dbcsr_get_num_blocks
    USE dbcsr_operations,                ONLY: dbcsr_copy,&
                                               dbcsr_get_info
    USE dbcsr_rectangular_base_low,      ONLY: dbcsr_r_get_block_p,&
@@ -80,7 +82,7 @@ MODULE dbcsr_rectangular_base
              dbcsr_r_put_block, dbcsr_r_get_data_type, dbcsr_r_iterator_next_block, dbcsr_r_get_block_p, &
              dbcsr_r_nblkcols_local, dbcsr_r_nblkrows_local, dbcsr_r_iterator_blocks_left, &
              dbcsr_r_blk_sizes, dbcsr_r_iterator_start, dbcsr_r_iterator_stop, dbcsr_r_reserve_blocks, &
-             dbcsr_r_get_info, dbcsr_r_set, dbcsr_r_filter
+             dbcsr_r_get_info, dbcsr_r_set, dbcsr_r_filter, dbcsr_r_get_num_blocks, dbcsr_r_get_data_size
 
    INTERFACE dbcsr_r_create
       MODULE PROCEDURE dbcsr_r_create_new
@@ -893,6 +895,20 @@ CONTAINS
       INTEGER                                            :: nblkrows_local
 
       nblkrows_local = dbcsr_nblkrows_total(matrix%matrix)
+   END FUNCTION
+
+   PURE FUNCTION dbcsr_r_get_num_blocks(matrix) RESULT(num_blocks)
+      TYPE(dbcsr_r_type), INTENT(IN) :: matrix
+      INTEGER                        :: num_blocks
+
+      num_blocks = dbcsr_get_num_blocks(matrix%matrix)
+   END FUNCTION
+
+   FUNCTION dbcsr_r_get_data_size(matrix) RESULT(data_size)
+      TYPE(dbcsr_r_type), INTENT(IN) :: matrix
+      INTEGER                        :: data_size
+
+      data_size = dbcsr_get_data_size(matrix%matrix)
    END FUNCTION
 
    SUBROUTINE dbcsr_r_get_info(matrix, nblkrows_total, nblkcols_total, &

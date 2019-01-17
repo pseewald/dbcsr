@@ -30,8 +30,9 @@ MODULE dbcsr_rectangular_mm
       dbcsr_r_split_rows_or_cols, &
       rowsplit, &
       world_to_group_proc_map, &
-      dbcsr_r_mp_comm,&
-      dbcsr_r_release_info
+      dbcsr_r_mp_comm, &
+      dbcsr_r_release_info, &
+      dbcsr_r_print_info
    USE dbcsr_rectangular_util, ONLY: swap
    USE dbcsr_types, ONLY: dbcsr_no_transpose, &
       dbcsr_transpose
@@ -113,10 +114,19 @@ CONTAINS
 
       dims_a = [dbcsr_r_nblkrows_total(matrix_a), dbcsr_r_nblkcols_total(matrix_a)]
       dims_b = [dbcsr_r_nblkrows_total(matrix_b), dbcsr_r_nblkcols_total(matrix_b)]
+      dims_c = [dbcsr_r_nblkrows_total(matrix_c), dbcsr_r_nblkcols_total(matrix_c)]
 
       IF (io_unit_prv > 0) THEN
-         WRITE (io_unit_prv, *) "DBCSR MM INFO | dims_a", dims_a, "transa ", transa_prv
-         WRITE (io_unit_prv, *) "DBCSR MM INFO | dims_b", dims_b, "transb ", transb_prv
+         WRITE(io_unit_prv, '(A)') "DBCSR MM INFO | rectangular matrix multiplication"
+         WRITE(io_unit_prv, '(A,1X,A)') "DBCSR MM INFO | Matrix A", TRIM(matrix_a%matrix%name)
+         WRITE(io_unit_prv, '(A,1X,A)') "DBCSR MM INFO | Matrix B", TRIM(matrix_b%matrix%name)
+         WRITE(io_unit_prv, '(A,1X,A)') "DBCSR MM INFO | Matrix C", TRIM(matrix_c%matrix%name)
+         WRITE (io_unit_prv, "(A, 1X, I8, 1X, I8, 1X, A, 1X, A)") &
+            "DBCSR MM INFO | dims_a", dims_a(1), dims_a(2), "transa", transa_prv
+         WRITE (io_unit_prv, "(A, 1X, I8, 1X, I8, 1X, A, 1X, A)") &
+            "DBCSR MM INFO | dims_b", dims_b(1), dims_b(2), "transb", transb_prv
+         WRITE (io_unit_prv, "(A, 1X, I8, 1X, I8, 1X, A, 1X, A)") &
+            "DBCSR MM INFO | dims_c", dims_c(1), dims_c(2), "transc", transc_prv
       ENDIF
 
       IF (transa_prv .EQ. dbcsr_transpose) THEN
@@ -140,16 +150,14 @@ CONTAINS
       tr_case = ''
 
       IF (io_unit_prv > 0) THEN
-         WRITE (io_unit_prv, *) "DBCSR MM INFO | mm dims:", dims
+         WRITE (io_unit_prv, "(A, 1X, I8, 1X, I8, 1X, I8)") "DBCSR MM INFO | mm dims:", dims(1), dims(2), dims(3)
       ENDIF
-
-
 
       SELECT CASE (dim_split)
       CASE (1)
 
          CALL reshape_mm_compatible(matrix_a, matrix_c, matrix_a_rs, matrix_c_rs, &
-            new_a, new_c, transa_prv, transc_prv, optimize_dist=optimize_dist, nodata2 = .TRUE., comm_new=comm_tmp)
+            new_a, new_c, transa_prv, transc_prv, optimize_dist=optimize_dist, nodata2 = .TRUE., comm_new=comm_tmp, unit_nr=io_unit)
 
          CALL dbcsr_r_get_split_info(dbcsr_r_info(matrix_a_rs), mp_comm=mp_comm)
 
@@ -160,16 +168,16 @@ CONTAINS
 
          IF (io_unit_prv > 0) THEN
             IF (tr_case == 'N') THEN
-               WRITE (io_unit_prv, *) "DBCSR MM INFO | mm case:", "| x o = |"
+               WRITE (io_unit_prv, "(A, 1X, A)") "DBCSR MM INFO | mm case:", "| x + = |"
             ELSE
-               WRITE (io_unit_prv, *) "DBCSR MM INFO | mm case:", "--T x o = --T"
+               WRITE (io_unit_prv, "(A, 1X, A)") "DBCSR MM INFO | mm case:", "--T x + = --T"
             ENDIF
          ENDIF
 
       CASE (2)
 
          CALL reshape_mm_compatible(matrix_a, matrix_b, matrix_a_rs, matrix_b_rs, new_a, new_b, transa_prv, transb_prv, &
-                                    optimize_dist=optimize_dist, comm_new=comm_tmp)
+                                    optimize_dist=optimize_dist, comm_new=comm_tmp, unit_nr=io_unit)
 
          CALL dbcsr_r_get_split_info(dbcsr_r_info(matrix_a_rs), mp_comm=mp_comm)
 
@@ -180,16 +188,16 @@ CONTAINS
 
          IF (io_unit_prv > 0) THEN
             IF (tr_case == 'N') THEN
-               WRITE (io_unit_prv, *) "DBCSR MM INFO | mm case:", "-- x --T = o"
+               WRITE (io_unit_prv, "(A, 1X, A)") "DBCSR MM INFO | mm case:", "-- x --T = +"
             ELSE
-               WRITE (io_unit_prv, *) "DBCSR MM INFO | mm case:", "|T x | = o"
+               WRITE (io_unit_prv, "(A, 1X, A)") "DBCSR MM INFO | mm case:", "|T x | = +"
             ENDIF
          ENDIF
 
       CASE (3)
 
          CALL reshape_mm_compatible(matrix_b, matrix_c, matrix_b_rs, matrix_c_rs, new_b, new_c, transb_prv, &
-                                    transc_prv, optimize_dist=optimize_dist, nodata2=.TRUE., comm_new=comm_tmp)
+                                    transc_prv, optimize_dist=optimize_dist, nodata2=.TRUE., comm_new=comm_tmp, unit_nr=io_unit)
 
          CALL dbcsr_r_get_split_info(dbcsr_r_info(matrix_b_rs), mp_comm=mp_comm)
 
@@ -200,17 +208,17 @@ CONTAINS
 
          IF (io_unit_prv > 0) THEN
             IF (tr_case == 'N') THEN
-               WRITE (io_unit_prv, *) "DBCSR MM INFO | mm case:", "o x -- = --"
+               WRITE (io_unit_prv, "(A, 1X, A)") "DBCSR MM INFO | mm case:", "+ x -- = --"
             ELSE
-               WRITE (io_unit_prv, *) "DBCSR MM INFO | mm case:", "o x |T = |T"
+               WRITE (io_unit_prv, "(A, 1X, A)") "DBCSR MM INFO | mm case:", "+ x |T = |T"
             ENDIF
          ENDIF
 
       END SELECT
 
-      IF (io_unit_prv > 0) THEN
-         WRITE (io_unit_prv, *) "DBCSR MM INFO | new trans flags:", transa_prv, transb_prv, transc
-      ENDIF
+      !IF (io_unit_prv > 0) THEN
+      !   WRITE (io_unit_prv, "(A, 1X, A, 1X, A, 1X, A)") "DBCSR MM INFO | new trans flags:", transa_prv, transb_prv, transc
+      !ENDIF
 
       info = dbcsr_r_info(matrix_a_rs)
       CALL dbcsr_r_get_split_info(info, nsplit=nsplit, mp_comm=mp_comm)
@@ -225,6 +233,8 @@ CONTAINS
       ELSE
          filter_eps_prv = 0.0_real_8
       ENDIF
+
+      IF(PRESENT(io_unit)) CALL dbcsr_r_print_info(info, "Split info before mm:", io_unit_prv)
 
       zero = dbcsr_scalar_zero(data_type)
       SELECT CASE (dim_split)
@@ -293,6 +303,8 @@ CONTAINS
          IF(optimize_dist) CALL mp_comm_free(comm_tmp)
       ENDIF
 
+      IF(io_unit_prv > 0) WRITE(io_unit_prv, '(A)') "DBCSR MM INFO | rectangular matrix multiplication done"
+
       CALL timestop(handle)
 
    END SUBROUTINE
@@ -357,7 +369,7 @@ CONTAINS
 
 
    SUBROUTINE reshape_mm_compatible(matrix1_in, matrix2_in, matrix1_out, matrix2_out, new1, new2, trans1, trans2, &
-                                    optimize_dist, nodata1, nodata2, comm_new)
+                                    optimize_dist, nodata1, nodata2, comm_new, unit_nr)
       TYPE(dbcsr_r_type), TARGET, INTENT(INOUT) :: matrix1_in, matrix2_in
       TYPE(dbcsr_r_type), POINTER, INTENT(OUT) :: matrix1_out, matrix2_out
       LOGICAL, INTENT(OUT) :: new1, new2
@@ -365,16 +377,23 @@ CONTAINS
       LOGICAL, INTENT(IN), OPTIONAL :: optimize_dist
       INTEGER, INTENT(OUT), OPTIONAL :: comm_new
       LOGICAL, OPTIONAL, INTENT(IN) :: nodata1, nodata2
+      INTEGER, INTENT(IN), OPTIONAL :: unit_nr
 
       INTEGER(KIND=int_8), DIMENSION(2) :: dims1, dims2
       CHARACTER(LEN=*), PARAMETER :: routineN = 'reshape_mm_compatible', &
                                      routineP = moduleN//':'//routineN
-      INTEGER :: handle, mp_comm, numnodes, split_rc_1, split_rc_2
+      INTEGER :: handle, mp_comm, numnodes, split_rc_1, split_rc_2, io_unit
       INTEGER, DIMENSION(2) :: pcoord, pdims
       LOGICAL :: optimize_dist_prv, trans1_newdist, trans2_newdist
       TYPE(dbcsr_r_dist_cyclic) :: row_dist_1, col_dist_1, row_dist_2, col_dist_2
       TYPE(dbcsr_r_distribution_type) :: dist_1, dist_2
       TYPE(dbcsr_r_split_info) :: split_info
+
+      IF(PRESENT(unit_nr)) THEN
+         io_unit = unit_nr
+      ELSE
+         io_unit = 0
+      ENDIF
 
       IF(PRESENT(optimize_dist)) THEN
          optimize_dist_prv = optimize_dist
@@ -392,12 +411,21 @@ CONTAINS
       IF ((.NOT. optimize_dist_prv) .AND. dist_compatible(matrix1_in, matrix2_in)) THEN
          matrix1_out => matrix1_in
          matrix2_out => matrix2_in
+         IF(io_unit > 0) THEN
+            WRITE(io_unit, "(A,1X,A,1X,A,1X,A)") "DBCSR MM Info | No redistribution of", TRIM(matrix1_in%matrix%name), &
+               "and", TRIM(matrix2_in%matrix%name)
+         ENDIF
       ELSE
+
 
          dims1 = [dbcsr_r_nblkrows_total(matrix1_in), dbcsr_r_nblkcols_total(matrix1_in)]
          dims2 = [dbcsr_r_nblkrows_total(matrix2_in), dbcsr_r_nblkcols_total(matrix2_in)]
 
          IF (optimize_dist_prv) THEN
+            IF(io_unit > 0) THEN
+               WRITE(io_unit, "(A,1X,A,1X,A)") "DBCSR MM Info | Optimizing distribution of", TRIM(matrix1_in%matrix%name), &
+                  "and", TRIM(matrix2_in%matrix%name)
+            ENDIF
             CALL dbcsr_r_get_split_info(dbcsr_r_info(matrix1_in), mp_comm=mp_comm, split_rowcol=split_rc_1)
             CALL dbcsr_r_get_split_info(dbcsr_r_info(matrix2_in), split_rowcol=split_rc_2)
 
@@ -424,6 +452,7 @@ CONTAINS
 
             CALL mp_environ(numnodes, pdims, pcoord, comm_new)
 
+            ! todo: should be input whether new distribution should be cyclic or contiguous
             row_dist_1=dbcsr_r_dist_cyclic(1, pdims(1), dims1(1))
             col_dist_1=dbcsr_r_dist_cyclic(1, pdims(2), dims1(2))
 
@@ -460,11 +489,18 @@ CONTAINS
 
          ELSE
             IF (PRODUCT(dims1) .GE. PRODUCT(dims2)) THEN
+               IF(io_unit > 0) THEN
+                  WRITE(io_unit, "(A,1X,A)") "DBCSR MM Info | Redistribution of", TRIM(matrix2_in%matrix%name)
+               ENDIF
+
                ALLOCATE (matrix2_out)
                CALL reshape_mm_template(matrix1_in, matrix2_in, matrix2_out, trans2, nodata=nodata2)
                new2 = .TRUE.
                matrix1_out => matrix1_in
             ELSE
+               IF(io_unit > 0) THEN
+                  WRITE(io_unit, "(A,1X,A)") "DBCSR MM Info | Redistribution of", TRIM(matrix1_in%matrix%name)
+               ENDIF
                ALLOCATE (matrix1_out)
                CALL reshape_mm_template(matrix2_in, matrix1_in, matrix1_out, trans1, nodata=nodata1)
                new1 = .TRUE.

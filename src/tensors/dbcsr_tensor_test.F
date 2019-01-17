@@ -810,9 +810,11 @@ CONTAINS
          WRITE(io_unit, '(A)') repeat("-",80)
       ENDIF
 
-      IF(io_unit > 0) THEN
-         WRITE(io_unit, *) "checksum ", TRIM(tensor_1%name), cs_1
-         WRITE(io_unit, *) "checksum ", TRIM(tensor_2%name), cs_2
+      IF (debug) THEN
+         IF (io_unit > 0) THEN
+            WRITE (io_unit, *) "checksum ", TRIM(tensor_1%name), cs_1
+            WRITE (io_unit, *) "checksum ", TRIM(tensor_2%name), cs_2
+         ENDIF
       ENDIF
 
       IF (debug) THEN
@@ -830,11 +832,14 @@ CONTAINS
       CALL dbcsr_t_contract(alpha, tensor_1, tensor_2, beta, tensor_3, &
                             contract_1, notcontract_1, &
                             contract_2, notcontract_2, &
-                            map_1, map_2)
+                            map_1, map_2, unit_nr=io_unit)
 
       cs_3 = dbcsr_t_checksum(tensor_3)
-      IF(io_unit > 0) THEN
-         WRITE(io_unit, *) "checksum ", TRIM(tensor_3%name), cs_3
+
+      IF (debug) THEN
+         IF (io_unit > 0) THEN
+            WRITE (io_unit, *) "checksum ", TRIM(tensor_3%name), cs_3
+         ENDIF
       ENDIF
 
       ! Convert tensors to simple multidimensional arrays

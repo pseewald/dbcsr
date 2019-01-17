@@ -38,7 +38,8 @@ MODULE dbcsr_tensor_types
    USE dbcsr_rectangular_base,          ONLY: &
       dbcsr_r_create, dbcsr_r_distribution_new,&
       dbcsr_r_distribution_destroy, dbcsr_r_finalize, dbcsr_r_get_info, &
-      dbcsr_r_destroy, dbcsr_r_get_stored_coordinates, dbcsr_r_set, dbcsr_r_filter
+      dbcsr_r_destroy, dbcsr_r_get_stored_coordinates, dbcsr_r_set, dbcsr_r_filter, &
+      dbcsr_r_get_num_blocks, dbcsr_r_get_data_size
    USE dbcsr_rectangular_base_types,    ONLY: dbcsr_r_type, dbcsr_r_distribution_type, dbcsr_r_split_info
    USE dbcsr_tensor_index,              ONLY: get_2d_indices,&
                                               get_nd_indices,&
@@ -56,7 +57,8 @@ MODULE dbcsr_tensor_types
                                               mp_cart_rank,&
                                               mp_environ, &
                                               mp_dims_create, &
-                                              mp_comm_free, mp_comm_dup
+                                              mp_comm_free, mp_comm_dup,&
+                                              mp_sum, mp_max
    USE dbcsr_rectangular_global,        ONLY: dbcsr_r_distribution, dbcsr_r_rowcol_data
    USE dbcsr_allocate_wrap,             ONLY: allocate_any
 #include "base/dbcsr_base_uses.f90"
@@ -89,7 +91,8 @@ MODULE dbcsr_tensor_types
       dbcsr_t_pgrid_destroy, &
       dbcsr_t_set,&
       dbcsr_t_filter,&
-      dbcsr_t_get_info
+      dbcsr_t_get_info,&
+      dbcsr_t_write_tensor_dist
 
    TYPE dbcsr_t_pgrid_type
       TYPE(nd_to_2d_mapping) :: nd_index_grid
@@ -1141,6 +1144,70 @@ CONTAINS
       IF(PRESENT(distribution)) distribution = dbcsr_t_distribution(tensor)
       IF(PRESENT(name)) name = tensor%name
       IF(PRESENT(data_type)) data_type = dbcsr_t_get_data_type(tensor)
+
+   END SUBROUTINE
+
+   PURE FUNCTION dbcsr_t_get_num_blocks(tensor) RESULT(num_blocks)
+      TYPE(dbcsr_t_type), INTENT(IN)    :: tensor
+      INTEGER                           :: num_blocks
+      num_blocks = dbcsr_r_get_num_blocks(tensor%matrix_rep)
+   END FUNCTION
+
+   FUNCTION dbcsr_t_get_data_size(tensor) RESULT(data_size)
+      TYPE(dbcsr_t_type), INTENT(IN)    :: tensor
+      INTEGER                           :: data_size
+      data_size = dbcsr_r_get_data_size(tensor%matrix_rep)
+   END FUNCTION
+
+   SUBROUTINE dbcsr_t_write_tensor_dist(tensor, output_unit)
+      TYPE(dbcsr_t_type), INTENT(IN) :: tensor
+      INTEGER, INTENT(IN)            :: output_unit
+      INTEGER                        :: nproc, myproc, nblock_max, nelement_max
+      INTEGER(KIND=int_8)            :: nblock_sum, nelement_sum, nblock_tot
+      INTEGER, ALLOCATABLE, DIMENSION(:) :: nblock, nelement
+      INTEGER                        :: mp_comm
+      INTEGER, DIMENSION(2)          :: tmp
+      INTEGER, DIMENSION(ndims_tensor(tensor)) :: bdims
+      REAL(KIND=real_8)              :: occupation
+
+      mp_comm = tensor%pgrid%mp_comm_2d
+      CALL mp_environ(nproc, myproc, mp_comm)
+
+      ALLOCATE(nblock(0:nproc-1))
+      nblock(:) = 0
+
+      ALLOCATE(nelement(0:nproc-1))
+      nelement(:) = 0
+
+      nblock(myproc) = dbcsr_t_get_num_blocks(tensor)
+      nelement(myproc) = dbcsr_t_get_data_size(tensor)
+
+      nblock_sum = nblock(myproc)
+      nblock_max = nblock(myproc)
+      nelement_sum = nelement(myproc)
+      nelement_max = nelement(myproc)
+      CALL mp_sum(nblock_sum, mp_comm)
+      CALL mp_sum(nelement_sum, mp_comm)
+      tmp = (/nblock_max, nelement_max/)
+      CALL mp_max(tmp, mp_comm)
+      nblock_max = tmp(1); nelement_max = tmp(2)
+
+      CALL dims_tensor(tensor, bdims)
+      nblock_tot = PRODUCT(INT(bdims, KIND=int_8))
+
+      occupation = -1.0_real_8
+      IF(nblock_tot .NE. 0) occupation = 100.0_real_8*REAL(nblock_sum, real_8)/REAL(nblock_tot, real_8)
+
+      IF(output_unit > 0) THEN
+         WRITE(output_unit, "(T2,A)") &
+            "DISTRIBUTION OF "//TRIM(tensor%name)
+         WRITE(output_unit, "(T15,A,T68,I13)") "Number of non-zero blocks:", nblock_sum
+         WRITE(output_unit, "(T15,A,T75,F6.2)") "Percentage of non-zero blocks:", occupation
+         WRITE(output_unit, "(T15,A,T68,I13)") "Average number of blocks per CPU:", (nblock_sum+nproc-1)/nproc
+         WRITE(output_unit, "(T15,A,T68,I13)") "Maximum number of blocks per CPU:", nblock_max
+         WRITE(output_unit, "(T15,A,T68,I13)") "Average number of matrix elements per CPU:", (nelement_sum+nproc-1)/nproc
+         WRITE(output_unit, "(T15,A,T68,I13)") "Maximum number of matrix elements per CPU:", nelement_max
+      ENDIF
 
    END SUBROUTINE
 END MODULE
