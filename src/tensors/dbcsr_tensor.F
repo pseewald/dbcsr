@@ -69,7 +69,8 @@ MODULE dbcsr_tensor
                                               dbcsr_t_hold,&
                                               dbcsr_t_pgrid_type,&
                                               mp_environ_pgrid,&
-                                              dbcsr_t_write_tensor_dist
+                                              dbcsr_t_write_tensor_dist,&
+                                              dbcsr_t_write_tensor_info
    USE dbcsr_kinds,                     ONLY: ${uselist(dtype_float_prec)}$,&
                                               default_string_length,&
                                               int_8
@@ -290,7 +291,7 @@ CONTAINS
       INTEGER, DIMENSION(SIZE(map_1))                :: map_1_mod
       INTEGER, DIMENSION(SIZE(map_2))                :: map_2_mod
       CHARACTER(LEN=1)                               :: trans_1, trans_2, trans_3
-      LOGICAL                                        :: new_3
+      LOGICAL                                        :: new_1, new_2, new_3
       INTEGER                                        :: ndims1, ndims2, ndims3
       INTEGER, DIMENSION(:), ALLOCATABLE             :: dims1, dims2, dims3
 
@@ -300,6 +301,7 @@ CONTAINS
                                                      indchar2_mod, indchar3_mod
       CHARACTER(LEN=1), DIMENSION(15) :: alph = &
                                          ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o']
+      LOGICAL                         :: debug=.TRUE.
 
       ! todo: never copy data locally! use shallow copy where necessary
 
@@ -308,13 +310,14 @@ CONTAINS
       IF (PRESENT(unit_nr)) THEN
          IF (unit_nr > 0) THEN
             WRITE (unit_nr, '(A)') repeat("-", 80)
-            WRITE (unit_nr, '(A,1X,A,1X,A,1X,A,1X,A,1X,A)') "DBCSR_TENSOR | tensor contraction:", &
+            WRITE (unit_nr, '(A,1X,A,1X,A,1X,A,1X,A,1X,A)') "DBCSR TENSOR CONTRACTION:", &
                TRIM(tensor_1%name), 'x', TRIM(tensor_2%name), '=', TRIM(tensor_3%name)
             WRITE (unit_nr, '(A)') repeat("-", 80)
          ENDIF
+         CALL dbcsr_t_write_tensor_info(tensor_1, unit_nr, full_info=debug)
          CALL dbcsr_t_write_tensor_dist(tensor_1, unit_nr)
+         CALL dbcsr_t_write_tensor_info(tensor_2, unit_nr, full_info=debug)
          CALL dbcsr_t_write_tensor_dist(tensor_2, unit_nr)
-         !CALL dbcsr_t_write_tensor_dist(tensor_3, unit_nr)
       ENDIF
 
       DBCSR_ASSERT(tensor_1%valid)
@@ -367,7 +370,7 @@ CONTAINS
                                                                  tensor_3, indchar3, unit_nr)
       IF (PRESENT(unit_nr)) THEN
          IF (unit_nr > 0) THEN
-            WRITE (unit_nr, '(A)') "DBCSR_TENSOR | Aligning tensor index with data"
+            WRITE (unit_nr, '(T2,A)') "aligning tensor index with data"
          ENDIF
       ENDIF
 
@@ -399,7 +402,7 @@ CONTAINS
       CASE (1)
          IF (PRESENT(unit_nr)) THEN
             IF (unit_nr > 0) THEN
-               WRITE (unit_nr, '(A)') "DBCSR_TENSOR | large tensors: 1, 3; small tensor: 2"
+               WRITE (unit_nr, '(T2,A)') "large tensors: 1, 3; small tensor: 2"
             ENDIF
          ENDIF
          CALL index_linked_sort(contract_1_mod, contract_2_mod)
@@ -415,16 +418,16 @@ CONTAINS
 
          CALL reshape_mm_compatible(tensor_tmp_1, tensor_tmp_3, tensor_contr_1, tensor_contr_3, &
                                     contract_1_mod, notcontract_1_mod, map_2_mod, map_1_mod, &
-                                    trans_1, trans_3, nodata2=.TRUE., new2=new_3, optimize_dist=optimize_dist, &
+                                    trans_1, trans_3, nodata2=.TRUE., new1=new_1, new2=new_3, optimize_dist=optimize_dist, &
                                     unit_nr=unit_nr)
 
-         CALL reshape_mm_small(tensor_tmp_2, contract_2_mod, notcontract_2_mod, tensor_contr_2, trans_2, unit_nr=unit_nr)
+         CALL reshape_mm_small(tensor_tmp_2, contract_2_mod, notcontract_2_mod, tensor_contr_2, trans_2, new=new_2, unit_nr=unit_nr)
 
       CASE (2)
          IF (PRESENT(unit_nr)) THEN
             IF (unit_nr > 0) THEN
-               WRITE (unit_nr, '(A)') "DBCSR_TENSOR | large tensors: 1, 2; small tensor: 3"
-               WRITE (unit_nr, '(A)') "DBCSR_TENSOR | sorting contraction indices"
+               WRITE (unit_nr, '(T2,A)') "large tensors: 1, 2; small tensor: 3"
+               WRITE (unit_nr, '(T2,A)') "sorting contraction indices"
             ENDIF
          ENDIF
 
@@ -441,7 +444,7 @@ CONTAINS
 
          CALL reshape_mm_compatible(tensor_tmp_1, tensor_tmp_2, tensor_contr_1, tensor_contr_2, &
                                     notcontract_1_mod, contract_1_mod, notcontract_2_mod, contract_2_mod, &
-                                    trans_1, trans_2, optimize_dist=optimize_dist, unit_nr=unit_nr)
+                                    trans_1, trans_2, new1=new_1, new2=new_2, optimize_dist=optimize_dist, unit_nr=unit_nr)
          CALL invert_transpose_flag(trans_1)
 
          CALL reshape_mm_small(tensor_tmp_3, map_1_mod, map_2_mod, tensor_contr_3, trans_3, &
@@ -450,8 +453,8 @@ CONTAINS
       CASE (3)
          IF (PRESENT(unit_nr)) THEN
             IF (unit_nr > 0) THEN
-               WRITE (unit_nr, '(A)') "DBCSR_TENSOR | large tensors: 2, 3; small tensor: 1"
-               WRITE (unit_nr, '(A)') "DBCSR_TENSOR | sorting contraction indices"
+               WRITE (unit_nr, '(T2,A)') "large tensors: 2, 3; small tensor: 1"
+               WRITE (unit_nr, '(T2,A)') "sorting contraction indices"
             ENDIF
          ENDIF
          CALL index_linked_sort(map_1_mod, notcontract_1_mod)
@@ -467,13 +470,13 @@ CONTAINS
 
          CALL reshape_mm_compatible(tensor_tmp_2, tensor_tmp_3, tensor_contr_2, tensor_contr_3, &
                                     contract_2_mod, notcontract_2_mod, map_1_mod, map_2_mod, &
-                                    trans_2, trans_3, nodata2=.TRUE., new2=new_3, optimize_dist=optimize_dist, &
+                                    trans_2, trans_3, nodata2=.TRUE., new1=new_2, new2=new_3, optimize_dist=optimize_dist, &
                                     unit_nr=unit_nr)
 
          CALL invert_transpose_flag(trans_2)
          CALL invert_transpose_flag(trans_3)
 
-         CALL reshape_mm_small(tensor_tmp_1, notcontract_1_mod, contract_1_mod, tensor_contr_1, trans_1, unit_nr=unit_nr)
+         CALL reshape_mm_small(tensor_tmp_1, notcontract_1_mod, contract_1_mod, tensor_contr_1, trans_1, new=new_1, unit_nr=unit_nr)
 
       END SELECT
 
@@ -484,8 +487,10 @@ CONTAINS
                                                                  tensor_contr_2, indchar2_mod, &
                                                                  tensor_contr_3, indchar3_mod, unit_nr)
       IF (PRESENT(unit_nr)) THEN
-         CALL dbcsr_t_write_tensor_dist(tensor_contr_1, unit_nr)
-         CALL dbcsr_t_write_tensor_dist(tensor_contr_2, unit_nr)
+         IF(new_1) CALL dbcsr_t_write_tensor_info(tensor_contr_1, unit_nr, full_info=debug)
+         IF(new_1) CALL dbcsr_t_write_tensor_dist(tensor_contr_1, unit_nr)
+         IF(new_2) CALL dbcsr_t_write_tensor_info(tensor_contr_2, unit_nr, full_info=debug)
+         IF(new_2) CALL dbcsr_t_write_tensor_dist(tensor_contr_2, unit_nr)
          !CALL dbcsr_t_write_tensor_dist(tensor_contr_3, unit_nr)
       ENDIF
 
@@ -496,6 +501,7 @@ CONTAINS
                             io_unit=unit_nr)
 
 
+      CALL dbcsr_t_write_tensor_info(tensor_contr_3, unit_nr, full_info=debug)
       CALL dbcsr_t_write_tensor_dist(tensor_contr_3, unit_nr)
       IF (new_3) THEN
          ! need redistribute if we created new tensor for tensor 3
@@ -508,7 +514,8 @@ CONTAINS
          CALL dbcsr_add(tensor_3%matrix_rep%matrix, tensor_contr_3%matrix_rep%matrix)
       ENDIF
 
-      CALL dbcsr_t_write_tensor_dist(tensor_3, unit_nr)
+      IF(new_3) CALL dbcsr_t_write_tensor_info(tensor_3, unit_nr, full_info=debug)
+      IF(new_3) CALL dbcsr_t_write_tensor_dist(tensor_3, unit_nr)
 
       CALL dbcsr_t_destroy(tensor_tmp_3)
 
@@ -519,7 +526,7 @@ CONTAINS
       IF (PRESENT(unit_nr)) THEN
          IF (unit_nr > 0) THEN
             WRITE (unit_nr, '(A)') repeat("-", 80)
-            WRITE (unit_nr, '(A)') "DBCSR_TENSOR | tensor contraction done"
+            WRITE (unit_nr, '(A)') "TENSOR CONTRACTION DONE"
             WRITE (unit_nr, '(A)') repeat("-", 80)
          ENDIF
       ENDIF
@@ -581,7 +588,8 @@ CONTAINS
          LOGICAL, INTENT(OUT), OPTIONAL              :: new1, new2
          LOGICAL, INTENT(IN), OPTIONAL               :: optimize_dist
          INTEGER, INTENT(IN), OPTIONAL               :: unit_nr
-         INTEGER                                     :: ref_tensor, compat1, compat2, comm_2d, io_unit
+         INTEGER                                     :: ref_tensor, compat1, compat1_old, compat2, compat2_old,&
+                                                        comm_2d, io_unit
          TYPE(array_list)                            :: dist_list
          INTEGER, DIMENSION(:), ALLOCATABLE          :: mp_dims, dims
          TYPE(dbcsr_t_distribution_type)             :: dist_in
@@ -608,9 +616,11 @@ CONTAINS
 
          compat1 = compat_map(tensor1%nd_index, ind1_linked)
          compat2 = compat_map(tensor2%nd_index, ind2_linked)
+         compat1_old = compat1
+         compat2_old = compat2
 
          IF (io_unit > 0) THEN
-            WRITE (io_unit, '(A,1X,A,A,1X)', advance='no') "DBCSR_TENSOR | compatibility of", TRIM(tensor1%name), ":"
+            WRITE (io_unit, '(T2,A,1X,A,A,1X)', advance='no') "compatibility of", TRIM(tensor1%name), ":"
             SELECT CASE (compat1)
             CASE (0)
                WRITE (io_unit, '(A)') "Not compatible"
@@ -619,7 +629,7 @@ CONTAINS
             CASE (2)
                WRITE (io_unit, '(A)') "Transposed"
             END SELECT
-            WRITE (io_unit, '(A,1X,A,A,1X)', advance='no') "DBCSR_TENSOR | compatibility of", TRIM(tensor2%name), ":"
+            WRITE (io_unit, '(T2,A,1X,A,A,1X)', advance='no') "compatibility of", TRIM(tensor2%name), ":"
             SELECT CASE (compat2)
             CASE (0)
                WRITE (io_unit, '(A)') "Not compatible"
@@ -643,7 +653,7 @@ CONTAINS
 
          IF (ref_tensor == 1) THEN ! tensor 1 is reference and tensor 2 is reshaped compatible with tensor 1
             IF (compat1 == 0 .OR. optimize_dist_prv) THEN ! tensor 1 is not contraction compatible --> reshape
-               IF (io_unit > 0) WRITE (unit_nr, '(A,1X,A)') "DBCSR_TENSOR | Redistribution of", TRIM(tensor1%name)
+               IF (io_unit > 0) WRITE (unit_nr, '(T2,A,1X,A)') "Redistribution of", TRIM(tensor1%name)
                ALLOCATE (dims(dbcsr_t_ndims(tensor1)))
                CALL blk_dims_tensor(tensor1, dims)
                nblkrows = PRODUCT(INT(dims(ind1_linked), KIND=int_8))
@@ -653,11 +663,11 @@ CONTAINS
                CALL mp_comm_free(comm_2d)
                compat1 = 1
             ELSE
-               IF (io_unit > 0) WRITE (unit_nr, '(A,1X,A)') "DBCSR_TENSOR | No redistribution of", TRIM(tensor1%name)
+               IF (io_unit > 0) WRITE (unit_nr, '(T2,A,1X,A)') "No redistribution of", TRIM(tensor1%name)
                CALL dbcsr_t_copy(tensor1, tensor1_out) ! todo: shallow data copy!
             ENDIF
             IF (compat2 == 0 .OR. optimize_dist_prv) THEN ! tensor 2 is not contraction compatible --> reshape
-               IF (io_unit > 0) WRITE (unit_nr, '(A,1X,A,1X,A,1X,A)') "DBCSR_TENSOR | Redistribution of", &
+               IF (io_unit > 0) WRITE (unit_nr, '(T2,A,1X,A,1X,A,1X,A)') "Redistribution of", &
                   TRIM(tensor2%name), "compatible with", TRIM(tensor1%name)
                dist_in = dbcsr_t_distribution(tensor1_out)
                dist_list = array_sublist(dist_in%nd_dist, ind1_linked)
@@ -678,12 +688,12 @@ CONTAINS
                ENDIF
                compat2 = compat1
             ELSE
-               IF (io_unit > 0) WRITE (unit_nr, '(A,1X,A)') "DBCSR_TENSOR | No redistribution of", TRIM(tensor2%name)
+               IF (io_unit > 0) WRITE (unit_nr, '(T2,A,1X,A)') "No redistribution of", TRIM(tensor2%name)
                CALL dbcsr_t_copy(tensor2, tensor2_out)
             ENDIF
          ELSE ! tensor 2 is reference and tensor 1 is reshaped compatible with tensor 2
             IF (compat2 == 0 .OR. optimize_dist_prv) THEN ! tensor 2 is not contraction compatible --> reshape
-               IF (io_unit > 0) WRITE (unit_nr, '(A,1X,A)') "DBCSR_TENSOR | Redistribution of", TRIM(tensor2%name)
+               IF (io_unit > 0) WRITE (unit_nr, '(T2,A,1X,A)') "Redistribution of", TRIM(tensor2%name)
                ALLOCATE (dims(dbcsr_t_ndims(tensor2)))
                CALL blk_dims_tensor(tensor2, dims)
                nblkrows = PRODUCT(INT(dims(ind2_linked), KIND=int_8))
@@ -693,11 +703,11 @@ CONTAINS
                CALL mp_comm_free(comm_2d)
                compat2 = 1
             ELSE
-               IF (io_unit > 0) WRITE (unit_nr, '(A,1X,A)') "DBCSR_TENSOR | No redistribution of", TRIM(tensor2%name)
+               IF (io_unit > 0) WRITE (unit_nr, '(T2,A,1X,A)') "No redistribution of", TRIM(tensor2%name)
                CALL dbcsr_t_copy(tensor2, tensor2_out)
             ENDIF
             IF (compat1 == 0 .OR. optimize_dist_prv) THEN ! tensor 1 is not contraction compatible --> reshape
-               IF (io_unit > 0) WRITE (unit_nr, '(A,1X,A,1X,A,1X,A)') "DBCSR_TENSOR | Redistribution of", TRIM(tensor1%name), &
+               IF (io_unit > 0) WRITE (unit_nr, '(T2,A,1X,A,1X,A,1X,A)') "Redistribution of", TRIM(tensor1%name), &
                   "compatible with", TRIM(tensor2%name)
                dist_in = dbcsr_t_distribution(tensor2_out)
                dist_list = array_sublist(dist_in%nd_dist, ind2_linked)
@@ -714,7 +724,7 @@ CONTAINS
                ENDIF
                compat1 = compat2
             ELSE
-               IF (io_unit > 0) WRITE (unit_nr, '(A,1X,A)') "DBCSR_TENSOR | No redistribution of", TRIM(tensor1%name)
+               IF (io_unit > 0) WRITE (unit_nr, '(T2,A,1X,A)') "No redistribution of", TRIM(tensor1%name)
                CALL dbcsr_t_copy(tensor1, tensor1_out)
             ENDIF
          ENDIF
@@ -738,24 +748,28 @@ CONTAINS
          END SELECT
 
          IF (io_unit > 0) THEN
-            WRITE (io_unit, '(A,1X,A,A,1X)', advance='no') "DBCSR_TENSOR | compatibility of", TRIM(tensor1_out%name), ":"
-            SELECT CASE (compat1)
-            CASE (0)
-               WRITE (io_unit, '(A)') "Not compatible"
-            CASE (1)
-               WRITE (io_unit, '(A)') "Normal"
-            CASE (2)
-               WRITE (io_unit, '(A)') "Transposed"
-            END SELECT
-            WRITE (io_unit, '(A,1X,A,A,1X)', advance='no') "DBCSR_TENSOR | compatibility of", TRIM(tensor2_out%name), ":"
-            SELECT CASE (compat2)
-            CASE (0)
-               WRITE (io_unit, '(A)') "Not compatible"
-            CASE (1)
-               WRITE (io_unit, '(A)') "Normal"
-            CASE (2)
-               WRITE (io_unit, '(A)') "Transposed"
-            END SELECT
+            IF (compat1 .NE. compat1_old) THEN
+               WRITE (io_unit, '(T2,A,1X,A,A,1X)', advance='no') "compatibility of", TRIM(tensor1_out%name), ":"
+               SELECT CASE (compat1)
+               CASE (0)
+                  WRITE (io_unit, '(A)') "Not compatible"
+               CASE (1)
+                  WRITE (io_unit, '(A)') "Normal"
+               CASE (2)
+                  WRITE (io_unit, '(A)') "Transposed"
+               END SELECT
+            ENDIF
+            IF (compat2 .NE. compat2_old) THEN
+               WRITE (io_unit, '(T2,A,1X,A,A,1X)', advance='no') "compatibility of", TRIM(tensor2_out%name), ":"
+               SELECT CASE (compat2)
+               CASE (0)
+                  WRITE (io_unit, '(A)') "Not compatible"
+               CASE (1)
+                  WRITE (io_unit, '(A)') "Normal"
+               CASE (2)
+                  WRITE (io_unit, '(A)') "Transposed"
+               END SELECT
+            ENDIF
          ENDIF
 
       END SUBROUTINE
@@ -769,7 +783,7 @@ CONTAINS
          LOGICAL, INTENT(IN), OPTIONAL               :: nodata
          LOGICAL, INTENT(OUT), OPTIONAL              :: new
          INTEGER, INTENT(IN), OPTIONAL               :: unit_nr
-         INTEGER                                     :: compat1, compat2, io_unit
+         INTEGER                                     :: compat1, compat2, compat1_old, compat2_old, io_unit
          LOGICAL                                     :: nodata_prv
 
          IF (PRESENT(nodata)) THEN
@@ -787,8 +801,9 @@ CONTAINS
          IF (PRESENT(new)) new = .FALSE.
          compat1 = compat_map(tensor_in%nd_index, ind1)
          compat2 = compat_map(tensor_in%nd_index, ind2)
+         compat1_old = compat1; compat2_old = compat2
          IF (io_unit > 0) THEN
-            WRITE (io_unit, '(A,1X,A,A,1X)', advance='no') "DBCSR_TENSOR | compatibility of", TRIM(tensor_in%name), ":"
+            WRITE (io_unit, '(T2,A,1X,A,A,1X)', advance='no') "compatibility of", TRIM(tensor_in%name), ":"
             IF (compat1 == 1 .AND. compat2 == 2) THEN
                WRITE (io_unit, '(A)') "Normal"
             ELSEIF (compat1 == 2 .AND. compat2 == 1) THEN
@@ -799,13 +814,13 @@ CONTAINS
          ENDIF
          IF (compat1 == 0 .or. compat2 == 0) THEN ! index mapping not compatible with contract index
 
-            IF (io_unit > 0) WRITE (unit_nr, '(A,1X,A)') "DBCSR_TENSOR | Redistribution of", TRIM(tensor_in%name)
+            IF (io_unit > 0) WRITE (unit_nr, '(T2,A,1X,A)') "Redistribution of", TRIM(tensor_in%name)
             CALL dbcsr_t_remap(tensor_in, ind1, ind2, tensor_out, nodata=nodata)
             compat1 = 1
             compat2 = 2
             IF (PRESENT(new)) new = .TRUE.
          ELSE
-            IF (io_unit > 0) WRITE (unit_nr, '(A,1X,A)') "DBCSR_TENSOR | No redistribution of", TRIM(tensor_in%name)
+            IF (io_unit > 0) WRITE (unit_nr, '(T2,A,1X,A)') "No redistribution of", TRIM(tensor_in%name)
             CALL dbcsr_t_create(tensor_in, tensor_out)
             IF (.NOT. nodata_prv) CALL dbcsr_t_copy(tensor_in, tensor_out) ! todo: shallow data copy
          ENDIF
@@ -819,13 +834,15 @@ CONTAINS
          ENDIF
 
          IF (io_unit > 0) THEN
-            WRITE (io_unit, '(A,1X,A,A,1X)', advance='no') "DBCSR_TENSOR | compatibility of", TRIM(tensor_out%name), ":"
-            IF (compat1 == 1 .AND. compat2 == 2) THEN
-               WRITE (io_unit, '(A)') "Normal"
-            ELSEIF (compat1 == 2 .AND. compat2 == 1) THEN
-               WRITE (io_unit, '(A)') "Transposed"
-            ELSE
-               WRITE (io_unit, '(A)') "Not compatible"
+            IF (compat1_old .NE. compat1 .OR. compat2_old .NE. compat2) THEN
+               WRITE (io_unit, '(T2,A,1X,A,A,1X)', advance='no') "compatibility of", TRIM(tensor_out%name), ":"
+               IF (compat1 == 1 .AND. compat2 == 2) THEN
+                  WRITE (io_unit, '(A)') "Normal"
+               ELSEIF (compat1 == 2 .AND. compat2 == 1) THEN
+                  WRITE (io_unit, '(A)') "Transposed"
+               ELSE
+                  WRITE (io_unit, '(A)') "Not compatible"
+               ENDIF
             ENDIF
          ENDIF
 
@@ -1276,7 +1293,8 @@ CONTAINS
       CALL get_mapping_info(tensor_3%nd_index_blk, map1_2d=map31, map2_2d=map32)
 
       IF (unit_nr .GT. 0) THEN
-         WRITE (unit_nr, '(A)', advance='no') "DBCSR_TENSOR | tensor index: ("
+         WRITE (unit_nr, '(T2,A)') "INDEX INFO"
+         WRITE (unit_nr, '(T15,A)', advance='no') "tensor index: ("
          DO ichar1 = 1, SIZE(indchar1)
             WRITE(unit_nr, '(A1)', advance='no') indchar1(ichar1)
          ENDDO
@@ -1290,7 +1308,7 @@ CONTAINS
          ENDDO
          WRITE(unit_nr, '(A)') ")"
 
-         WRITE(unit_nr, '(A)', advance='no') "DBCSR_TENSOR | matrix index: ("
+         WRITE(unit_nr, '(T15,A)', advance='no') "matrix index: ("
          DO ichar1 = 1, SIZE(map11)
             WRITE(unit_nr, '(A1)', advance='no') indchar1(map11(ichar1))
          ENDDO

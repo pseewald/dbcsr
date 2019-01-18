@@ -16,7 +16,7 @@ MODULE dbcsr_rectangular_mm
    USE dbcsr_rectangular_base, ONLY: &
       dbcsr_r_create, dbcsr_r_destroy, dbcsr_r_distribution_destroy, dbcsr_r_distribution_new, &
       dbcsr_r_finalize, dbcsr_r_get_data_type, dbcsr_r_info, dbcsr_r_nblkcols_total, &
-      dbcsr_r_nblkrows_total
+      dbcsr_r_nblkrows_total, dbcsr_r_write_matrix_info
    USE dbcsr_rectangular_base_types, ONLY: dbcsr_r_distribution_type, &
       dbcsr_r_split_info, &
       dbcsr_r_type
@@ -95,6 +95,7 @@ CONTAINS
       CHARACTER(LEN=*), PARAMETER :: routineN = 'dbcsr_r_multiply', &
                                      routineP = moduleN//':'//routineN
       INTEGER :: handle, io_unit_prv, nsplit
+      LOGICAL :: debug=.TRUE.
 
       IF (PRESENT(io_unit)) THEN
          io_unit_prv = io_unit
@@ -116,17 +117,37 @@ CONTAINS
       dims_b = [dbcsr_r_nblkrows_total(matrix_b), dbcsr_r_nblkcols_total(matrix_b)]
       dims_c = [dbcsr_r_nblkrows_total(matrix_c), dbcsr_r_nblkcols_total(matrix_c)]
 
-      IF (io_unit_prv > 0) THEN
-         WRITE(io_unit_prv, '(A)') "DBCSR MM INFO | rectangular matrix multiplication"
-         WRITE(io_unit_prv, '(A,1X,A)') "DBCSR MM INFO | Matrix A", TRIM(matrix_a%matrix%name)
-         WRITE(io_unit_prv, '(A,1X,A)') "DBCSR MM INFO | Matrix B", TRIM(matrix_b%matrix%name)
-         WRITE(io_unit_prv, '(A,1X,A)') "DBCSR MM INFO | Matrix C", TRIM(matrix_c%matrix%name)
-         WRITE (io_unit_prv, "(A, 1X, I8, 1X, I8, 1X, A, 1X, A)") &
-            "DBCSR MM INFO | dims_a", dims_a(1), dims_a(2), "transa", transa_prv
-         WRITE (io_unit_prv, "(A, 1X, I8, 1X, I8, 1X, A, 1X, A)") &
-            "DBCSR MM INFO | dims_b", dims_b(1), dims_b(2), "transb", transb_prv
-         WRITE (io_unit_prv, "(A, 1X, I8, 1X, I8, 1X, A, 1X, A)") &
-            "DBCSR MM INFO | dims_c", dims_c(1), dims_c(2), "transc", transc_prv
+      !fdims_a = [dbcsr_r_nfullrows_total(matrix_a), dbcsr_r_nfullcols_total(matrix_a)]
+      !fdims_b = [dbcsr_r_nfullrows_total(matrix_b), dbcsr_r_nfullcols_total(matrix_b)]
+      !fdims_c = [dbcsr_r_nfullrows_total(matrix_c), dbcsr_r_nfullcols_total(matrix_c)]
+
+      IF (PRESENT(io_unit)) THEN
+         IF (io_unit_prv .GT. 0) THEN
+            WRITE (io_unit_prv, '(A)') repeat("-", 80)
+            WRITE (io_unit_prv, '(A,1X,A,1X,A,1X,A,1X,A,1X,A)') "DBCSR RECTANGULAR MATRIX MULTIPLICATION:", &
+               TRIM(matrix_a%matrix%name), 'x', TRIM(matrix_b%matrix%name), '=', TRIM(matrix_c%matrix%name)
+            WRITE (io_unit_prv, '(A)') repeat("-", 80)
+         ENDIF
+
+
+         CALL dbcsr_r_write_matrix_info(matrix_a, io_unit_prv, full_info=debug)
+         CALL dbcsr_r_write_matrix_info(matrix_b, io_unit_prv, full_info=debug)
+         CALL dbcsr_r_write_matrix_info(matrix_c, io_unit_prv, full_info=debug)
+         !WRITE(io_unit_prv, '(A,1X,A)') "Matrix A", TRIM(matrix_a%matrix%name)
+         !WRITE(io_unit_prv, '(A,1X,A)') "Matrix B", TRIM(matrix_b%matrix%name)
+         !WRITE(io_unit_prv, '(A,1X,A)') "Matrix C", TRIM(matrix_c%matrix%name)
+         !WRITE (io_unit_prv, "(A, 1X, I8, 1X, I8, 1X, A, 1X, A)") &
+         !   "block dims 1", dims_a(1), dims_a(2), "trans 1", transa_prv
+         !WRITE (io_unit_prv, "(A, 1X, I8, 1X, I8)") &
+         !   "full dims 1", fdims_a(1), fdims_a(2)
+         !WRITE (io_unit_prv, "(A, 1X, I8, 1X, I8, 1X, A, 1X, A)") &
+         !   "block dims 2", dims_b(1), dims_b(2), "trans 2", transb_prv
+         !WRITE (io_unit_prv, "(A, 1X, I8, 1X, I8)") &
+         !   "full dims 2", fdims_b(1), fdims_b(2)
+         !WRITE (io_unit_prv, "(A, 1X, I8, 1X, I8, 1X, A, 1X, A)") &
+         !   "block dims 3", dims_c(1), dims_c(2), "trans 3", transc_prv
+         !WRITE (io_unit_prv, "(A, 1X, I8, 1X, I8)") &
+         !   "full dims 3", fdims_c(1), fdims_c(2)
       ENDIF
 
       IF (transa_prv .EQ. dbcsr_transpose) THEN
@@ -150,7 +171,7 @@ CONTAINS
       tr_case = ''
 
       IF (io_unit_prv > 0) THEN
-         WRITE (io_unit_prv, "(A, 1X, I8, 1X, I8, 1X, I8)") "DBCSR MM INFO | mm dims:", dims(1), dims(2), dims(3)
+         WRITE (io_unit_prv, "(T2,A, 1X, I8, 1X, I8, 1X, I8)") "mm dims:", dims(1), dims(2), dims(3)
       ENDIF
 
       SELECT CASE (dim_split)
@@ -168,9 +189,9 @@ CONTAINS
 
          IF (io_unit_prv > 0) THEN
             IF (tr_case == 'N') THEN
-               WRITE (io_unit_prv, "(A, 1X, A)") "DBCSR MM INFO | mm case:", "| x + = |"
+               WRITE (io_unit_prv, "(T2,A, 1X, A)") "mm case:", "| x + = |"
             ELSE
-               WRITE (io_unit_prv, "(A, 1X, A)") "DBCSR MM INFO | mm case:", "--T x + = --T"
+               WRITE (io_unit_prv, "(T2,A, 1X, A)") "mm case:", "--T x + = --T"
             ENDIF
          ENDIF
 
@@ -188,9 +209,9 @@ CONTAINS
 
          IF (io_unit_prv > 0) THEN
             IF (tr_case == 'N') THEN
-               WRITE (io_unit_prv, "(A, 1X, A)") "DBCSR MM INFO | mm case:", "-- x --T = +"
+               WRITE (io_unit_prv, "(T2,A, 1X, A)") "mm case:", "-- x --T = +"
             ELSE
-               WRITE (io_unit_prv, "(A, 1X, A)") "DBCSR MM INFO | mm case:", "|T x | = +"
+               WRITE (io_unit_prv, "(T2,A, 1X, A)") "mm case:", "|T x | = +"
             ENDIF
          ENDIF
 
@@ -208,16 +229,16 @@ CONTAINS
 
          IF (io_unit_prv > 0) THEN
             IF (tr_case == 'N') THEN
-               WRITE (io_unit_prv, "(A, 1X, A)") "DBCSR MM INFO | mm case:", "+ x -- = --"
+               WRITE (io_unit_prv, "(T2,A, 1X, A)") "mm case:", "+ x -- = --"
             ELSE
-               WRITE (io_unit_prv, "(A, 1X, A)") "DBCSR MM INFO | mm case:", "+ x |T = |T"
+               WRITE (io_unit_prv, "(T2,A, 1X, A)") "mm case:", "+ x |T = |T"
             ENDIF
          ENDIF
 
       END SELECT
 
       !IF (io_unit_prv > 0) THEN
-      !   WRITE (io_unit_prv, "(A, 1X, A, 1X, A, 1X, A)") "DBCSR MM INFO | new trans flags:", transa_prv, transb_prv, transc
+      !   WRITE (io_unit_prv, "(A, 1X, A, 1X, A, 1X, A)") "new trans flags:", transa_prv, transb_prv, transc
       !ENDIF
 
       info = dbcsr_r_info(matrix_a_rs)
@@ -234,7 +255,7 @@ CONTAINS
          filter_eps_prv = 0.0_real_8
       ENDIF
 
-      IF(PRESENT(io_unit)) CALL dbcsr_r_print_info(info, "Split info before mm:", io_unit_prv)
+      IF(PRESENT(io_unit)) CALL dbcsr_r_print_info(info, " Split info:", io_unit_prv)
 
       zero = dbcsr_scalar_zero(data_type)
       SELECT CASE (dim_split)
@@ -302,8 +323,11 @@ CONTAINS
       IF(PRESENT(optimize_dist)) THEN
          IF(optimize_dist) CALL mp_comm_free(comm_tmp)
       ENDIF
-
-      IF(io_unit_prv > 0) WRITE(io_unit_prv, '(A)') "DBCSR MM INFO | rectangular matrix multiplication done"
+      IF(io_unit_prv > 0) THEN
+         WRITE (io_unit_prv, '(A)') repeat("-", 80)
+         WRITE (io_unit_prv, '(A,1X,A,1X,A,1X,A,1X,A,1X,A)') "RECTANGULAR MATRIX MULTIPLICATION DONE"
+         WRITE (io_unit_prv, '(A)') repeat("-", 80)
+      ENDIF
 
       CALL timestop(handle)
 
@@ -412,7 +436,7 @@ CONTAINS
          matrix1_out => matrix1_in
          matrix2_out => matrix2_in
          IF(io_unit > 0) THEN
-            WRITE(io_unit, "(A,1X,A,1X,A,1X,A)") "DBCSR MM Info | No redistribution of", TRIM(matrix1_in%matrix%name), &
+            WRITE(io_unit, "(T2,A,1X,A,1X,A,1X,A)") "No redistribution of", TRIM(matrix1_in%matrix%name), &
                "and", TRIM(matrix2_in%matrix%name)
          ENDIF
       ELSE
@@ -423,7 +447,7 @@ CONTAINS
 
          IF (optimize_dist_prv) THEN
             IF(io_unit > 0) THEN
-               WRITE(io_unit, "(A,1X,A,1X,A)") "DBCSR MM Info | Optimizing distribution of", TRIM(matrix1_in%matrix%name), &
+               WRITE(io_unit, "(T2,A,1X,A,1X,A)") "Optimizing distribution of", TRIM(matrix1_in%matrix%name), &
                   "and", TRIM(matrix2_in%matrix%name)
             ENDIF
             CALL dbcsr_r_get_split_info(dbcsr_r_info(matrix1_in), mp_comm=mp_comm, split_rowcol=split_rc_1)
@@ -490,7 +514,7 @@ CONTAINS
          ELSE
             IF (PRODUCT(dims1) .GE. PRODUCT(dims2)) THEN
                IF(io_unit > 0) THEN
-                  WRITE(io_unit, "(A,1X,A)") "DBCSR MM Info | Redistribution of", TRIM(matrix2_in%matrix%name)
+                  WRITE(io_unit, "(T2,A,1X,A)") "Redistribution of", TRIM(matrix2_in%matrix%name)
                ENDIF
 
                ALLOCATE (matrix2_out)
@@ -499,7 +523,7 @@ CONTAINS
                matrix1_out => matrix1_in
             ELSE
                IF(io_unit > 0) THEN
-                  WRITE(io_unit, "(A,1X,A)") "DBCSR MM Info | Redistribution of", TRIM(matrix1_in%matrix%name)
+                  WRITE(io_unit, "(T2,A,1X,A)") "Redistribution of", TRIM(matrix1_in%matrix%name)
                ENDIF
                ALLOCATE (matrix1_out)
                CALL reshape_mm_template(matrix2_in, matrix1_in, matrix1_out, trans1, nodata=nodata1)

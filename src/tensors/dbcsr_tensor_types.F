@@ -34,7 +34,8 @@ MODULE dbcsr_tensor_types
         dbcsr_get_info, dbcsr_type,&
         ${uselist(dtype_float_param)}$
    USE dbcsr_kinds,                     ONLY: &
-        ${uselist(dtype_float_prec)}$
+        ${uselist(dtype_float_prec)}$,&
+        default_string_length
    USE dbcsr_rectangular_base,          ONLY: &
       dbcsr_r_create, dbcsr_r_distribution_new,&
       dbcsr_r_distribution_destroy, dbcsr_r_finalize, dbcsr_r_get_info, &
@@ -92,7 +93,8 @@ MODULE dbcsr_tensor_types
       dbcsr_t_set,&
       dbcsr_t_filter,&
       dbcsr_t_get_info,&
-      dbcsr_t_write_tensor_dist
+      dbcsr_t_write_tensor_dist, &
+      dbcsr_t_write_tensor_info
 
    TYPE dbcsr_t_pgrid_type
       TYPE(nd_to_2d_mapping) :: nd_index_grid
@@ -678,7 +680,7 @@ CONTAINS
       col_blk_size_obj = dbcsr_r_blk_size_t(blk_size, map, 2)
 
       CALL dbcsr_r_create(matrix=tensor%matrix_rep, &
-                          name=name//"_matrix_rep", &
+                          name=name, &
                           dist=dist%dist, &
                           row_blk_size=row_blk_size_obj, &
                           col_blk_size=col_blk_size_obj, &
@@ -1106,6 +1108,7 @@ CONTAINS
                                nfull_total, &
                                nblks_local, &
                                nfull_local, &
+                               pdims, &
                                my_ploc, &
                                ${varlist("blks_local")}$, &
                                ${varlist("proc_dist")}$, &
@@ -1117,7 +1120,7 @@ CONTAINS
       TYPE(dbcsr_t_type), INTENT(IN) :: tensor
       INTEGER, INTENT(OUT), OPTIONAL, DIMENSION(ndims_tensor(tensor)) :: nblks_total, nfull_total, &
                                                                   nblks_local, nfull_local, &
-                                                                  my_ploc
+                                                                  my_ploc, pdims
       INTEGER, DIMENSION(:), ALLOCATABLE, INTENT(OUT), OPTIONAL :: ${varlist("blks_local")}$
       INTEGER, DIMENSION(:), ALLOCATABLE, INTENT(OUT), OPTIONAL :: ${varlist("proc_dist")}$
       INTEGER, DIMENSION(:), ALLOCATABLE, INTENT(OUT), OPTIONAL :: ${varlist("blk_size")}$
@@ -1125,20 +1128,24 @@ CONTAINS
       TYPE(dbcsr_t_distribution_type), INTENT(OUT), OPTIONAL         :: distribution
       CHARACTER(len=*), INTENT(OUT), OPTIONAL                   :: name
       INTEGER, INTENT(OUT), OPTIONAL                            :: data_type
-      INTEGER, DIMENSION(ndims_tensor(tensor))                         :: pdims
+      INTEGER, DIMENSION(ndims_tensor(tensor))                  :: pdims_tmp, my_ploc_tmp
 
       IF(PRESENT(nblks_total)) CALL get_mapping_info(tensor%nd_index_blk, dims_nd=nblks_total)
       IF(PRESENT(nfull_total)) CALL get_mapping_info(tensor%nd_index, dims_nd=nfull_total)
       IF(PRESENT(nblks_local)) nblks_local(:) = tensor%nblks_local
       IF(PRESENT(nfull_local)) nfull_local(:) = tensor%nfull_local
 
-      IF(PRESENT(my_ploc)) CALL mp_environ_pgrid(tensor%pgrid, pdims, my_ploc)
+      IF(PRESENT(my_ploc) .OR. PRESENT(pdims)) CALL mp_environ_pgrid(tensor%pgrid, pdims_tmp, my_ploc_tmp)
+      IF(PRESENT(my_ploc)) my_ploc = my_ploc_tmp
+      IF(PRESENT(pdims)) pdims = pdims_tmp
 
 #:for idim in range(1, maxdim+1)
-      IF(PRESENT(blks_local_${idim}$)) CALL get_ith_array(tensor%blks_local, ${idim}$, blks_local_${idim}$)
-      IF(PRESENT(proc_dist_${idim}$)) CALL get_ith_array(tensor%nd_dist, ${idim}$, proc_dist_${idim}$)
-      IF(PRESENT(blk_size_${idim}$)) CALL get_ith_array(tensor%blk_sizes, ${idim}$, blk_size_${idim}$)
-      IF(PRESENT(blk_offset_${idim}$)) CALL get_ith_array(tensor%blk_offsets, ${idim}$, blk_offset_${idim}$)
+      IF (${idim}$ <= ndims_tensor(tensor)) THEN
+         IF (PRESENT(blks_local_${idim}$)) CALL get_ith_array(tensor%blks_local, ${idim}$, blks_local_${idim}$)
+         IF (PRESENT(proc_dist_${idim}$)) CALL get_ith_array(tensor%nd_dist, ${idim}$, proc_dist_${idim}$)
+         IF (PRESENT(blk_size_${idim}$)) CALL get_ith_array(tensor%blk_sizes, ${idim}$, blk_size_${idim}$)
+         IF (PRESENT(blk_offset_${idim}$)) CALL get_ith_array(tensor%blk_offsets, ${idim}$, blk_offset_${idim}$)
+      ENDIF
 #:endfor
 
       IF(PRESENT(distribution)) distribution = dbcsr_t_distribution(tensor)
@@ -1207,6 +1214,67 @@ CONTAINS
          WRITE(output_unit, "(T15,A,T68,I13)") "Maximum number of blocks per CPU:", nblock_max
          WRITE(output_unit, "(T15,A,T68,I13)") "Average number of matrix elements per CPU:", (nelement_sum+nproc-1)/nproc
          WRITE(output_unit, "(T15,A,T68,I13)") "Maximum number of matrix elements per CPU:", nelement_max
+      ENDIF
+
+   END SUBROUTINE
+
+   SUBROUTINE dbcsr_t_write_tensor_info(tensor, output_unit, full_info)
+      TYPE(dbcsr_t_type), INTENT(IN) :: tensor
+      INTEGER, INTENT(IN)            :: output_unit
+      LOGICAL, OPTIONAL, INTENT(IN)  :: full_info
+      INTEGER, DIMENSION(ndims_tensor(tensor)) :: nblks_total, nfull_total, pdims, my_ploc, nblks_local, nfull_local
+      INTEGER, DIMENSION(:), ALLOCATABLE :: ${varlist("blks_local")}$
+      INTEGER, DIMENSION(:), ALLOCATABLE :: ${varlist("proc_dist")}$
+      INTEGER, DIMENSION(:), ALLOCATABLE :: ${varlist("blk_size")}$
+      INTEGER, DIMENSION(:), ALLOCATABLE :: ${varlist("blk_offset")}$
+      CHARACTER(len=default_string_length)                   :: name
+      INTEGER                            :: idim
+      INTEGER                            :: iblk
+
+      CALL dbcsr_t_get_info(tensor, nblks_total, nfull_total, nblks_local, nfull_local, pdims, my_ploc, &
+                            ${varlist("blks_local")}$, ${varlist("proc_dist")}$, ${varlist("blk_size")}$, &
+                            ${varlist("blk_offset")}$, &
+                            name=name)
+
+      IF(output_unit > 0) THEN
+         WRITE(output_unit, "(T2,A)") &
+            "GLOBAL INFO OF "//TRIM(name)
+         WRITE(output_unit, "(T4,A,1X)", advance="no") "block dimensions:"
+         DO idim = 1, ndims_tensor(tensor)
+            WRITE(output_unit, "(I6)", advance="no") nblks_total(idim)
+         ENDDO
+         WRITE(output_unit, "(/T4,A,1X)", advance="no") "full dimensions:"
+         DO idim = 1, ndims_tensor(tensor)
+            WRITE(output_unit, "(I8)", advance="no") nfull_total(idim)
+         ENDDO
+         WRITE(output_unit, "(/T4,A,1X)", advance="no") "process grid dimensions:"
+         DO idim = 1, ndims_tensor(tensor)
+            WRITE(output_unit, "(I6)", advance="no") pdims(idim)
+         ENDDO
+
+         IF(PRESENT(full_info)) THEN
+            IF(full_info) THEN
+               WRITE(output_unit,'(/T4,A)', advance='no') "Block sizes:"
+#:for dim in range(1, maxdim+1)
+               IF(ndims_tensor(tensor)>=${dim}$) THEN
+                  WRITE(output_unit,'(/T8,A,1X,I1,A,1X)', advance='no') 'Dim', ${dim}$,':'
+                  DO iblk=1, SIZE(blk_size_${dim}$)
+                     WRITE(output_unit,'(I2,1X)', advance='no') blk_size_${dim}$(iblk)
+                  ENDDO
+               ENDIF
+#:endfor
+               WRITE(output_unit,'(/T4,A)', advance='no') "Block distribution:"
+#:for dim in range(1, maxdim+1)
+               IF(ndims_tensor(tensor)>=${dim}$) THEN
+                  WRITE(output_unit,'(/T8,A,1X,I1,A,1X)', advance='no') 'Dim', ${dim}$,':'
+                  DO iblk=1, SIZE(proc_dist_${dim}$)
+                     WRITE(output_unit,'(I3,1X)', advance='no') proc_dist_${dim}$(iblk)
+                  ENDDO
+               ENDIF
+#:endfor
+               WRITE (output_unit, *)
+            ENDIF
+         ENDIF
       ENDIF
 
    END SUBROUTINE

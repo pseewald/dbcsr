@@ -34,6 +34,8 @@ MODULE dbcsr_rectangular_base
                                               dbcsr_mp_release,&
                                               dbcsr_nblkcols_total,&
                                               dbcsr_nblkrows_total,&
+                                              dbcsr_nfullrows_total,&
+                                              dbcsr_nfullcols_total,&
                                               dbcsr_release,&
                                               dbcsr_get_data_size,&
                                               dbcsr_get_num_blocks
@@ -82,7 +84,8 @@ MODULE dbcsr_rectangular_base
              dbcsr_r_put_block, dbcsr_r_get_data_type, dbcsr_r_iterator_next_block, dbcsr_r_get_block_p, &
              dbcsr_r_nblkcols_local, dbcsr_r_nblkrows_local, dbcsr_r_iterator_blocks_left, &
              dbcsr_r_blk_sizes, dbcsr_r_iterator_start, dbcsr_r_iterator_stop, dbcsr_r_reserve_blocks, &
-             dbcsr_r_get_info, dbcsr_r_set, dbcsr_r_filter, dbcsr_r_get_num_blocks, dbcsr_r_get_data_size
+             dbcsr_r_get_info, dbcsr_r_set, dbcsr_r_filter, dbcsr_r_get_num_blocks, dbcsr_r_get_data_size,&
+             dbcsr_r_write_matrix_info
 
    INTERFACE dbcsr_r_create
       MODULE PROCEDURE dbcsr_r_create_new
@@ -861,6 +864,13 @@ CONTAINS
       nblkrows_total = matrix%nblkrows
    END FUNCTION
 
+   FUNCTION dbcsr_r_nfullrows_total(matrix) RESULT(nfullrows_total)
+      TYPE(dbcsr_r_type), INTENT(IN)                     :: matrix
+      INTEGER(KIND=int_8)                                :: nfullrows_total
+
+      nfullrows_total = matrix%nfullrows
+   END FUNCTION
+
 ! **************************************************************************************************
 !> \brief ...
 !> \param matrix ...
@@ -873,6 +883,12 @@ CONTAINS
       nblkcols_total = matrix%nblkcols
    END FUNCTION
 
+   FUNCTION dbcsr_r_nfullcols_total(matrix) RESULT(nfullcols_total)
+      TYPE(dbcsr_r_type), INTENT(IN)                     :: matrix
+      INTEGER(KIND=int_8)                                :: nfullcols_total
+
+      nfullcols_total = matrix%nfullcols
+   END FUNCTION
 ! **************************************************************************************************
 !> \brief ...
 !> \param matrix ...
@@ -897,6 +913,20 @@ CONTAINS
       nblkrows_local = dbcsr_nblkrows_total(matrix%matrix)
    END FUNCTION
 
+   FUNCTION dbcsr_r_nfullrows_local(matrix) RESULT(nfullrows_local)
+      TYPE(dbcsr_r_type), INTENT(IN)                     :: matrix
+      INTEGER                                            :: nfullrows_local
+
+      nfullrows_local = dbcsr_nfullrows_total(matrix%matrix)
+   END FUNCTION
+
+   FUNCTION dbcsr_r_nfullcols_local(matrix) RESULT(nfullcols_local)
+      TYPE(dbcsr_r_type), INTENT(IN)                     :: matrix
+      INTEGER                                            :: nfullcols_local
+
+      nfullcols_local = dbcsr_nfullcols_total(matrix%matrix)
+   END FUNCTION
+
    PURE FUNCTION dbcsr_r_get_num_blocks(matrix) RESULT(num_blocks)
       TYPE(dbcsr_r_type), INTENT(IN) :: matrix
       INTEGER                        :: num_blocks
@@ -915,7 +945,7 @@ CONTAINS
                                nfullrows_total, nfullcols_total,&
                                nblkrows_local, nblkcols_local, &
                                nfullrows_local, nfullcols_local, &
-                               my_prow, my_pcol, &
+                               nprow, npcol, my_prow, my_pcol, &
                                local_rows, local_cols, proc_row_dist, proc_col_dist, &
                                row_blk_size, col_blk_size, distribution, name, data_area, &
                                matrix_type, data_type)
@@ -924,7 +954,7 @@ CONTAINS
       INTEGER(KIND=int_8), INTENT(OUT), OPTIONAL :: nblkrows_total, nblkcols_total, nfullrows_total, &
          nfullcols_total
       INTEGER, INTENT(OUT), OPTIONAL :: nblkrows_local, nblkcols_local, nfullrows_local, &
-         nfullcols_local, my_prow, my_pcol
+         nfullcols_local, nprow, npcol, my_prow, my_pcol
       INTEGER(KIND=int_8), DIMENSION(:), OPTIONAL, ALLOCATABLE :: local_rows, local_cols
       CLASS(dbcsr_r_distribution), ALLOCATABLE, OPTIONAL, INTENT(OUT)       :: proc_row_dist, proc_col_dist
       CLASS(dbcsr_r_rowcol_data), ALLOCATABLE, OPTIONAL, INTENT(OUT)        :: row_blk_size, col_blk_size
@@ -947,16 +977,16 @@ CONTAINS
       IF(PRESENT(nblkrows_total)) nblkrows_total = dbcsr_r_nblkrows_total(matrix)
       IF(PRESENT(nblkcols_total)) nblkcols_total = dbcsr_r_nblkcols_total(matrix)
 
-      IF(PRESENT(nfullrows_total)) nfullrows_total = matrix%nfullrows
-      IF(PRESENT(nfullcols_total)) nfullcols_total = matrix%nfullcols
+      IF(PRESENT(nfullrows_total)) nfullrows_total = dbcsr_r_nfullrows_total(matrix)
+      IF(PRESENT(nfullcols_total)) nfullcols_total = dbcsr_r_nfullcols_total(matrix)
 
       info = dbcsr_r_info(matrix)
 
-      IF(PRESENT(my_prow) .OR. PRESENT(my_pcol)) THEN
-         CALL mp_environ(numnodes, pdims, pcoord, info%mp_comm)
-         IF(PRESENT(my_prow)) my_prow = pcoord(1)
-         IF(PRESENT(my_pcol)) my_pcol = pcoord(2)
-      ENDIF
+      CALL mp_environ(numnodes, pdims, pcoord, info%mp_comm)
+      IF(PRESENT(my_prow)) my_prow = pcoord(1)
+      IF(PRESENT(my_pcol)) my_pcol = pcoord(2)
+      IF(PRESENT(nprow)) nprow = pdims(1)
+      IF(PRESENT(npcol)) npcol = pdims(2)
 
       IF (PRESENT(local_rows)) THEN
          ALLOCATE(local_rows(SIZE(local_rows_local)))
@@ -978,6 +1008,62 @@ CONTAINS
       IF(PRESENT(row_blk_size)) ALLOCATE(row_blk_size, SOURCE=matrix%row_blk_size)
       IF(PRESENT(col_blk_size)) ALLOCATE(col_blk_size, SOURCE=matrix%col_blk_size)
       IF(PRESENT(distribution)) distribution = matrix%dist
+
+   END SUBROUTINE
+
+   SUBROUTINE dbcsr_r_write_matrix_info(matrix, output_unit, full_info)
+      TYPE(dbcsr_r_type), INTENT(IN)         :: matrix
+      INTEGER, INTENT(IN)                    :: output_unit
+      LOGICAL, OPTIONAL, INTENT(IN)          :: full_info
+      INTEGER(KIND=int_8)                    :: nblkrows_total, nblkcols_total, nfullrows_total, &
+         nfullcols_total
+      INTEGER                                :: nprow, npcol
+      CLASS(dbcsr_r_distribution), ALLOCATABLE       :: proc_row_dist, proc_col_dist
+      CLASS(dbcsr_r_rowcol_data), ALLOCATABLE        :: row_blk_size, col_blk_size
+      INTEGER(KIND=int_8) :: iblk
+      CHARACTER(default_string_length)               :: name
+
+
+      CALL dbcsr_r_get_info(matrix, nblkrows_total=nblkrows_total, nblkcols_total=nblkcols_total, &
+                            nfullrows_total=nfullrows_total, nfullcols_total=nfullcols_total, &
+                            nprow=nprow, npcol=npcol, proc_row_dist=proc_row_dist, proc_col_dist=proc_col_dist, &
+                            row_blk_size=row_blk_size, col_blk_size=col_blk_size, name=name)
+
+      IF(output_unit > 0) THEN
+         WRITE(output_unit, "(T2,A)") &
+            "GLOBAL INFO OF "//TRIM(name)
+         WRITE(output_unit, "(T4,A,1X)", advance="no") "block dimensions:"
+         WRITE(output_unit, "(I12,I12)", advance="no") nblkrows_total, nblkcols_total
+         WRITE(output_unit, "(/T4,A,1X)", advance="no") "full dimensions:"
+         WRITE(output_unit, "(I14,I14)", advance="no") nfullrows_total, nfullcols_total
+         WRITE(output_unit, "(/T4,A,1X)", advance="no") "process grid dimensions:"
+         WRITE(output_unit, "(I10,I10)", advance="no") nprow, npcol
+         IF(PRESENT(full_info)) THEN
+            IF(full_info) THEN
+               WRITE(output_unit, '(/T4,A)', advance='no') "Block sizes:"
+               WRITE(output_unit, '(/T8,A)', advance='no') 'Row:'
+               DO iblk=1, row_blk_size%nmrowcol
+                  WRITE(output_unit, '(I4,1X)', advance='no') row_blk_size%data(iblk)
+               ENDDO
+               WRITE(output_unit, '(/T8,A)', advance='no') 'Column:'
+               DO iblk=1, col_blk_size%nmrowcol
+                  WRITE(output_unit, '(I4,1X)', advance='no') col_blk_size%data(iblk)
+               ENDDO
+               WRITE(output_unit, '(/T4,A)', advance='no') "Block distribution:"
+               WRITE(output_unit, '(/T8,A)', advance='no') 'Row:'
+               DO iblk=1, proc_row_dist%nmrowcol
+                  WRITE(output_unit, '(I4,1X)', advance='no') proc_row_dist%dist(iblk)
+               ENDDO
+               WRITE(output_unit, '(/T4,A)', advance='no') "Column distribution:"
+               WRITE(output_unit, '(/T8,A)', advance='no') 'Column:'
+               DO iblk=1, proc_col_dist%nmrowcol
+                  WRITE(output_unit, '(I4,1X)', advance='no') proc_col_dist%dist(iblk)
+               ENDDO
+
+               WRITE (output_unit, *)
+            ENDIF
+         ENDIF
+      ENDIF
 
    END SUBROUTINE
 
