@@ -73,9 +73,10 @@ CONTAINS
 !> \param tensor_in ...
 !> \param tensor_out ...
 ! **************************************************************************************************
-   SUBROUTINE dbcsr_t_reshape(tensor_in, tensor_out)
+   SUBROUTINE dbcsr_t_reshape(tensor_in, tensor_out, summation)
 
       TYPE(dbcsr_t_type), INTENT(INOUT)               :: tensor_in, tensor_out
+      LOGICAL, INTENT(IN), OPTIONAL                    :: summation
 
       INTEGER                                            :: blk, iproc, mp_comm, mynode, ndata, &
                                                             numnodes, bcount, nblk
@@ -87,11 +88,17 @@ CONTAINS
       TYPE(block_nd)                                     :: blk_data
       TYPE(block_buffer_type), ALLOCATABLE, DIMENSION(:) :: buffer_recv, buffer_send
       INTEGER, DIMENSION(ndims_tensor(tensor_in))       :: blk_size, ind_nd, index
-      LOGICAL :: found
+      LOGICAL :: found, summation_prv
+
+      IF(PRESENT(summation)) THEN
+         summation_prv = summation
+      ELSE
+         summation_prv = .FALSE.
+      ENDIF
 
       IF (tensor_out%valid) THEN
 
-         CALL dbcsr_clear(tensor_out%matrix_rep%matrix)
+         IF(.NOT. summation_prv) CALL dbcsr_clear(tensor_out%matrix_rep%matrix)
 
          mp_comm = tensor_in%pgrid%mp_comm_2d
          CALL mp_environ(numnodes, mynode, mp_comm)
@@ -160,13 +167,14 @@ CONTAINS
                CALL create_block(blk_data, blk_size, dbcsr_t_get_data_type(tensor_in))
                ! get actual block data
                CALL block_buffer_get_next_anyd_block(buffer_recv(iproc), ndata, index, blk_data)
-               CALL dbcsr_t_put_block(tensor_out, index, blk_data)
+               CALL dbcsr_t_put_block(tensor_out, index, blk_data, summation=summation)
                CALL destroy_block(blk_data)
             ENDDO
             CALL block_buffer_destroy(buffer_recv(iproc))
             CALL block_buffer_destroy(buffer_send(iproc))
          ENDDO
       ELSE
+         IF(summation_prv) DBCSR_ABORT("tensor_out is not valid but summation is requested")
          CALL dbcsr_t_create(tensor_in, tensor_out)
          CALL dbcsr_t_reserve_blocks(tensor_in, tensor_out)
          CALL dbcsr_r_copy(tensor_out%matrix_rep, tensor_in%matrix_rep, shallow_data=.TRUE.)

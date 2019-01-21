@@ -348,7 +348,7 @@ CONTAINS
                CALL dbcsr_t_distribution_new(dist2, comm_nd, map1_ref, map2_ref, ${varlist("dist2", nmax=ndim)}$)
                CALL dbcsr_t_create(tensor2, "Ref", dist2, map1_ref, map2_ref, &
                                    dbcsr_type_real_8, ${varlist("blk_size", nmax=ndim)}$)
-               CALL dbcsr_t_setup_test_tensor(tensor2, comm_nd%mp_comm_2d, ${varlist("blk_ind", nmax=ndim)}$)
+               CALL dbcsr_t_setup_test_tensor(tensor2, comm_nd%mp_comm_2d, .TRUE., ${varlist("blk_ind", nmax=ndim)}$)
             ENDIF
 #:endfor
 
@@ -359,7 +359,7 @@ CONTAINS
                CALL dbcsr_t_distribution_new(dist1, comm_nd, map1, map2, ${varlist("dist1", nmax=ndim)}$)
                CALL dbcsr_t_create(tensor1, tensor_name, dist1, map1, map2, &
                                    dbcsr_type_real_8, ${varlist("blk_size", nmax=ndim)}$)
-               CALL dbcsr_t_setup_test_tensor(tensor1, comm_nd%mp_comm_2d, ${varlist("blk_ind", nmax=ndim)}$)
+               CALL dbcsr_t_setup_test_tensor(tensor1, comm_nd%mp_comm_2d, .TRUE., ${varlist("blk_ind", nmax=ndim)}$)
             ENDIF
 #:endfor
 
@@ -369,10 +369,10 @@ CONTAINS
 
 
             IF (.NOT. eql) THEN
-               IF (io_unit > 0) WRITE(io_unit,'(A,1X,A)') TRIM(tensor_name), 'failed!'
+               IF (io_unit > 0) WRITE(io_unit,'(A,1X,A)') TRIM(tensor_name), 'Test failed!'
                DBCSR_ABORT('')
             ELSE
-               IF (io_unit > 0) WRITE(io_unit,'(A,1X,A)') TRIM(tensor_name), 'passed!'
+               IF (io_unit > 0) WRITE(io_unit,'(A,1X,A)') TRIM(tensor_name), 'Test passed!'
             ENDIF
             DEALLOCATE(map1, map2)
 
@@ -418,9 +418,10 @@ CONTAINS
 !> \param mp_comm communicator
 !> \param blk_ind_1 index along dimension 1 of non-zero blocks
 ! **************************************************************************************************
-   SUBROUTINE dbcsr_t_setup_test_tensor(tensor, mp_comm, ${varlist("blk_ind")}$)
+   SUBROUTINE dbcsr_t_setup_test_tensor(tensor, mp_comm, enumerate, ${varlist("blk_ind")}$)
       TYPE(dbcsr_t_type), INTENT(INOUT)                  :: tensor
       INTEGER, INTENT(IN)                                :: mp_comm
+      LOGICAL, INTENT(IN)                                :: enumerate
       INTEGER, DIMENSION(:), INTENT(IN), OPTIONAL        :: ${varlist("blk_ind")}$
       INTEGER                                            :: blk, numnodes, mynode
 
@@ -485,7 +486,11 @@ CONTAINS
          IF(dbcsr_t_ndims(tensor) == ${ndim}$) THEN
             CALL allocate_any(blk_values_${ndim}$, shape_spec=blk_size)
             CALL dims_tensor(tensor, tensor_dims)
-            CALL enumerate_block_elements(blk_size, blk_offset, tensor_dims, blk_${ndim}$=blk_values_${ndim}$)
+            IF(enumerate) THEN
+               CALL enumerate_block_elements(blk_size, blk_offset, tensor_dims, blk_${ndim}$=blk_values_${ndim}$)
+            ELSE
+               CALL random_number(blk_values_${ndim}$)
+            ENDIF
             CALL dbcsr_t_put_block(tensor, blk_index, blk_size, blk_values_${ndim}$)
             DEALLOCATE (blk_values_${ndim}$)
          ENDIF
@@ -792,7 +797,7 @@ CONTAINS
                                              array_3_test_mm
       LOGICAL                             :: eql, notzero
       LOGICAL, PARAMETER                  :: debug = .FALSE.
-      REAL(KIND=real_8)                   :: cs_1, cs_2, cs_3
+      REAL(KIND=real_8)                   :: cs_1, cs_2, cs_3, eql_diff
 
       mp_comm = tensor_1%pgrid%mp_comm_2d
       CALL mp_environ(numnodes, mynode, mp_comm)
@@ -801,6 +806,7 @@ CONTAINS
 
       cs_1 = dbcsr_t_checksum(tensor_1)
       cs_2 = dbcsr_t_checksum(tensor_2)
+      cs_3 = dbcsr_t_checksum(tensor_3)
 
       IF(io_unit > 0) THEN
          WRITE(io_unit, *)
@@ -814,6 +820,7 @@ CONTAINS
          IF (io_unit > 0) THEN
             WRITE (io_unit, *) "checksum ", TRIM(tensor_1%name), cs_1
             WRITE (io_unit, *) "checksum ", TRIM(tensor_2%name), cs_2
+            WRITE (io_unit, *) "checksum ", TRIM(tensor_3%name), cs_3
          ENDIF
       ENDIF
 
@@ -900,14 +907,16 @@ CONTAINS
 
       END ASSOCIATE
 
-      eql = MAXVAL(ABS(array_3_test_mm(:,:) - array_3_mm(:,:))) .LT. 1.0E-12_${dprec}$
+      eql_diff = MAXVAL(ABS(array_3_test_mm(:,:) - array_3_mm(:,:)))
       notzero = MAXVAL(ABS(array_3_test_mm(:,:))) .GT. 1.0E-12_${dprec}$
 
+      eql = eql_diff .LT. 1.0E-12_${dprec}$
+
       IF (.NOT. eql .OR. .NOT. notzero) THEN
-         IF (io_unit > 0) WRITE(io_unit,'(A)') 'Test failed!'
+         IF (io_unit > 0) WRITE(io_unit,*) 'Test failed!', eql_diff
          DBCSR_ABORT('')
       ELSE
-         IF (io_unit > 0) WRITE(io_unit,'(A)') 'Test passed!'
+         IF (io_unit > 0) WRITE(io_unit,*) 'Test passed!', eql_diff
       ENDIF
 
    END SUBROUTINE

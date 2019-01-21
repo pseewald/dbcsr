@@ -133,12 +133,12 @@ CONTAINS
 !> \param order Permutation of target tensor index. Exact same convention as order argument of RESHAPE
 !>              intrinsic
 ! **************************************************************************************************
-   SUBROUTINE dbcsr_t_copy(tensor_in, tensor_out, order, name, keep_sparsity, shallow_data)
+   SUBROUTINE dbcsr_t_copy(tensor_in, tensor_out, order, name, keep_sparsity, shallow_data, summation)
       TYPE(dbcsr_t_type), INTENT(INOUT)              :: tensor_in, tensor_out
       INTEGER, DIMENSION(ndims_tensor(tensor_in)), &
          INTENT(IN), OPTIONAL                        :: order
       CHARACTER(LEN=*), INTENT(IN), OPTIONAL             :: name
-      LOGICAL, INTENT(IN), OPTIONAL                      :: keep_sparsity, shallow_data
+      LOGICAL, INTENT(IN), OPTIONAL                      :: keep_sparsity, shallow_data, summation
 
       TYPE(dbcsr_t_type)                             :: tensor_tmp
       INTEGER                                        :: handle
@@ -146,11 +146,17 @@ CONTAINS
 
       CHARACTER(LEN=*), PARAMETER :: routineN = 'dbcsr_t_copy', &
          routineP = moduleN//':'//routineN
-      LOGICAL                    :: dist_compatible
+      LOGICAL                    :: dist_compatible, summation_prv
 
       CALL timeset(routineN, handle)
 
       dist_compatible = .FALSE.
+
+      IF(PRESENT(summation)) THEN
+         summation_prv = summation
+      ELSE
+         summation_prv = .FALSE.
+      ENDIF
 
       IF (tensor_out%valid) THEN
          CALL get_mapping_info(tensor_in%nd_index, map1_2d=map1_in_1, map2_2d=map1_in_2)
@@ -163,22 +169,26 @@ CONTAINS
          ENDIF
       ENDIF
 
-      IF(.NOT. dist_compatible) THEN
-         IF(PRESENT(keep_sparsity) .OR. PRESENT(shallow_data)) THEN
+      IF ((.NOT. dist_compatible) .OR. summation_prv) THEN
+         IF (PRESENT(keep_sparsity) .OR. PRESENT(shallow_data)) THEN
             CALL dbcsr_abort(__LOCATION__, &
-               "for keep_sparsity or shallow_data present, distribution and mapping of both tensors must be the same")
+               "for keep_sparsity or shallow_data, distribution and mapping of both tensors must be the same and no summation")
          ENDIF
       ENDIF
 
       IF (dist_compatible) THEN
-         CALL dbcsr_r_copy(tensor_out%matrix_rep, tensor_in%matrix_rep, name, keep_sparsity, shallow_data)
+         IF (.NOT. summation_prv) THEN
+            CALL dbcsr_r_copy(tensor_out%matrix_rep, tensor_in%matrix_rep, name, keep_sparsity, shallow_data)
+         ELSE
+            CALL dbcsr_add(tensor_out%matrix_rep%matrix, tensor_in%matrix_rep%matrix)
+         ENDIF
       ELSE
          IF (PRESENT(order)) THEN
             CALL dbcsr_t_permute_index(tensor_in, tensor_tmp, order)
-            CALL dbcsr_t_reshape(tensor_tmp, tensor_out)
+            CALL dbcsr_t_reshape(tensor_tmp, tensor_out, summation)
             CALL dbcsr_t_destroy(tensor_tmp)
          ELSE
-            CALL dbcsr_t_reshape(tensor_in, tensor_out)
+            CALL dbcsr_t_reshape(tensor_in, tensor_out, summation)
          ENDIF
       ENDIF
 
@@ -253,6 +263,7 @@ CONTAINS
 
 ! **************************************************************************************************
 !> \brief Contract tensors by multiplying matrix representations.
+!>        tensor_3(map_1, map_2) := alpha * tensor_1(notcontract_1, contract_1) * tensor_2(contract_2, notcontract_2) + beta * tensor_3(map_1, map_2)
 !> \param tensor_1 first tensor (in)
 !> \param tensor_2 second tensor (in)
 !> \param contract_1 indices of tensor_1 to contract
@@ -269,7 +280,7 @@ CONTAINS
                                contract_2, notcontract_2, &
                                map_1, map_2, optimize_dist, filter_eps, flop, unit_nr)
       TYPE(dbcsr_scalar_type), INTENT(IN) :: alpha
-      TYPE(dbcsr_t_type), INTENT(INOUT)                 :: tensor_1, tensor_2
+      TYPE(dbcsr_t_type), INTENT(INOUT)  :: tensor_1, tensor_2
       TYPE(dbcsr_scalar_type), INTENT(IN) :: beta
       INTEGER, DIMENSION(:), INTENT(IN)              :: contract_1, contract_2, map_1, map_2
       INTEGER, DIMENSION(:), INTENT(IN)              :: notcontract_1, notcontract_2
@@ -279,8 +290,8 @@ CONTAINS
       INTEGER(KIND=int_8), INTENT(OUT), OPTIONAL       :: flop
       INTEGER, OPTIONAL, INTENT(IN)                  :: unit_nr
 
-      TYPE(dbcsr_t_type)                             :: tensor_contr_1, tensor_contr_2, tensor_contr_3, &
-                                                        tensor_tmp_1, tensor_tmp_2, tensor_tmp_3
+      TYPE(dbcsr_t_type), POINTER                    :: tensor_contr_1=>NULL(), tensor_contr_2=>NULL(), tensor_contr_3=>NULL()
+      TYPE(dbcsr_t_type)                             :: tensor_tmp_1, tensor_tmp_2, tensor_tmp_3
       LOGICAL                                        :: assert_stmt
       INTEGER                                        :: data_type, handle, max_mm_dim, max_tensor
       !INTEGER, DIMENSION(:), ALLOCATABLE             :: sort_indices
@@ -357,8 +368,6 @@ CONTAINS
 
       ! labeling tensor index with letters
 
-      !indchar1(notcontract_1) = alpha(1:SIZE(notcontract_1))
-      !indchar1(contract_1) = alpha(SIZE(notcontract_1) + 1:ndims1)
       indchar1([notcontract_1, contract_1]) = alph(1:ndims1) ! arb. choice
       indchar2(notcontract_2) = alph(ndims1 + 1:ndims1 + SIZE(notcontract_2)) ! arb. choice
       indchar2(contract_2) = indchar1(contract_1)
@@ -418,10 +427,10 @@ CONTAINS
 
          CALL reshape_mm_compatible(tensor_tmp_1, tensor_tmp_3, tensor_contr_1, tensor_contr_3, &
                                     contract_1_mod, notcontract_1_mod, map_2_mod, map_1_mod, &
-                                    trans_1, trans_3, nodata2=.TRUE., new1=new_1, new2=new_3, optimize_dist=optimize_dist, &
+                                    trans_1, trans_3, new_1, new_3, nodata2=.TRUE., optimize_dist=optimize_dist, &
                                     unit_nr=unit_nr)
 
-         CALL reshape_mm_small(tensor_tmp_2, contract_2_mod, notcontract_2_mod, tensor_contr_2, trans_2, new=new_2, unit_nr=unit_nr)
+         CALL reshape_mm_small(tensor_tmp_2, contract_2_mod, notcontract_2_mod, tensor_contr_2, trans_2, new_2, unit_nr=unit_nr)
 
       CASE (2)
          IF (PRESENT(unit_nr)) THEN
@@ -444,11 +453,11 @@ CONTAINS
 
          CALL reshape_mm_compatible(tensor_tmp_1, tensor_tmp_2, tensor_contr_1, tensor_contr_2, &
                                     notcontract_1_mod, contract_1_mod, notcontract_2_mod, contract_2_mod, &
-                                    trans_1, trans_2, new1=new_1, new2=new_2, optimize_dist=optimize_dist, unit_nr=unit_nr)
+                                    trans_1, trans_2, new_1, new_2, optimize_dist=optimize_dist, unit_nr=unit_nr)
          CALL invert_transpose_flag(trans_1)
 
          CALL reshape_mm_small(tensor_tmp_3, map_1_mod, map_2_mod, tensor_contr_3, trans_3, &
-                               nodata=.TRUE., new=new_3, unit_nr=unit_nr)
+                               new_3, nodata=.TRUE., unit_nr=unit_nr)
 
       CASE (3)
          IF (PRESENT(unit_nr)) THEN
@@ -470,18 +479,16 @@ CONTAINS
 
          CALL reshape_mm_compatible(tensor_tmp_2, tensor_tmp_3, tensor_contr_2, tensor_contr_3, &
                                     contract_2_mod, notcontract_2_mod, map_1_mod, map_2_mod, &
-                                    trans_2, trans_3, nodata2=.TRUE., new1=new_2, new2=new_3, optimize_dist=optimize_dist, &
+                                    trans_2, trans_3, new_2, new_3, nodata2=.TRUE., optimize_dist=optimize_dist, &
                                     unit_nr=unit_nr)
 
          CALL invert_transpose_flag(trans_2)
          CALL invert_transpose_flag(trans_3)
 
-         CALL reshape_mm_small(tensor_tmp_1, notcontract_1_mod, contract_1_mod, tensor_contr_1, trans_1, new=new_1, unit_nr=unit_nr)
+         CALL reshape_mm_small(tensor_tmp_1, notcontract_1_mod, contract_1_mod, tensor_contr_1, trans_1, new_1, unit_nr=unit_nr)
 
       END SELECT
 
-      CALL dbcsr_t_destroy(tensor_tmp_1)
-      CALL dbcsr_t_destroy(tensor_tmp_2)
 
       IF (PRESENT(unit_nr)) CALL dbcsr_t_print_contraction_index(tensor_contr_1, indchar1_mod, &
                                                                  tensor_contr_2, indchar2_mod, &
@@ -505,23 +512,31 @@ CONTAINS
       CALL dbcsr_t_write_tensor_dist(tensor_contr_3, unit_nr)
       IF (new_3) THEN
          ! need redistribute if we created new tensor for tensor 3
-         CALL dbcsr_t_copy(tensor_contr_3, tensor_tmp_3)
-         CALL dbcsr_t_scale(tensor_3, beta)
-         CALL dbcsr_add(tensor_3%matrix_rep%matrix, tensor_tmp_3%matrix_rep%matrix)
-      ELSE
-         ! shallow copy sufficient since no new matrix has been created for tensor 3
-         CALL dbcsr_t_scale(tensor_3, beta)
-         CALL dbcsr_add(tensor_3%matrix_rep%matrix, tensor_contr_3%matrix_rep%matrix)
+         CALL dbcsr_t_scale(tensor_tmp_3, beta)
+         CALL dbcsr_t_copy(tensor_contr_3, tensor_tmp_3, summation=.TRUE.)
+         ! tensor_3 automatically has correct data because tensor_tmp_3 contains a matrix
+         ! pointer to data of tensor_3
       ENDIF
 
       IF(new_3) CALL dbcsr_t_write_tensor_info(tensor_3, unit_nr, full_info=debug)
       IF(new_3) CALL dbcsr_t_write_tensor_dist(tensor_3, unit_nr)
 
+      CALL dbcsr_t_destroy(tensor_tmp_1)
+      CALL dbcsr_t_destroy(tensor_tmp_2)
       CALL dbcsr_t_destroy(tensor_tmp_3)
 
-      CALL dbcsr_t_destroy(tensor_contr_1)
-      CALL dbcsr_t_destroy(tensor_contr_2)
-      CALL dbcsr_t_destroy(tensor_contr_3)
+      IF(new_1) THEN
+         CALL dbcsr_t_destroy(tensor_contr_1)
+         DEALLOCATE(tensor_contr_1)
+      ENDIF
+      IF(new_2) THEN
+         CALL dbcsr_t_destroy(tensor_contr_2)
+         DEALLOCATE(tensor_contr_2)
+      ENDIF
+      IF(new_3) THEN
+         CALL dbcsr_t_destroy(tensor_contr_3)
+         DEALLOCATE(tensor_contr_3)
+      ENDIF
 
       IF (PRESENT(unit_nr)) THEN
          IF (unit_nr > 0) THEN
@@ -576,16 +591,16 @@ CONTAINS
 !> \param trans2 'N' if tensor 2 out has format (ind linked, ind free), 'T' otherwise
 ! **************************************************************************************************
       SUBROUTINE reshape_mm_compatible(tensor1, tensor2, tensor1_out, tensor2_out, ind1_free, ind1_linked, &
-                                       ind2_free, ind2_linked, trans1, trans2, nodata1, nodata2, new1, new2, &
+                                       ind2_free, ind2_linked, trans1, trans2, new1, new2, nodata1, nodata2, &
                                        optimize_dist, unit_nr)
-         TYPE(dbcsr_t_type), INTENT(INOUT)           :: tensor1
-         TYPE(dbcsr_t_type), INTENT(INOUT)           :: tensor2
-         TYPE(dbcsr_t_type), INTENT(OUT)             :: tensor1_out, tensor2_out
+         TYPE(dbcsr_t_type), TARGET, INTENT(INOUT)   :: tensor1
+         TYPE(dbcsr_t_type), TARGET, INTENT(INOUT)   :: tensor2
+         TYPE(dbcsr_t_type), POINTER, INTENT(OUT)    :: tensor1_out=>NULL(), tensor2_out=>NULL()
          INTEGER, DIMENSION(:), INTENT(IN)           :: ind1_free, ind2_free
          INTEGER, DIMENSION(:), INTENT(IN)           :: ind1_linked, ind2_linked
          CHARACTER(LEN=1), INTENT(OUT)               :: trans1, trans2
+         LOGICAL, INTENT(OUT)                        :: new1, new2
          LOGICAL, INTENT(IN), OPTIONAL               :: nodata1, nodata2
-         LOGICAL, INTENT(OUT), OPTIONAL              :: new1, new2
          LOGICAL, INTENT(IN), OPTIONAL               :: optimize_dist
          INTEGER, INTENT(IN), OPTIONAL               :: unit_nr
          INTEGER                                     :: ref_tensor, compat1, compat1_old, compat2, compat2_old,&
@@ -640,15 +655,15 @@ CONTAINS
             END SELECT
          ENDIF
 
-         IF (PRESENT(new1)) new1 = .FALSE.
-         IF (PRESENT(new2)) new2 = .FALSE.
+         new1 = .FALSE.
+         new2 = .FALSE.
 
          IF (compat1 == 0 .OR. optimize_dist_prv) THEN
-            IF (PRESENT(new1)) new1 = .TRUE.
+            new1 = .TRUE.
          ENDIF
 
          IF (compat2 == 0 .OR. optimize_dist_prv) THEN
-            IF (PRESENT(new2)) new2 = .TRUE.
+            new2 = .TRUE.
          ENDIF
 
          IF (ref_tensor == 1) THEN ! tensor 1 is reference and tensor 2 is reshaped compatible with tensor 1
@@ -659,12 +674,13 @@ CONTAINS
                nblkrows = PRODUCT(INT(dims(ind1_linked), KIND=int_8))
                nblkcols = PRODUCT(INT(dims(ind1_free), KIND=int_8))
                comm_2d = dbcsr_r_mp_comm(tensor1%pgrid%mp_comm_2d, nblkrows, nblkcols)
+               ALLOCATE(tensor1_out)
                CALL dbcsr_t_remap(tensor1, ind1_linked, ind1_free, tensor1_out, comm_2d=comm_2d, nodata=nodata1)
                CALL mp_comm_free(comm_2d)
                compat1 = 1
             ELSE
                IF (io_unit > 0) WRITE (unit_nr, '(T2,A,1X,A)') "No redistribution of", TRIM(tensor1%name)
-               CALL dbcsr_t_copy(tensor1, tensor1_out) ! todo: shallow data copy!
+               tensor1_out => tensor1
             ENDIF
             IF (compat2 == 0 .OR. optimize_dist_prv) THEN ! tensor 2 is not contraction compatible --> reshape
                IF (io_unit > 0) WRITE (unit_nr, '(T2,A,1X,A,1X,A,1X,A)') "Redistribution of", &
@@ -675,12 +691,14 @@ CONTAINS
                   ! get distribution of linked index, tensor 2 must adopt this distribution
                   ! get grid dimensions of linked index
                   CALL get_mapping_info(dist_in%pgrid%nd_index_grid, dims1_2d=mp_dims)
+                  ALLOCATE(tensor2_out)
                   CALL dbcsr_t_remap(tensor2, ind2_linked, ind2_free, tensor2_out, comm_2d=dist_in%pgrid%mp_comm_2d, &
                                      dist1=dist_list, mp_dims_1=mp_dims, nodata=nodata2)
                ELSEIF (compat1 == 2) THEN ! linked index is second 2d dimension
                   ! get distribution of linked index, tensor 2 must adopt this distribution
                   ! get grid dimensions of linked index
                   CALL get_mapping_info(dist_in%pgrid%nd_index_grid, dims2_2d=mp_dims)
+                  ALLOCATE(tensor2_out)
                   CALL dbcsr_t_remap(tensor2, ind2_free, ind2_linked, tensor2_out, comm_2d=dist_in%pgrid%mp_comm_2d, &
                                      dist2=dist_list, mp_dims_2=mp_dims, nodata=nodata2)
                ELSE
@@ -689,7 +707,7 @@ CONTAINS
                compat2 = compat1
             ELSE
                IF (io_unit > 0) WRITE (unit_nr, '(T2,A,1X,A)') "No redistribution of", TRIM(tensor2%name)
-               CALL dbcsr_t_copy(tensor2, tensor2_out)
+               tensor2_out => tensor2
             ENDIF
          ELSE ! tensor 2 is reference and tensor 1 is reshaped compatible with tensor 2
             IF (compat2 == 0 .OR. optimize_dist_prv) THEN ! tensor 2 is not contraction compatible --> reshape
@@ -699,12 +717,13 @@ CONTAINS
                nblkrows = PRODUCT(INT(dims(ind2_linked), KIND=int_8))
                nblkcols = PRODUCT(INT(dims(ind2_free), KIND=int_8))
                comm_2d = dbcsr_r_mp_comm(tensor2%pgrid%mp_comm_2d, nblkrows, nblkcols)
+               ALLOCATE(tensor2_out)
                CALL dbcsr_t_remap(tensor2, ind2_linked, ind2_free, tensor2_out, nodata=nodata2)
                CALL mp_comm_free(comm_2d)
                compat2 = 1
             ELSE
                IF (io_unit > 0) WRITE (unit_nr, '(T2,A,1X,A)') "No redistribution of", TRIM(tensor2%name)
-               CALL dbcsr_t_copy(tensor2, tensor2_out)
+               tensor2_out => tensor2
             ENDIF
             IF (compat1 == 0 .OR. optimize_dist_prv) THEN ! tensor 1 is not contraction compatible --> reshape
                IF (io_unit > 0) WRITE (unit_nr, '(T2,A,1X,A,1X,A,1X,A)') "Redistribution of", TRIM(tensor1%name), &
@@ -713,10 +732,12 @@ CONTAINS
                dist_list = array_sublist(dist_in%nd_dist, ind2_linked)
                IF (compat2 == 1) THEN
                   CALL get_mapping_info(dist_in%pgrid%nd_index_grid, dims1_2d=mp_dims)
+                  ALLOCATE(tensor1_out)
                   CALL dbcsr_t_remap(tensor1, ind1_linked, ind1_free, tensor1_out, comm_2d=dist_in%pgrid%mp_comm_2d, &
                                      dist1=dist_list, mp_dims_1=mp_dims, nodata=nodata1)
                ELSEIF (compat1 == 2) THEN
                   CALL get_mapping_info(dist_in%pgrid%nd_index_grid, dims2_2d=mp_dims)
+                  ALLOCATE(tensor1_out)
                   CALL dbcsr_t_remap(tensor1, ind1_free, ind1_linked, tensor1_out, comm_2d=dist_in%pgrid%mp_comm_2d, &
                                      dist2=dist_list, mp_dims_2=mp_dims, nodata=nodata1)
                ELSE
@@ -725,7 +746,7 @@ CONTAINS
                compat1 = compat2
             ELSE
                IF (io_unit > 0) WRITE (unit_nr, '(T2,A,1X,A)') "No redistribution of", TRIM(tensor1%name)
-               CALL dbcsr_t_copy(tensor1, tensor1_out)
+               tensor1_out => tensor1
             ENDIF
          ENDIF
 
@@ -774,14 +795,14 @@ CONTAINS
 
       END SUBROUTINE
 
-      SUBROUTINE reshape_mm_small(tensor_in, ind1, ind2, tensor_out, trans, nodata, new, unit_nr)
+      SUBROUTINE reshape_mm_small(tensor_in, ind1, ind2, tensor_out, trans, new, nodata, unit_nr)
          ! was called prep_tensor
-         TYPE(dbcsr_t_type), INTENT(INOUT)           :: tensor_in
+         TYPE(dbcsr_t_type), TARGET, INTENT(INOUT)   :: tensor_in
          INTEGER, DIMENSION(:), INTENT(IN)           :: ind1, ind2
-         TYPE(dbcsr_t_type), INTENT(OUT)             :: tensor_out
+         TYPE(dbcsr_t_type), POINTER, INTENT(OUT)    :: tensor_out
          CHARACTER(LEN=1), INTENT(OUT)               :: trans
+         LOGICAL, INTENT(OUT)                        :: new
          LOGICAL, INTENT(IN), OPTIONAL               :: nodata
-         LOGICAL, INTENT(OUT), OPTIONAL              :: new
          INTEGER, INTENT(IN), OPTIONAL               :: unit_nr
          INTEGER                                     :: compat1, compat2, compat1_old, compat2_old, io_unit
          LOGICAL                                     :: nodata_prv
@@ -798,7 +819,7 @@ CONTAINS
             io_unit = 0
          ENDIF
 
-         IF (PRESENT(new)) new = .FALSE.
+         new = .FALSE.
          compat1 = compat_map(tensor_in%nd_index, ind1)
          compat2 = compat_map(tensor_in%nd_index, ind2)
          compat1_old = compat1; compat2_old = compat2
@@ -818,11 +839,10 @@ CONTAINS
             CALL dbcsr_t_remap(tensor_in, ind1, ind2, tensor_out, nodata=nodata)
             compat1 = 1
             compat2 = 2
-            IF (PRESENT(new)) new = .TRUE.
+            new = .TRUE.
          ELSE
             IF (io_unit > 0) WRITE (unit_nr, '(T2,A,1X,A)') "No redistribution of", TRIM(tensor_in%name)
-            CALL dbcsr_t_create(tensor_in, tensor_out)
-            IF (.NOT. nodata_prv) CALL dbcsr_t_copy(tensor_in, tensor_out) ! todo: shallow data copy
+            tensor_out => tensor_in
          ENDIF
 
          IF (compat1 == 1 .AND. compat2 == 2) THEN
@@ -1083,10 +1103,10 @@ CONTAINS
       CALL permute_index(tensor_in%nd_index_blk, nd_index_blk_rs, order)
       CALL permute_index(tensor_in%pgrid%nd_index_grid, tensor_out%pgrid%nd_index_grid, order)
 
-      CALL dbcsr_r_create(tensor_in%matrix_rep, tensor_out%matrix_rep)
-      CALL dbcsr_r_finalize(tensor_out%matrix_rep)
+      tensor_out%matrix_rep => tensor_in%matrix_rep
+      tensor_out%owns_matrix = .FALSE.
 
-      CALL dbcsr_r_copy(tensor_out%matrix_rep, tensor_in%matrix_rep, shallow_data=.TRUE.)
+
       tensor_out%nd_index = nd_index_rs
       tensor_out%nd_index_blk = nd_index_blk_rs
       !tensor_out%nd_index_grid = nd_index_grid_rs

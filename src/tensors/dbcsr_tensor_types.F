@@ -102,7 +102,7 @@ MODULE dbcsr_tensor_types
    END TYPE
 
    TYPE dbcsr_t_type
-      TYPE(dbcsr_r_type)                     :: matrix_rep
+      TYPE(dbcsr_r_type), POINTER            :: matrix_rep => NULL()
       TYPE(nd_to_2d_mapping)                 :: nd_index_blk
       TYPE(nd_to_2d_mapping)                 :: nd_index
       !TYPE(nd_to_2d_mapping)                 :: nd_index_grid
@@ -116,6 +116,7 @@ MODULE dbcsr_tensor_types
       INTEGER, DIMENSION(:), ALLOCATABLE     :: nblks_local
       INTEGER, DIMENSION(:), ALLOCATABLE     :: nfull_local
       LOGICAL                                :: valid = .FALSE.
+      LOGICAL                                :: owns_matrix = .FALSE.
       CHARACTER(LEN=default_string_length)   :: name
       INTEGER, POINTER :: refcount => NULL() ! lightweight reference counting for communicators
    END TYPE dbcsr_t_type
@@ -679,12 +680,14 @@ CONTAINS
       row_blk_size_obj = dbcsr_r_blk_size_t(blk_size, map, 1)
       col_blk_size_obj = dbcsr_r_blk_size_t(blk_size, map, 2)
 
+      ALLOCATE(tensor%matrix_rep)
       CALL dbcsr_r_create(matrix=tensor%matrix_rep, &
-                          name=name, &
+                          name=TRIM(name)//" matrix", &
                           dist=dist%dist, &
                           row_blk_size=row_blk_size_obj, &
                           col_blk_size=col_blk_size_obj, &
                           data_type=data_type)
+      tensor%owns_matrix = .TRUE.
 
       tensor%nd_index_blk = map
       tensor%name = name
@@ -779,7 +782,9 @@ CONTAINS
          routineP = moduleN//':'//routineN
 
       CALL timeset(routineN, handle)
+      ALLOCATE(tensor%matrix_rep)
       CALL dbcsr_r_create(tensor_in%matrix_rep, tensor%matrix_rep)
+      tensor%owns_matrix = .TRUE.
       CALL dbcsr_r_finalize(tensor%matrix_rep)
 
       tensor%nd_index_blk = tensor_in%nd_index_blk
@@ -886,7 +891,14 @@ CONTAINS
       LOGICAL :: abort
 
       CALL timeset(routineN, handle)
-      CALL dbcsr_r_destroy(tensor%matrix_rep)
+      IF (tensor%owns_matrix) THEN
+         CALL dbcsr_r_destroy(tensor%matrix_rep)
+         DEALLOCATE (tensor%matrix_rep)
+      ELSE
+         NULLIFY(tensor%matrix_rep)
+      ENDIF
+      tensor%owns_matrix = .FALSE.
+
       CALL destroy_nd_to_2d_mapping(tensor%nd_index_blk)
       CALL destroy_nd_to_2d_mapping(tensor%nd_index)
       !CALL destroy_nd_to_2d_mapping(tensor%nd_index_grid)
@@ -915,6 +927,8 @@ CONTAINS
          !CALL mp_comm_free(tensor%comm_2d)
          !CALL mp_comm_free(tensor%comm_nd)
          DEALLOCATE(tensor%refcount)
+      ELSE
+         CALL dbcsr_t_pgrid_destroy(tensor%pgrid, keep_comm=.TRUE.)
       ENDIF
 
       tensor%valid = .FALSE.
@@ -1055,9 +1069,16 @@ CONTAINS
       CALL timestop(handle)
    END SUBROUTINE
 
-   SUBROUTINE dbcsr_t_pgrid_destroy(pgrid)
+   SUBROUTINE dbcsr_t_pgrid_destroy(pgrid, keep_comm)
       TYPE(dbcsr_t_pgrid_type), INTENT(INOUT) :: pgrid
-      CALL mp_comm_free(pgrid%mp_comm_2d)
+      LOGICAL, INTENT(IN), OPTIONAL           :: keep_comm
+      LOGICAL :: keep_comm_prv
+      IF(PRESENT(keep_comm)) THEN
+         keep_comm_prv = keep_comm
+      ELSE
+         keep_comm_prv = .FALSE.
+      ENDIF
+      IF(.NOT. keep_comm_prv) CALL mp_comm_free(pgrid%mp_comm_2d)
       CALL destroy_nd_to_2d_mapping(pgrid%nd_index_grid)
    END SUBROUTINE
 
