@@ -314,8 +314,6 @@ CONTAINS
                                          ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o']
       LOGICAL                         :: debug=.TRUE.
 
-      ! todo: never copy data locally! use shallow copy where necessary
-
       CALL timeset(routineN, handle)
 
       IF (PRESENT(unit_nr)) THEN
