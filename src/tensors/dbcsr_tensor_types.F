@@ -1220,7 +1220,7 @@ CONTAINS
       CALL mp_max(tmp, mp_comm)
       nblock_max = tmp(1); nelement_max = tmp(2)
 
-      CALL dims_tensor(tensor, bdims)
+      CALL blk_dims_tensor(tensor, bdims)
       nblock_tot = PRODUCT(INT(bdims, KIND=int_8))
 
       occupation = -1.0_real_8
