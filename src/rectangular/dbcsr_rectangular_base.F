@@ -1054,14 +1054,13 @@ CONTAINS
                DO iblk=1, proc_row_dist%nmrowcol
                   WRITE(output_unit, '(I4,1X)', advance='no') proc_row_dist%dist(iblk)
                ENDDO
-               WRITE(output_unit, '(/T4,A)', advance='no') "Column distribution:"
                WRITE(output_unit, '(/T8,A)', advance='no') 'Column:'
                DO iblk=1, proc_col_dist%nmrowcol
                   WRITE(output_unit, '(I4,1X)', advance='no') proc_col_dist%dist(iblk)
                ENDDO
 
-               WRITE (output_unit, *)
             ENDIF
+            WRITE (output_unit, *)
          ENDIF
       ENDIF
 

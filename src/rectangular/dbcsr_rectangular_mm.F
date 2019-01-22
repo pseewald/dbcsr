@@ -95,7 +95,7 @@ CONTAINS
       CHARACTER(LEN=*), PARAMETER :: routineN = 'dbcsr_r_multiply', &
                                      routineP = moduleN//':'//routineN
       INTEGER :: handle, io_unit_prv, nsplit
-      LOGICAL :: debug=.TRUE.
+      LOGICAL :: debug=.FALSE.
 
       IF (PRESENT(io_unit)) THEN
          io_unit_prv = io_unit
