@@ -94,7 +94,7 @@ CONTAINS
       INTEGER :: numproc, iproc
       CHARACTER(LEN=*), PARAMETER :: routineN = 'dbcsr_r_multiply', &
                                      routineP = moduleN//':'//routineN
-      INTEGER :: handle, io_unit_prv, nsplit
+      INTEGER :: handle, handle2, io_unit_prv, nsplit
       LOGICAL :: debug=.FALSE.
 
       IF (PRESENT(io_unit)) THEN
@@ -264,22 +264,29 @@ CONTAINS
          SELECT CASE (tr_case)
          CASE (dbcsr_no_transpose)
             CALL mp_environ(numproc, iproc, mp_comm)
+
+            CALL timeset(routineN//"_dbcsr_mm", handle2)
             CALL dbcsr_multiply(transa=dbcsr_no_transpose, transb=dbcsr_no_transpose, alpha=alpha, &
                                 matrix_a=matrix_a_rs%matrix, matrix_b=matrix_b_rep%matrix, beta=beta, matrix_c=matrix_c_rs%matrix, &
                                 filter_eps=filter_eps_prv, flop=flop)
+            CALL timestop(handle2)
          CASE (dbcsr_transpose)
+            CALL timeset(routineN//"_dbcsr_mm", handle2)
             CALL dbcsr_multiply(transa=dbcsr_transpose, transb=dbcsr_no_transpose, alpha=alpha, &
                                 matrix_a=matrix_b_rep%matrix, matrix_b=matrix_a_rs%matrix, beta=beta, matrix_c=matrix_c_rs%matrix, &
                                 filter_eps=filter_eps_prv, flop=flop)
+            CALL timestop(handle2)
          END SELECT
          CALL dbcsr_r_distribution_destroy(matrix_b_rep%dist)
          CALL dbcsr_r_destroy(matrix_b_rep)
       CASE (2)
          CALL dbcsr_r_replicate(matrix_c_rs%matrix, dbcsr_r_info(matrix_a_rs), matrix_c_rep, nodata=.TRUE.)
 
+         CALL timeset(routineN//"_dbcsr_mm", handle2)
          CALL dbcsr_multiply(transa=transa_prv, transb=transb_prv, alpha=alpha, matrix_a=matrix_a_rs%matrix, &
                              matrix_b=matrix_b_rs%matrix, beta=beta, matrix_c=matrix_c_rep%matrix, &
                              filter_eps=filter_eps_prv, flop=flop)
+         CALL timestop(handle2)
 
          CALL dbcsr_r_merge(matrix_c_rs%matrix, matrix_c_rep)
          CALL dbcsr_r_distribution_destroy(matrix_c_rep%dist)
@@ -288,13 +295,17 @@ CONTAINS
          CALL dbcsr_r_replicate(matrix_a_rs%matrix, dbcsr_r_info(matrix_b_rs), matrix_a_rep)
          SELECT CASE (tr_case)
          CASE (dbcsr_no_transpose)
+            CALL timeset(routineN//"_dbcsr_mm", handle2)
             CALL dbcsr_multiply(transa=dbcsr_no_transpose, transb=dbcsr_no_transpose, alpha=alpha, &
                                 matrix_a=matrix_a_rep%matrix, matrix_b=matrix_b_rs%matrix, beta=beta, matrix_c=matrix_c_rs%matrix, &
                                 filter_eps=filter_eps_prv, flop=flop)
+            CALL timestop(handle2)
          CASE (dbcsr_transpose)
+            CALL timeset(routineN//"_dbcsr_mm", handle2)
             CALL dbcsr_multiply(transa=dbcsr_no_transpose, transb=dbcsr_transpose, alpha=alpha, &
                                 matrix_a=matrix_b_rs%matrix, matrix_b=matrix_a_rep%matrix, beta=beta, matrix_c=matrix_c_rs%matrix, &
                                 filter_eps=filter_eps_prv, flop=flop)
+            CALL timestop(handle2)
          END SELECT
          CALL dbcsr_r_distribution_destroy(matrix_a_rep%dist)
          CALL dbcsr_r_destroy(matrix_a_rep)
