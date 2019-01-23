@@ -42,7 +42,7 @@ MODULE dbcsr_rectangular_mm
    USE dbcsr_mpiwrap, ONLY: mp_comm_compare, &
       mp_environ, mp_sum, mp_comm_free
    USE dbcsr_io, ONLY: dbcsr_print
-   USE dbcsr_operations, ONLY: dbcsr_scale
+   USE dbcsr_operations, ONLY: dbcsr_scale, dbcsr_filter
 #include "../base/dbcsr_base_uses.f90"
 
    IMPLICIT NONE
