@@ -40,7 +40,8 @@ MODULE dbcsr_rectangular_base
                                               dbcsr_get_data_size,&
                                               dbcsr_get_num_blocks
    USE dbcsr_operations,                ONLY: dbcsr_copy,&
-                                              dbcsr_get_info
+                                              dbcsr_get_info,&
+                                              dbcsr_clear
    USE dbcsr_rectangular_base_low,      ONLY: dbcsr_r_get_block_p,&
                                               dbcsr_r_iterator_next_block,&
                                               dbcsr_r_put_block,&

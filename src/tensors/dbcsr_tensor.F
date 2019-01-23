@@ -71,7 +71,8 @@ MODULE dbcsr_tensor
                                               mp_environ_pgrid,&
                                               dbcsr_t_write_tensor_dist,&
                                               dbcsr_t_write_tensor_info,&
-                                              dbcsr_t_filter
+                                              dbcsr_t_filter,&
+                                              dbcsr_t_clear
    USE dbcsr_kinds,                     ONLY: ${uselist(dtype_float_prec)}$,&
                                               default_string_length,&
                                               int_8
