@@ -249,7 +249,7 @@ CONTAINS
          filter_eps_prv = filter_eps
          IF(dim_split == 2) THEN
             ! if result matrices are summed up then we need to correctly propagate filter_eps
-            filter_eps_prv = REAL(filter_eps_prv, KIND=real_8)/SQRT(REAL(nsplit, KIND=real_8))
+            filter_eps_prv = filter_eps_prv/REAL(nsplit, KIND=real_8)
          ENDIF
       ELSE
          filter_eps_prv = 0.0_real_8
