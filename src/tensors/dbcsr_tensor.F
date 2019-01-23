@@ -202,9 +202,10 @@ CONTAINS
 !> \param matrix_in ...
 !> \param tensor_out ...
 ! **************************************************************************************************
-   SUBROUTINE dbcsr_t_copy_matrix_to_tensor(matrix_in, tensor_out)
-      TYPE(dbcsr_type), INTENT(IN)                        :: matrix_in
+   SUBROUTINE dbcsr_t_copy_matrix_to_tensor(matrix_in, tensor_out, summation)
+      TYPE(dbcsr_type), INTENT(IN)                       :: matrix_in
       TYPE(dbcsr_t_type), INTENT(INOUT)                  :: tensor_out
+      LOGICAL, INTENT(IN), OPTIONAL                      :: summation
 
       INTEGER, DIMENSION(2)                              :: ind_2d
       REAL(KIND=real_8), ALLOCATABLE, DIMENSION(:, :)    :: block_arr
@@ -218,13 +219,19 @@ CONTAINS
       CALL timeset(routineN, handle)
       DBCSR_ASSERT(tensor_out%valid)
 
+      IF(PRESENT(summation)) THEN
+         IF(.NOT. summation) CALL dbcsr_clear(tensor_out%matrix_rep%matrix)
+      ELSE
+         CALL dbcsr_clear(tensor_out%matrix_rep%matrix)
+      ENDIF
+
       CALL dbcsr_t_reserve_blocks(matrix_in, tensor_out)
 
       CALL dbcsr_iterator_start(iter, matrix_in)
       DO WHILE (dbcsr_iterator_blocks_left(iter))
          CALL dbcsr_iterator_next_block(iter, ind_2d(1), ind_2d(2), block)
          CALL allocate_any(block_arr, source=block)
-         CALL dbcsr_t_put_block(tensor_out, ind_2d, SHAPE(block_arr), block_arr)
+         CALL dbcsr_t_put_block(tensor_out, ind_2d, SHAPE(block_arr), block_arr, summation=summation)
          DEALLOCATE (block_arr)
       ENDDO
       CALL dbcsr_iterator_stop(iter)
@@ -233,9 +240,10 @@ CONTAINS
 
    END SUBROUTINE
 
-   SUBROUTINE dbcsr_t_copy_tensor_to_matrix(tensor_in, matrix_out)
+   SUBROUTINE dbcsr_t_copy_tensor_to_matrix(tensor_in, matrix_out, summation)
       TYPE(dbcsr_t_type), INTENT(INOUT)      :: tensor_in
       TYPE(dbcsr_type), INTENT(INOUT)           :: matrix_out
+      LOGICAL, INTENT(IN), OPTIONAL          :: summation
       TYPE(dbcsr_t_iterator_type)            :: iter
       INTEGER                                :: blk, handle
       INTEGER, DIMENSION(2)                  :: ind_2d
@@ -246,6 +254,12 @@ CONTAINS
 
       CALL timeset(routineN, handle)
 
+      IF(PRESENT(summation)) THEN
+         IF(.NOT. summation) CALL dbcsr_clear(matrix_out)
+      ELSE
+         CALL dbcsr_clear(matrix_out)
+      ENDIF
+
       CALL dbcsr_t_reserve_blocks(tensor_in, matrix_out)
 
       CALL dbcsr_t_iterator_start(iter, tensor_in)
@@ -253,7 +267,7 @@ CONTAINS
          CALL dbcsr_t_iterator_next_block(iter, ind_2d, blk)
          CALL dbcsr_t_get_block(tensor_in, ind_2d, block, found)
          DBCSR_ASSERT(found)
-         CALL dbcsr_put_block(matrix_out, ind_2d(1), ind_2d(2), block)
+         CALL dbcsr_put_block(matrix_out, ind_2d(1), ind_2d(2), block, summation=summation)
          DEALLOCATE(block)
       ENDDO
       CALL dbcsr_t_iterator_stop(iter)
