@@ -40,7 +40,7 @@ MODULE dbcsr_tensor_types
       dbcsr_r_create, dbcsr_r_distribution_new,&
       dbcsr_r_distribution_destroy, dbcsr_r_finalize, dbcsr_r_get_info, &
       dbcsr_r_destroy, dbcsr_r_get_stored_coordinates, dbcsr_r_set, dbcsr_r_filter, &
-      dbcsr_r_get_num_blocks, dbcsr_r_get_data_size
+      dbcsr_r_get_num_blocks, dbcsr_r_get_data_size, dbcsr_r_clear
    USE dbcsr_rectangular_base_types,    ONLY: dbcsr_r_type, dbcsr_r_distribution_type, dbcsr_r_split_info
    USE dbcsr_tensor_index,              ONLY: get_2d_indices,&
                                               get_nd_indices,&
@@ -94,7 +94,8 @@ MODULE dbcsr_tensor_types
       dbcsr_t_filter,&
       dbcsr_t_get_info,&
       dbcsr_t_write_tensor_dist, &
-      dbcsr_t_write_tensor_info
+      dbcsr_t_write_tensor_info, &
+      dbcsr_t_clear
 
    TYPE dbcsr_t_pgrid_type
       TYPE(nd_to_2d_mapping) :: nd_index_grid
@@ -1186,6 +1187,11 @@ CONTAINS
       INTEGER                           :: data_size
       data_size = dbcsr_r_get_data_size(tensor%matrix_rep)
    END FUNCTION
+
+   SUBROUTINE dbcsr_t_clear(tensor)
+      TYPE(dbcsr_t_type), INTENT(INOUT) :: tensor
+      CALL dbcsr_r_clear(tensor%matrix_rep)
+   END SUBROUTINE
 
    SUBROUTINE dbcsr_t_write_tensor_dist(tensor, output_unit)
       TYPE(dbcsr_t_type), INTENT(IN) :: tensor

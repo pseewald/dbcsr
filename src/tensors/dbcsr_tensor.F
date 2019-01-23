@@ -35,7 +35,7 @@ MODULE dbcsr_tensor
         dbcsr_type, dbcsr_iterator_type, dbcsr_iterator_blocks_left, &
         dbcsr_iterator_next_block, dbcsr_iterator_start, dbcsr_iterator_stop, &
         dbcsr_transpose, dbcsr_no_transpose, dbcsr_scalar, dbcsr_put_block, &
-        ${uselist(dtype_float_param)}$
+        ${uselist(dtype_float_param)}$, dbcsr_clear
    USE dbcsr_rectangular_base, ONLY:&
         dbcsr_r_copy, dbcsr_r_create, dbcsr_r_finalize, dbcsr_r_get_data_type, dbcsr_r_get_info, dbcsr_r_info
    USE dbcsr_rectangular_mm, ONLY: dbcsr_r_multiply
@@ -220,9 +220,9 @@ CONTAINS
       DBCSR_ASSERT(tensor_out%valid)
 
       IF(PRESENT(summation)) THEN
-         IF(.NOT. summation) CALL dbcsr_clear(tensor_out%matrix_rep%matrix)
+         IF(.NOT. summation) CALL dbcsr_t_clear(tensor_out)
       ELSE
-         CALL dbcsr_clear(tensor_out%matrix_rep%matrix)
+         CALL dbcsr_t_clear(tensor_out)
       ENDIF
 
       CALL dbcsr_t_reserve_blocks(matrix_in, tensor_out)
