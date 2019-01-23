@@ -512,7 +512,7 @@ CONTAINS
          ! need redistribute if we created new tensor for tensor 3
          CALL dbcsr_t_scale(tensor_tmp_3, beta)
          CALL dbcsr_t_copy(tensor_contr_3, tensor_tmp_3, summation=.TRUE.)
-         ! todo: filter again or assume that tensor_3 has been filtered before?
+         IF(PRESENT(filter_eps)) CALL dbcsr_t_filter(tensor_tmp_3, filter_eps)
          ! tensor_3 automatically has correct data because tensor_tmp_3 contains a matrix
          ! pointer to data of tensor_3
       ENDIF

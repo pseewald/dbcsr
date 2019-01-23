@@ -322,7 +322,7 @@ CONTAINS
       IF (new_c) THEN
          CALL dbcsr_scale(matrix_c%matrix, beta)
          CALL dbcsr_r_reshape(matrix_c_rs, matrix_c, summation=.TRUE., transposed=transc_prv/=transc)
-         ! todo: filer again?
+         IF(PRESENT(filter_eps)) CALL dbcsr_filter(matrix_c%matrix, filter_eps)
          CALL dbcsr_r_destroy(matrix_c_rs)
          DEALLOCATE(matrix_c_rs)
       ENDIF
