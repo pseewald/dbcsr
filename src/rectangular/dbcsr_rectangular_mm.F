@@ -16,7 +16,7 @@ MODULE dbcsr_rectangular_mm
    USE dbcsr_rectangular_base, ONLY: &
       dbcsr_r_create, dbcsr_r_destroy, dbcsr_r_distribution_destroy, dbcsr_r_distribution_new, &
       dbcsr_r_finalize, dbcsr_r_get_data_type, dbcsr_r_info, dbcsr_r_nblkcols_total, &
-      dbcsr_r_nblkrows_total, dbcsr_r_write_matrix_info
+      dbcsr_r_nblkrows_total, dbcsr_r_write_matrix_info, dbcsr_r_filter
    USE dbcsr_rectangular_base_types, ONLY: dbcsr_r_distribution_type, &
       dbcsr_r_split_info, &
       dbcsr_r_type
@@ -42,7 +42,7 @@ MODULE dbcsr_rectangular_mm
    USE dbcsr_mpiwrap, ONLY: mp_comm_compare, &
       mp_environ, mp_sum, mp_comm_free
    USE dbcsr_io, ONLY: dbcsr_print
-   USE dbcsr_operations, ONLY: dbcsr_scale, dbcsr_filter
+   USE dbcsr_operations, ONLY: dbcsr_scale
 #include "../base/dbcsr_base_uses.f90"
 
    IMPLICIT NONE
@@ -322,7 +322,7 @@ CONTAINS
       IF (new_c) THEN
          CALL dbcsr_scale(matrix_c%matrix, beta)
          CALL dbcsr_r_reshape(matrix_c_rs, matrix_c, summation=.TRUE., transposed=transc_prv/=transc)
-         IF(PRESENT(filter_eps)) CALL dbcsr_filter(matrix_c%matrix, filter_eps)
+         IF(PRESENT(filter_eps)) CALL dbcsr_r_filter(matrix_c, filter_eps)
          CALL dbcsr_r_destroy(matrix_c_rs)
          DEALLOCATE(matrix_c_rs)
       ENDIF

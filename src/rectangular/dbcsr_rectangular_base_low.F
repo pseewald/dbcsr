@@ -183,7 +183,11 @@ CONTAINS
       INTEGER, INTENT(IN), OPTIONAL        :: method
       LOGICAL, INTENT(IN), OPTIONAL        :: use_absolute
 
-      CALL dbcsr_filter(matrix%matrix, eps, method, use_absolute)
+      !CALL dbcsr_filter(matrix%matrix, eps, method, use_absolute)
+      MARK_USED(matrix)
+      MARK_USED(eps)
+      MARK_USED(method)
+      MARK_USED(use_absolute)
 
    END SUBROUTINE
 #:endfor
