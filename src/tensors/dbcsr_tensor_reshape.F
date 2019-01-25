@@ -38,8 +38,6 @@ MODULE dbcsr_tensor_reshape
                                               mp_isend,&
                                               mp_waitall
    USE dbcsr_operations,                ONLY: dbcsr_clear
-   USE dbcsr_mp_methods,                ONLY: dbcsr_mp_group
-   USE dbcsr_dist_methods,              ONLY: dbcsr_distribution_mp
 
 
 #include "base/dbcsr_base_uses.f90"
@@ -91,7 +89,6 @@ CONTAINS
       TYPE(block_buffer_type), ALLOCATABLE, DIMENSION(:) :: buffer_recv, buffer_send
       INTEGER, DIMENSION(ndims_tensor(tensor_in))       :: blk_size, ind_nd, index
       LOGICAL :: found, summation_prv
-      INTEGER :: np1, ip1, mp_comm_1
 
       IF(PRESENT(summation)) THEN
          summation_prv = summation

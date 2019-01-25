@@ -83,8 +83,6 @@ MODULE dbcsr_tensor
    USE dbcsr_rectangular_split,         ONLY: dbcsr_r_mp_comm
    USE dbcsr_operations,                ONLY: dbcsr_scale, dbcsr_add
    USE dbcsr_data_types,                ONLY: dbcsr_scalar_type
-   USE dbcsr_dist_methods,              ONLY: dbcsr_distribution_mp
-   USE dbcsr_mp_methods,                ONLY: dbcsr_mp_group
 
 #include "base/dbcsr_base_uses.f90"
 

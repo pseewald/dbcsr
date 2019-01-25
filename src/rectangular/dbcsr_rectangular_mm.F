@@ -85,7 +85,7 @@ CONTAINS
       CHARACTER(LEN=1) :: tr_case
       INTEGER :: data_type
       INTEGER :: numnodes
-      INTEGER :: mp_comm, comm_tmp, iproc, numproc
+      INTEGER :: mp_comm, comm_tmp
       INTEGER, DIMENSION(2) :: pdims, pcoord
       CHARACTER(LEN=1) :: transa_prv, transb_prv, transc_prv
       TYPE(dbcsr_scalar_type) :: zero
