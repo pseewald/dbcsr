@@ -106,6 +106,11 @@ MODULE dbcsr_rectangular_base
       MODULE PROCEDURE dbcsr_r_put_block_area
    END INTERFACE
 
+   INTERFACE dbcsr_r_reserve_blocks
+      MODULE PROCEDURE dbcsr_r_reserve_blocks_template
+      MODULE PROCEDURE dbcsr_r_reserve_blocks_index
+   END INTERFACE
+
 CONTAINS
 
 ! **************************************************************************************************
@@ -256,23 +261,67 @@ CONTAINS
 !> \param keep_imaginary ...
 !> \param matrix_type ...
 ! **************************************************************************************************
-   SUBROUTINE dbcsr_r_copy(matrix_b, matrix_a, name, keep_sparsity, shallow_data, keep_imaginary, matrix_type)
+   SUBROUTINE dbcsr_r_copy(matrix_b, matrix_a, summation)
       TYPE(dbcsr_r_type), INTENT(INOUT)                  :: matrix_b
       TYPE(dbcsr_r_type), INTENT(IN)                     :: matrix_a
-      CHARACTER(LEN=*), INTENT(IN), OPTIONAL             :: name
-      LOGICAL, INTENT(IN), OPTIONAL                      :: keep_sparsity, shallow_data, &
-                                                            keep_imaginary
-      CHARACTER, INTENT(IN), OPTIONAL                    :: matrix_type
+      LOGICAL, INTENT(IN), OPTIONAL                      :: summation
 
       CHARACTER(LEN=*), PARAMETER :: routineN = 'dbcsr_r_copy', routineP = moduleN//':'//routineN
 
       INTEGER                                            :: handle
+      TYPE(dbcsr_r_iterator)                             :: iter
+      TYPE(dbcsr_data_obj)                               :: block
+      LOGICAL :: transposed
+      INTEGER   :: data_type
+      INTEGER(KIND=int_8)                                :: row, column
 
       CALL timeset(routineN, handle)
       DBCSR_ASSERT(matrix_b%valid)
-      CALL dbcsr_copy(matrix_b%matrix, matrix_a%matrix, name, keep_sparsity, shallow_data, keep_imaginary, matrix_type)
+
+      CALL dbcsr_r_get_info(matrix_a, data_type=data_type)
+
+      IF(PRESENT(summation)) THEN
+         IF(.NOT. summation) CALL dbcsr_r_clear(matrix_b)
+      ELSE
+         CALL dbcsr_r_clear(matrix_b)
+      ENDIF
+
+      CALL dbcsr_r_reserve_blocks(matrix_a, matrix_b)
+
+      CALL dbcsr_data_init(block)
+      CALL dbcsr_data_new(block, dbcsr_type_1d_to_2d(data_type))
+      CALL dbcsr_r_iterator_start(iter, matrix_a)
+      DO WHILE(dbcsr_r_iterator_blocks_left(iter))
+         CALL dbcsr_r_iterator_next_block(iter, row, column, block, transposed)
+         CALL dbcsr_r_put_block(matrix_b, row, column, block, transposed, summation=summation)
+      ENDDO
+      CALL dbcsr_r_iterator_stop(iter)
+      CALL dbcsr_data_clear_pointer(block)
 
       CALL timestop(handle)
+   END SUBROUTINE
+
+   SUBROUTINE dbcsr_r_reserve_blocks_template(matrix_in, matrix_out)
+      TYPE(dbcsr_r_type), INTENT(IN) :: matrix_in
+      TYPE(dbcsr_r_type), INTENT(INOUT) :: matrix_out
+      TYPE(dbcsr_r_iterator)                        :: iter
+      INTEGER :: iblk, nblk
+      INTEGER(KIND=int_8)                  :: row, column
+      INTEGER :: blk
+      INTEGER(KIND=int_8), DIMENSION(:), ALLOCATABLE :: row_res, col_res
+
+      nblk = dbcsr_r_get_num_blocks(matrix_in)
+      ALLOCATE(row_res(nblk), col_res(nblk))
+      CALL dbcsr_r_iterator_start(iter, matrix_in)
+      DO iblk=1,nblk
+         CALL dbcsr_r_iterator_next_block(iter, row, column, blk)
+         row_res(iblk) = row
+         col_res(iblk) = column
+      ENDDO
+      DBCSR_ASSERT(.NOT. dbcsr_r_iterator_blocks_left(iter))
+      CALL dbcsr_r_iterator_stop(iter)
+
+      CALL dbcsr_r_reserve_blocks(matrix_out, row_res, col_res)
    END SUBROUTINE
 
 ! **************************************************************************************************
@@ -725,7 +774,7 @@ CONTAINS
 !> \param rows ...
 !> \param columns ...
 ! **************************************************************************************************
-   SUBROUTINE dbcsr_r_reserve_blocks(matrix, rows, columns)
+   SUBROUTINE dbcsr_r_reserve_blocks_index(matrix, rows, columns)
       TYPE(dbcsr_r_type), INTENT(INOUT)                  :: matrix
       INTEGER(KIND=int_8), DIMENSION(:), INTENT(IN)      :: rows, columns
 

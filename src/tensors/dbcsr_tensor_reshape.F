@@ -38,6 +38,8 @@ MODULE dbcsr_tensor_reshape
                                               mp_isend,&
                                               mp_waitall
    USE dbcsr_operations,                ONLY: dbcsr_clear
+   USE dbcsr_mp_methods,                ONLY: dbcsr_mp_group
+   USE dbcsr_dist_methods,              ONLY: dbcsr_distribution_mp
 
 
 #include "base/dbcsr_base_uses.f90"
@@ -89,6 +91,7 @@ CONTAINS
       TYPE(block_buffer_type), ALLOCATABLE, DIMENSION(:) :: buffer_recv, buffer_send
       INTEGER, DIMENSION(ndims_tensor(tensor_in))       :: blk_size, ind_nd, index
       LOGICAL :: found, summation_prv
+      INTEGER :: np1, ip1, mp_comm_1
 
       IF(PRESENT(summation)) THEN
          summation_prv = summation
@@ -96,90 +99,83 @@ CONTAINS
          summation_prv = .FALSE.
       ENDIF
 
-      IF (tensor_out%valid) THEN
+      DBCSR_ASSERT(tensor_out%valid)
 
-         IF(.NOT. summation_prv) CALL dbcsr_clear(tensor_out%matrix_rep%matrix)
+      IF(.NOT. summation_prv) CALL dbcsr_clear(tensor_out%matrix_rep%matrix)
 
-         mp_comm = tensor_in%pgrid%mp_comm_2d
-         CALL mp_environ(numnodes, mynode, mp_comm)
-         ALLOCATE (buffer_send(0:numnodes - 1))
-         ALLOCATE (buffer_recv(0:numnodes - 1))
-         ALLOCATE (num_blocks_recv(0:numnodes - 1))
-         ALLOCATE (num_blocks_send(0:numnodes - 1))
-         ALLOCATE (num_entries_recv(0:numnodes - 1))
-         ALLOCATE (num_entries_send(0:numnodes - 1))
-         ALLOCATE (num_rec(0:2*numnodes - 1))
-         ALLOCATE (num_send(0:2*numnodes - 1))
-         num_send(:) = 0
-         ALLOCATE (req_array(1:numnodes, 4))
-         CALL dbcsr_t_iterator_start(iter, tensor_in)
-         DO WHILE (dbcsr_t_iterator_blocks_left(iter))
-            CALL dbcsr_t_iterator_next_block(iter, ind_nd, blk, blk_size=blk_size)
-            CALL dbcsr_t_get_stored_coordinates(tensor_out, ind_nd, iproc)
-            num_send(2*iproc) = num_send(2*iproc) + PRODUCT(blk_size)
-            num_send(2*iproc + 1) = num_send(2*iproc + 1) + 1
-         ENDDO
-         CALL dbcsr_t_iterator_stop(iter)
-         CALL mp_alltoall(num_send, num_rec, 2, mp_comm)
-         DO iproc = 0, numnodes - 1
-            num_entries_recv(iproc) = num_rec(2*iproc)
-            num_blocks_recv(iproc) = num_rec(2*iproc + 1)
-            num_entries_send(iproc) = num_send(2*iproc)
-            num_blocks_send(iproc) = num_send(2*iproc + 1)
+      mp_comm = tensor_in%pgrid%mp_comm_2d
+      CALL mp_environ(numnodes, mynode, mp_comm)
+      ALLOCATE (buffer_send(0:numnodes - 1))
+      ALLOCATE (buffer_recv(0:numnodes - 1))
+      ALLOCATE (num_blocks_recv(0:numnodes - 1))
+      ALLOCATE (num_blocks_send(0:numnodes - 1))
+      ALLOCATE (num_entries_recv(0:numnodes - 1))
+      ALLOCATE (num_entries_send(0:numnodes - 1))
+      ALLOCATE (num_rec(0:2*numnodes - 1))
+      ALLOCATE (num_send(0:2*numnodes - 1))
+      num_send(:) = 0
+      ALLOCATE (req_array(1:numnodes, 4))
+      CALL dbcsr_t_iterator_start(iter, tensor_in)
+      DO WHILE (dbcsr_t_iterator_blocks_left(iter))
+         CALL dbcsr_t_iterator_next_block(iter, ind_nd, blk, blk_size=blk_size)
+         CALL dbcsr_t_get_stored_coordinates(tensor_out, ind_nd, iproc)
+         num_send(2*iproc) = num_send(2*iproc) + PRODUCT(blk_size)
+         num_send(2*iproc + 1) = num_send(2*iproc + 1) + 1
+      ENDDO
+      CALL dbcsr_t_iterator_stop(iter)
+      CALL mp_alltoall(num_send, num_rec, 2, mp_comm)
+      DO iproc = 0, numnodes - 1
+         num_entries_recv(iproc) = num_rec(2*iproc)
+         num_blocks_recv(iproc) = num_rec(2*iproc + 1)
+         num_entries_send(iproc) = num_send(2*iproc)
+         num_blocks_send(iproc) = num_send(2*iproc + 1)
 
-            CALL block_buffer_create(buffer_send(iproc), num_blocks_send(iproc), num_entries_send(iproc), &
-                                     dbcsr_t_get_data_type(tensor_in), ndims_tensor(tensor_in))
-            CALL block_buffer_create(buffer_recv(iproc), num_blocks_recv(iproc), num_entries_recv(iproc), &
-                                     dbcsr_t_get_data_type(tensor_in), ndims_tensor(tensor_in))
-         ENDDO
-         CALL dbcsr_t_iterator_start(iter, tensor_in)
-         DO WHILE (dbcsr_t_iterator_blocks_left(iter))
-            CALL dbcsr_t_iterator_next_block(iter, ind_nd, blk, blk_size=blk_size)
-            CALL dbcsr_t_get_block(tensor_in, ind_nd, blk_data, found)
-            DBCSR_ASSERT(found)
-            CALL dbcsr_t_get_stored_coordinates(tensor_out, ind_nd, iproc)
-            CALL block_buffer_add_anyd_block(buffer_send(iproc), ind_nd, blk_data)
+         CALL block_buffer_create(buffer_send(iproc), num_blocks_send(iproc), num_entries_send(iproc), &
+                                  dbcsr_t_get_data_type(tensor_in), ndims_tensor(tensor_in))
+         CALL block_buffer_create(buffer_recv(iproc), num_blocks_recv(iproc), num_entries_recv(iproc), &
+                                  dbcsr_t_get_data_type(tensor_in), ndims_tensor(tensor_in))
+      ENDDO
+      CALL dbcsr_t_iterator_start(iter, tensor_in)
+      DO WHILE (dbcsr_t_iterator_blocks_left(iter))
+         CALL dbcsr_t_iterator_next_block(iter, ind_nd, blk, blk_size=blk_size)
+         CALL dbcsr_t_get_block(tensor_in, ind_nd, blk_data, found)
+         DBCSR_ASSERT(found)
+         CALL dbcsr_t_get_stored_coordinates(tensor_out, ind_nd, iproc)
+         CALL block_buffer_add_anyd_block(buffer_send(iproc), ind_nd, blk_data)
+         CALL destroy_block(blk_data)
+      ENDDO
+      CALL dbcsr_t_iterator_stop(iter)
+
+      CALL communicate_buffer(mp_comm, buffer_recv, buffer_send, req_array)
+
+      nblk = SUM(num_blocks_recv)
+      ALLOCATE (blks_to_allocate(nblk, ndims_tensor(tensor_in)))
+
+      bcount = 0
+      DO iproc = 0, numnodes - 1
+         CALL block_buffer_get_index(buffer_recv(iproc), index_recv)
+         blks_to_allocate(bcount + 1:bcount + SIZE(index_recv, 1), :) = index_recv(:, :)
+         bcount = bcount + SIZE(index_recv, 1)
+         DEALLOCATE(index_recv)
+      ENDDO
+
+      CALL dbcsr_t_reserve_blocks(tensor_out, blks_to_allocate)
+      DEALLOCATE(blks_to_allocate)
+
+      DO iproc = 0, numnodes - 1
+         DO WHILE (block_buffer_blocks_left(buffer_recv(iproc)))
+            CALL block_buffer_get_next_anyd_block(buffer_recv(iproc), ndata, index)
+            CALL dbcsr_t_blk_sizes(tensor_in, index, blk_size)
+            ! create block
+            CALL create_block(blk_data, blk_size, dbcsr_t_get_data_type(tensor_in))
+            ! get actual block data
+            CALL block_buffer_get_next_anyd_block(buffer_recv(iproc), ndata, index, blk_data)
+            CALL dbcsr_t_put_block(tensor_out, index, blk_data, summation=summation)
             CALL destroy_block(blk_data)
          ENDDO
-         CALL dbcsr_t_iterator_stop(iter)
-
-         CALL communicate_buffer(mp_comm, buffer_recv, buffer_send, req_array)
-
-         nblk = SUM(num_blocks_recv)
-         ALLOCATE (blks_to_allocate(nblk, ndims_tensor(tensor_in)))
-
-         bcount = 0
-         DO iproc = 0, numnodes - 1
-            CALL block_buffer_get_index(buffer_recv(iproc), index_recv)
-            blks_to_allocate(bcount + 1:bcount + SIZE(index_recv, 1), :) = index_recv(:, :)
-            bcount = bcount + SIZE(index_recv, 1)
-            DEALLOCATE(index_recv)
-         ENDDO
-
-         CALL dbcsr_t_reserve_blocks(tensor_out, blks_to_allocate)
-         DEALLOCATE(blks_to_allocate)
-
-         DO iproc = 0, numnodes - 1
-            DO WHILE (block_buffer_blocks_left(buffer_recv(iproc)))
-               CALL block_buffer_get_next_anyd_block(buffer_recv(iproc), ndata, index)
-               CALL dbcsr_t_blk_sizes(tensor_in, index, blk_size)
-               ! create block
-               CALL create_block(blk_data, blk_size, dbcsr_t_get_data_type(tensor_in))
-               ! get actual block data
-               CALL block_buffer_get_next_anyd_block(buffer_recv(iproc), ndata, index, blk_data)
-               CALL dbcsr_t_put_block(tensor_out, index, blk_data, summation=summation)
-               CALL destroy_block(blk_data)
-            ENDDO
-            CALL block_buffer_destroy(buffer_recv(iproc))
-            CALL block_buffer_destroy(buffer_send(iproc))
-         ENDDO
-      ELSE
-         IF(summation_prv) DBCSR_ABORT("tensor_out is not valid but summation is requested")
-         CALL dbcsr_t_create(tensor_in, tensor_out)
-         CALL dbcsr_t_reserve_blocks(tensor_in, tensor_out)
-         CALL dbcsr_r_copy(tensor_out%matrix_rep, tensor_in%matrix_rep, shallow_data=.TRUE.)
-      ENDIF
-
+         CALL block_buffer_destroy(buffer_recv(iproc))
+         CALL block_buffer_destroy(buffer_send(iproc))
+      ENDDO
    END SUBROUTINE
 
 ! **************************************************************************************************

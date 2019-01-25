@@ -259,38 +259,25 @@ CONTAINS
       zero = dbcsr_scalar_zero(data_type)
       SELECT CASE (dim_split)
       CASE (1)
-         PRINT *, "before replicate"
          CALL dbcsr_r_replicate(matrix_b_rs%matrix, dbcsr_r_info(matrix_a_rs), matrix_b_rep)
-         PRINT *, "after replicate"
-         PRINT *, "tr case", tr_case
          SELECT CASE (tr_case)
          CASE (dbcsr_no_transpose)
-            CALL mp_environ(numproc, iproc, mp_comm)
-
             CALL timeset(routineN//"_dbcsr_mm", handle2)
-            PRINT *, "before multiply", iproc
-            FLUSH(6)
-            !CALL mp_sync(mp_comm) ! debug
             CALL dbcsr_multiply(transa=dbcsr_no_transpose, transb=dbcsr_no_transpose, alpha=alpha, &
                                 matrix_a=matrix_a_rs%matrix, matrix_b=matrix_b_rep%matrix, beta=beta, matrix_c=matrix_c_rs%matrix, &
                                 filter_eps=filter_eps_prv, flop=flop)
 
-            PRINT *, "after multiply"
             CALL timestop(handle2)
          CASE (dbcsr_transpose)
             CALL timeset(routineN//"_dbcsr_mm", handle2)
-
-            PRINT *, "before multiply"
             CALL dbcsr_multiply(transa=dbcsr_transpose, transb=dbcsr_no_transpose, alpha=alpha, &
                                 matrix_a=matrix_b_rep%matrix, matrix_b=matrix_a_rs%matrix, beta=beta, matrix_c=matrix_c_rs%matrix, &
                                 filter_eps=filter_eps_prv, flop=flop)
 
-            PRINT *, "after multiply"
             CALL timestop(handle2)
          END SELECT
          CALL dbcsr_r_distribution_destroy(matrix_b_rep%dist)
          CALL dbcsr_r_destroy(matrix_b_rep)
-         PRINT *, "destroyed everything"
       CASE (2)
          CALL dbcsr_r_replicate(matrix_c_rs%matrix, dbcsr_r_info(matrix_a_rs), matrix_c_rep, nodata=.TRUE.)
 
@@ -323,7 +310,6 @@ CONTAINS
          CALL dbcsr_r_destroy(matrix_a_rep)
       END SELECT
 
-      PRINT *, "before cleanup"
       IF (new_a) THEN
          CALL dbcsr_r_destroy(matrix_a_rs)
          DEALLOCATE(matrix_a_rs)
@@ -339,14 +325,11 @@ CONTAINS
          CALL dbcsr_r_destroy(matrix_c_rs)
          DEALLOCATE(matrix_c_rs)
       ENDIF
-      PRINT *, "after cleanup"
 
-      PRINT *, "collecting flops"
       IF(PRESENT(flop)) THEN
          CALL mp_sum(flop, mp_comm)
          flop = (flop+numnodes-1)/numnodes
       ENDIF
-      PRINT *, "done flops"
 
       IF(PRESENT(optimize_dist)) THEN
          IF(optimize_dist) CALL mp_comm_free(comm_tmp)

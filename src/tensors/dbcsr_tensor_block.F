@@ -530,7 +530,7 @@ CONTAINS
 
       DBCSR_ASSERT(tensor%valid)
 
-      nblk = nblocks_reserved(tensor)
+      nblk = nblocks_reserved(tensor) ! todo: replace by dbcsr_t_get_num_blocks
 
 #:for dim in range(1, maxdim+1)
       IF (ndims_tensor(tensor) >= ${dim}$) ALLOCATE (blk_ind_${dim}$(nblk))

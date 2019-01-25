@@ -83,6 +83,8 @@ MODULE dbcsr_tensor
    USE dbcsr_rectangular_split,         ONLY: dbcsr_r_mp_comm
    USE dbcsr_operations,                ONLY: dbcsr_scale, dbcsr_add
    USE dbcsr_data_types,                ONLY: dbcsr_scalar_type
+   USE dbcsr_dist_methods,              ONLY: dbcsr_distribution_mp
+   USE dbcsr_mp_methods,                ONLY: dbcsr_mp_group
 
 #include "base/dbcsr_base_uses.f90"
 
@@ -135,12 +137,11 @@ CONTAINS
 !> \param order Permutation of target tensor index. Exact same convention as order argument of RESHAPE
 !>              intrinsic
 ! **************************************************************************************************
-   SUBROUTINE dbcsr_t_copy(tensor_in, tensor_out, order, name, keep_sparsity, shallow_data, summation)
+   SUBROUTINE dbcsr_t_copy(tensor_in, tensor_out, order, summation)
       TYPE(dbcsr_t_type), INTENT(INOUT)              :: tensor_in, tensor_out
       INTEGER, DIMENSION(ndims_tensor(tensor_in)), &
          INTENT(IN), OPTIONAL                        :: order
-      CHARACTER(LEN=*), INTENT(IN), OPTIONAL             :: name
-      LOGICAL, INTENT(IN), OPTIONAL                      :: keep_sparsity, shallow_data, summation
+      LOGICAL, INTENT(IN), OPTIONAL                      :: summation
 
       TYPE(dbcsr_t_type)                             :: tensor_tmp
       INTEGER                                        :: handle
@@ -171,19 +172,8 @@ CONTAINS
          ENDIF
       ENDIF
 
-      IF ((.NOT. dist_compatible) .OR. summation_prv) THEN
-         IF (PRESENT(keep_sparsity) .OR. PRESENT(shallow_data)) THEN
-            CALL dbcsr_abort(__LOCATION__, &
-               "for keep_sparsity or shallow_data, distribution and mapping of both tensors must be the same and no summation")
-         ENDIF
-      ENDIF
-
       IF (dist_compatible) THEN
-         IF (.NOT. summation_prv) THEN
-            CALL dbcsr_r_copy(tensor_out%matrix_rep, tensor_in%matrix_rep, name, keep_sparsity, shallow_data)
-         ELSE
-            CALL dbcsr_add(tensor_out%matrix_rep%matrix, tensor_in%matrix_rep%matrix)
-         ENDIF
+            CALL dbcsr_r_copy(tensor_out%matrix_rep, tensor_in%matrix_rep, summation)
       ELSE
          IF (PRESENT(order)) THEN
             CALL dbcsr_t_permute_index(tensor_in, tensor_tmp, order)
