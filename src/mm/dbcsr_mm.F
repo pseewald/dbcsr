@@ -419,26 +419,34 @@ CONTAINS
       TYPE(dbcsr_mp_obj)                                 :: mp_obj
       TYPE(dbcsr_type)                                   :: matrix_left, matrix_right, product_matrix
 
+      IF(PRESENT(flop)) PRINT *, "chck 1"
+
       CALL timeset(routineN, handle)
+      IF(PRESENT(flop)) PRINT *, "chck 1.1"
 
       IF (dbcsr_get_occupation(matrix_a) .GT. 1) &
          DBCSR_ABORT("Matrix A occupation > 1")
 
+      IF(PRESENT(flop)) PRINT *, "chck 1.2"
       IF (dbcsr_get_occupation(matrix_b) .GT. 1) &
          DBCSR_ABORT("Matrix B occupation > 1")
 
       IF (dbcsr_get_occupation(matrix_c) .GT. 1) &
          DBCSR_ABORT("Matrix C occupation > 1")
 
+      IF(PRESENT(flop)) PRINT *, "chck 1.3"
+
       CALL array_nullify(dense_k_sizes)
       CALL array_nullify(dense_col_sizes)
       CALL array_nullify(dense_row_sizes)
 
+      IF(PRESENT(flop)) PRINT *, "chck 1.4"
       ! Reset CUDA errors
       IF (has_acc) THEN
          CALL acc_clear_errors()
       ENDIF
 
+      IF(PRESENT(flop)) PRINT *, "chck 1.5"
       ! Check if RMA is used with buggy OpenMPI (version<1.10.4 or 2.0.1)
       CALL check_openmpi_rma()
 
@@ -447,6 +455,7 @@ CONTAINS
 
       ! setup driver-dependent memory-types and their memory-pools ---------------
 
+      IF(PRESENT(flop)) PRINT *, "chck 1.6", has_acc
       ! the ab_buffers are shared by all threads
       IF (has_acc) THEN
          IF (.NOT. acc_stream_associated(stream_1)) THEN
@@ -505,6 +514,8 @@ CONTAINS
          ENDIF
       ENDIF
 
+      IF(PRESENT(flop)) PRINT *, "chck 2"
+
       ! transpose/conjg left and/or right matrices if needed
       SELECT CASE (transa_l)
       CASE (dbcsr_no_transpose)
@@ -536,6 +547,7 @@ CONTAINS
          DBCSR_ABORT("wrong transa_l = "//transa_l)
       END SELECT
 
+      IF(PRESENT(flop)) PRINT *, "chck 3"
       SELECT CASE (transb_l)
       CASE (dbcsr_no_transpose)
          matrix_right = matrix_b
@@ -565,6 +577,9 @@ CONTAINS
       CASE DEFAULT
          DBCSR_ABORT("wrong transb_l = "//transb_l)
       END SELECT
+
+
+      IF(PRESENT(flop)) PRINT *, "chck 4"
       !
       ! Ensure matrix compatibility.
       IF (.NOT. array_equality(dbcsr_row_block_offsets(matrix_c), dbcsr_row_block_offsets(matrix_left))) &
@@ -605,6 +620,8 @@ CONTAINS
          CALL dbcsr_memtype_setup(memtype_abpanel_1, has_pool=.NOT. ab_dense, mpi=.TRUE.)
          CALL dbcsr_memtype_setup(memtype_abpanel_2, has_pool=.NOT. ab_dense, mpi=.TRUE.)
       ENDIF
+
+      IF(PRESENT(flop)) PRINT *, "chck 5"
       !
       ! Submatrix selection
       f_row = 1
@@ -645,6 +662,8 @@ CONTAINS
             DBCSR_ABORT("Invalid last k specified (A)")
          l_k = last_k
       ENDIF
+
+      IF(PRESENT(flop)) PRINT *, "chck 6"
       !
       ! update statistics (we count marketing flops per MPI rank)
       dbcsr_mpi_statistics%last_mpi_ranks_used = numnodes
@@ -676,6 +695,7 @@ CONTAINS
       IF (f_col .GT. l_col .AND. l_col .GT. 0) &
          DBCSR_ABORT("Last col smaller than first col")
       !
+      IF(PRESENT(flop)) PRINT *, "chck 7"
       ! Product data needs to be retained when
       ! * beta != 0; or
       ! * there is column limiting (l_col > 0) and the limiting column
@@ -692,6 +712,8 @@ CONTAINS
          CALL dbcsr_scale(matrix_c, alpha_scalar=beta, &
                           limits=(/f_row, l_row, f_col, l_col/))
       ENDIF
+
+      IF(PRESENT(flop)) PRINT *, "chck 7"
       !
       ! The index of the product matrix is twiddled into canonical form
       ! if it is (anti)symmetric (i.e., rows and columns are where the
@@ -707,6 +729,8 @@ CONTAINS
       IF (product_reindex .OR. keep_sparsity) THEN
          use_dense_mult = .FALSE.
       ENDIF
+
+      IF(PRESENT(flop)) PRINT *, "chck 8"
       !
       ! The thread distribution must reflect the current (possibly
       ! dense) distribution
@@ -725,6 +749,8 @@ CONTAINS
                       dbcsr_mp_nprows(dbcsr_distribution_mp(matrix_left%dist)), &
                       dbcsr_mp_npcols(dbcsr_distribution_mp(matrix_left%dist)))
       nimages_right_cols = dbcsr_mp_npcols(dbcsr_distribution_mp(matrix_right%dist))
+
+      IF(PRESENT(flop)) PRINT *, "chck 9"
       !
       ! Create imaged distributions for the multiply.
       CALL dbcsr_create_image_dist(rdist_right, matrix_right%dist, &
@@ -743,6 +769,8 @@ CONTAINS
                                    nimages_rows=nimages_left_rows, &
                                    nimages_cols=nimages_match)
       !
+
+      IF(PRESENT(flop)) PRINT *, "chck 10"
       IF (ab_dense) THEN
          CALL dbcsr_make_dists_dense(dbcsr_distribution(matrix_c), &
                                      rdist_left, rdist_right, dense_product_distribution, &
@@ -759,6 +787,8 @@ CONTAINS
                                dense_k_sizes)
       ENDIF
       !
+
+      IF(PRESENT(flop)) PRINT *, "chck 11"
       IF (use_dense_mult .AND. .NOT. ab_dense) &
          DBCSR_ABORT("Wrong logic when making dense matrices.")
       IF (use_dense_mult) THEN
@@ -784,6 +814,8 @@ CONTAINS
       IF (ab_dense) THEN
          CALL dbcsr_distribution_release(dense_product_distribution)
       ENDIF
+
+      IF(PRESENT(flop)) PRINT *, "chck 12"
       !
       ! This is needed to build the hash tables because they are
       ! locally indexed.
@@ -818,6 +850,8 @@ CONTAINS
                                 memory_type=memtype_product_wm(ithread)%p)
 !$OMP END PARALLEL
       ENDIF
+
+      IF(PRESENT(flop)) PRINT *, "chck 13"
       !
       IF (dbcsr_cfg%use_mpi_rma) THEN
          ! Check for previous multiplication completeness
@@ -860,6 +894,8 @@ CONTAINS
                        dense_row_sizes, dense_k_sizes, &
                        k_vmap, m_map, n_map)
       ENDIF
+
+      IF(PRESENT(flop)) PRINT *, "chck 14"
       !
       IF (ab_dense) THEN
          CALL array_release(k_vmap)
@@ -887,6 +923,9 @@ CONTAINS
                               flop=my_flop)
          CALL dbcsr_finalize(product_matrix, reshuffle=PRESENT(filter_eps) .AND. .NOT. keep_sparsity)
       ENDIF
+
+
+      IF(PRESENT(flop)) PRINT *, "chck 15"
       !
       ! RMA implementation algorithm has to synchronize at the end of each multiplication
       comm = dbcsr_mp_group(dbcsr_distribution_mp(dbcsr_distribution(matrix_c)))
@@ -909,6 +948,8 @@ CONTAINS
       IF (release_tdist) THEN
          CALL dbcsr_distribution_no_threads(product_matrix%dist)
       ENDIF
+
+      IF(PRESENT(flop)) PRINT *, "chck 16"
       !
       CALL dbcsr_release_locals(product_matrix)
       ! The index of the product matrix is reset to the CP2K form if it
@@ -937,6 +978,8 @@ CONTAINS
          CALL dbcsr_copy(matrix_c, product_matrix, shallow_data=.TRUE.)
          CALL dbcsr_release(product_matrix)
       ENDIF
+
+      IF(PRESENT(flop)) PRINT *, "chck 17"
       !
       IF (.NOT. dbcsr_cfg%use_mpi_rma) THEN
          CALL dbcsr_destroy_array(m2s_left)
@@ -969,6 +1012,8 @@ CONTAINS
          ENDIF
       ENDIF
 
+      IF(PRESENT(flop)) PRINT *, "chck 18"
+
       ! This tends to trigger only when all of these conditions are fulfilled:
       !  - transa=="T"
       !  - matrix_c contains already blocks and beta is not zero
@@ -981,6 +1026,8 @@ CONTAINS
       output_unit = default_output_unit
       num_multiplications = num_multiplications+1
       CALL timestop(handle)
+
+      IF(PRESENT(flop)) PRINT *, "chck 19"
    END SUBROUTINE dbcsr_multiply_generic
 
 ! **************************************************************************************************
