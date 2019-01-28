@@ -72,7 +72,8 @@ MODULE dbcsr_tensor
                                               dbcsr_t_write_tensor_dist,&
                                               dbcsr_t_write_tensor_info,&
                                               dbcsr_t_filter,&
-                                              dbcsr_t_clear
+                                              dbcsr_t_clear,&
+                                              dbcsr_t_finalize
    USE dbcsr_kinds,                     ONLY: ${uselist(dtype_float_prec)}$,&
                                               default_string_length,&
                                               int_8
@@ -1290,7 +1291,7 @@ CONTAINS
       ENDDO
       CALL dbcsr_t_iterator_stop(iter)
 
-      CALL dbcsr_r_finalize(tensor_out%matrix_rep)
+      CALL dbcsr_t_finalize(tensor_out)
 
       CALL timestop(handle)
 

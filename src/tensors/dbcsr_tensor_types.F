@@ -96,7 +96,8 @@ MODULE dbcsr_tensor_types
       dbcsr_t_write_tensor_dist, &
       dbcsr_t_write_tensor_info, &
       dbcsr_t_clear,&
-      dbcsr_t_get_num_blocks
+      dbcsr_t_get_num_blocks,&
+      dbcsr_t_finalize
 
    TYPE dbcsr_t_pgrid_type
       TYPE(nd_to_2d_mapping) :: nd_index_grid
@@ -1196,6 +1197,11 @@ CONTAINS
    SUBROUTINE dbcsr_t_clear(tensor)
       TYPE(dbcsr_t_type), INTENT(INOUT) :: tensor
       CALL dbcsr_r_clear(tensor%matrix_rep)
+   END SUBROUTINE
+
+   SUBROUTINE dbcsr_t_finalize(tensor)
+      TYPE(dbcsr_t_type), INTENT(INOUT) :: tensor
+      CALL dbcsr_r_finalize(tensor%matrix_rep)
    END SUBROUTINE
 
    SUBROUTINE dbcsr_t_write_tensor_dist(tensor, output_unit)
