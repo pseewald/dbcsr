@@ -95,7 +95,8 @@ MODULE dbcsr_tensor_types
       dbcsr_t_get_info,&
       dbcsr_t_write_tensor_dist, &
       dbcsr_t_write_tensor_info, &
-      dbcsr_t_clear
+      dbcsr_t_clear,&
+      dbcsr_t_get_num_blocks
 
    TYPE dbcsr_t_pgrid_type
       TYPE(nd_to_2d_mapping) :: nd_index_grid

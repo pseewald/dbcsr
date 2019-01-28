@@ -54,7 +54,8 @@ MODULE dbcsr_tensor_block
    USE dbcsr_tensor_types,              ONLY: dbcsr_t_type,&
                                               ndims_tensor,&
                                               dbcsr_t_get_data_type,&
-                                              dbcsr_t_blk_sizes
+                                              dbcsr_t_blk_sizes,&
+                                              dbcsr_t_get_num_blocks
 #include "base/dbcsr_base_uses.f90"
 
    IMPLICIT NONE
@@ -490,30 +491,6 @@ CONTAINS
    END SUBROUTINE
 
 ! **************************************************************************************************
-!> \brief Number of non-zero blocks
-!> \param tensor ...
-!> \return ...
-! **************************************************************************************************
-   FUNCTION nblocks_reserved(tensor)
-      TYPE(dbcsr_t_type), INTENT(IN)            :: tensor
-      INTEGER                                   :: nblocks_reserved
-
-      INTEGER                                   :: blk, blk_p
-      TYPE(dbcsr_t_iterator_type)               :: iterator
-      INTEGER, DIMENSION(ndims_tensor(tensor)) :: blk_offset, blk_size, ind_nd
-
-      DBCSR_ASSERT(tensor%valid)
-
-      CALL dbcsr_t_iterator_start(iterator, tensor)
-      nblocks_reserved = 0
-      DO WHILE (dbcsr_t_iterator_blocks_left(iterator))
-         CALL dbcsr_t_iterator_next_block(iterator, ind_nd, blk, blk_p, blk_size, blk_offset)
-         nblocks_reserved = nblocks_reserved + 1
-      ENDDO
-      CALL dbcsr_t_iterator_stop(iterator)
-   END FUNCTION
-
-! **************************************************************************************************
 !> \brief indices of non-zero blocks
 !> \param tensor ...
 !> \param blk_ind_1 ...
@@ -530,7 +507,7 @@ CONTAINS
 
       DBCSR_ASSERT(tensor%valid)
 
-      nblk = nblocks_reserved(tensor) ! todo: replace by dbcsr_t_get_num_blocks
+      nblk = dbcsr_t_get_num_blocks(tensor)
 
 #:for dim in range(1, maxdim+1)
       IF (ndims_tensor(tensor) >= ${dim}$) ALLOCATE (blk_ind_${dim}$(nblk))
