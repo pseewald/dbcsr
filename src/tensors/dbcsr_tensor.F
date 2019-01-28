@@ -151,6 +151,8 @@ CONTAINS
 
       CALL timeset(routineN, handle)
 
+      DBCSR_ASSERT(tensor_out%valid)
+
       dist_compatible = .FALSE.
 
       IF(PRESENT(summation)) THEN
@@ -159,14 +161,12 @@ CONTAINS
          summation_prv = .FALSE.
       ENDIF
 
-      IF (tensor_out%valid) THEN
-         CALL get_mapping_info(tensor_in%nd_index, map1_2d=map1_in_1, map2_2d=map1_in_2)
-         CALL get_mapping_info(tensor_out%nd_index, map1_2d=map2_in_1, map2_2d=map2_in_2)
+      CALL get_mapping_info(tensor_in%nd_index, map1_2d=map1_in_1, map2_2d=map1_in_2)
+      CALL get_mapping_info(tensor_out%nd_index, map1_2d=map2_in_1, map2_2d=map2_in_2)
 
-         IF (.NOT. PRESENT(order)) THEN
-            IF (array_eq_i(map1_in_1, map2_in_1) .AND. array_eq_i(map1_in_2, map2_in_2)) THEN
-               dist_compatible = check_equal(tensor_in%nd_dist, tensor_out%nd_dist)
-            ENDIF
+      IF (.NOT. PRESENT(order)) THEN
+         IF (array_eq_i(map1_in_1, map2_in_1) .AND. array_eq_i(map1_in_2, map2_in_2)) THEN
+            dist_compatible = check_equal(tensor_in%nd_dist, tensor_out%nd_dist)
          ENDIF
       ENDIF
 
