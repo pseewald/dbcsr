@@ -55,7 +55,8 @@ MODULE dbcsr_tensor_block
                                               ndims_tensor,&
                                               dbcsr_t_get_data_type,&
                                               dbcsr_t_blk_sizes,&
-                                              dbcsr_t_get_num_blocks
+                                              dbcsr_t_get_num_blocks,&
+                                              dbcsr_t_finalize
 #include "base/dbcsr_base_uses.f90"
 
    IMPLICIT NONE
@@ -395,6 +396,7 @@ CONTAINS
       ENDDO
 
       CALL dbcsr_r_reserve_blocks(tensor%matrix_rep, rows=rows, columns=cols)
+      CALL dbcsr_t_finalize(tensor)
       CALL timestop(handle)
    END SUBROUTINE
 
