@@ -297,7 +297,7 @@ CONTAINS
       ENDDO
       CALL dbcsr_r_iterator_stop(iter)
       CALL dbcsr_data_clear_pointer(block)
-
+      CALL dbcsr_data_release(block)
       CALL timestop(handle)
    END SUBROUTINE
 
