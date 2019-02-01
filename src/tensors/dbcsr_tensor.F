@@ -73,11 +73,12 @@ MODULE dbcsr_tensor
                                               dbcsr_t_write_tensor_info,&
                                               dbcsr_t_filter,&
                                               dbcsr_t_clear,&
-                                              dbcsr_t_finalize
+                                              dbcsr_t_finalize,&
+                                              dbcsr_t_get_num_blocks
    USE dbcsr_kinds,                     ONLY: ${uselist(dtype_float_prec)}$,&
                                               default_string_length,&
                                               int_8
-   USE dbcsr_mpiwrap,                   ONLY: mp_environ
+   USE dbcsr_mpiwrap,                   ONLY: mp_environ, mp_max
    USE dbcsr_toollib,                   ONLY: sort
    USE dbcsr_tensor_reshape,            ONLY: dbcsr_t_reshape
    USE dbcsr_mpiwrap,                   ONLY: mp_comm_free
@@ -325,7 +326,7 @@ CONTAINS
       ! shortcut for empty tensors
       ! this is needed to avoid unnecessary work in case user contracts different portions of a
       ! tensor serially to save memory
-      mp_comm = tensor%pgrid%mp_comm_2d
+      mp_comm = tensor_1%pgrid%mp_comm_2d
       occ_1 = dbcsr_t_get_num_blocks(tensor_1)
       CALL mp_max(occ_1, mp_comm)
       occ_2 = dbcsr_t_get_num_blocks(tensor_2)
