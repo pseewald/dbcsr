@@ -298,7 +298,7 @@ CONTAINS
       TYPE(dbcsr_t_type), POINTER                    :: tensor_contr_1=>NULL(), tensor_contr_2=>NULL(), tensor_contr_3=>NULL()
       TYPE(dbcsr_t_type)                             :: tensor_tmp_1, tensor_tmp_2, tensor_tmp_3
       LOGICAL                                        :: assert_stmt
-      INTEGER                                        :: data_type, handle, max_mm_dim, max_tensor
+      INTEGER                                        :: data_type, handle, max_mm_dim, max_tensor, mp_comm
       !INTEGER, DIMENSION(:), ALLOCATABLE             :: sort_indices
       INTEGER, DIMENSION(SIZE(contract_1))           :: contract_1_mod
       INTEGER, DIMENSION(SIZE(notcontract_1))        :: notcontract_1_mod
@@ -309,6 +309,7 @@ CONTAINS
       CHARACTER(LEN=1)                               :: trans_1, trans_2, trans_3
       LOGICAL                                        :: new_1, new_2, new_3
       INTEGER                                        :: ndims1, ndims2, ndims3
+      INTEGER                                        :: occ_1, occ_2
       INTEGER, DIMENSION(:), ALLOCATABLE             :: dims1, dims2, dims3
 
       CHARACTER(LEN=*), PARAMETER :: routineN = 'dbcsr_t_contract', &
@@ -320,6 +321,21 @@ CONTAINS
       LOGICAL                         :: debug=.TRUE.
 
       CALL timeset(routineN, handle)
+
+      ! shortcut for empty tensors
+      ! this is needed to avoid unnecessary work in case user contracts different portions of a
+      ! tensor serially to save memory
+      mp_comm = tensor%pgrid%mp_comm_2d
+      occ_1 = dbcsr_t_get_num_blocks(tensor_1)
+      CALL mp_max(occ_1, mp_comm)
+      occ_2 = dbcsr_t_get_num_blocks(tensor_2)
+      CALL mp_max(occ_2, mp_comm)
+
+      IF(occ_1 == 0 .OR. occ_2 == 0) THEN
+         CALL dbcsr_t_scale(tensor_3, beta)
+         RETURN
+      ENDIF
+
 
       IF (PRESENT(unit_nr)) THEN
          IF (unit_nr > 0) THEN
