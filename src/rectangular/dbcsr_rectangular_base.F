@@ -67,7 +67,7 @@ MODULE dbcsr_rectangular_base
    USE dbcsr_work_operations,           ONLY: dbcsr_create,&
                                               dbcsr_finalize
    USE dbcsr_kinds,                           ONLY: default_string_length,&
-                                              int_8
+                                              int_8, real_8
    USE dbcsr_mpiwrap,                 ONLY: mp_cart_rank,&
                                               mp_environ
 #include "../base/dbcsr_base_uses.f90"
@@ -86,7 +86,7 @@ MODULE dbcsr_rectangular_base
              dbcsr_r_nblkcols_local, dbcsr_r_nblkrows_local, dbcsr_r_iterator_blocks_left, &
              dbcsr_r_blk_sizes, dbcsr_r_iterator_start, dbcsr_r_iterator_stop, dbcsr_r_reserve_blocks, &
              dbcsr_r_get_info, dbcsr_r_set, dbcsr_r_filter, dbcsr_r_get_num_blocks, dbcsr_r_get_data_size,&
-             dbcsr_r_write_matrix_info, dbcsr_r_clear
+             dbcsr_r_write_matrix_info, dbcsr_r_clear, dbcsr_r_write_dist
 
    INTERFACE dbcsr_r_create
       MODULE PROCEDURE dbcsr_r_create_new
@@ -1119,6 +1119,79 @@ CONTAINS
          ENDIF
       ENDIF
 
+   END SUBROUTINE
+
+   SUBROUTINE dbcsr_r_write_dist(matrix, output_unit, dist)
+      TYPE(dbcsr_r_type), INTENT(IN)         :: matrix
+      INTEGER, INTENT(IN)                    :: output_unit
+      LOGICAL, INTENT(IN), OPTIONAL          :: dist
+      CHARACTER(default_string_length)               :: name
+      INTEGER :: mp_comm, ngroup, igroup, mp_comm_group, nproc, iproc, nblock_p_sum, nelement_p_sum, &
+                 nblock_p_max, nelement_p_max, nblock_s, nelement_s, nblock_s_max, nelement_s_max
+      INTEGER, DIMENSION(2) :: tmp
+      INTEGER(KIND=int_8)   :: nblock_tot
+      REAL(KIND=real_8) :: occupation
+      INTEGER, DIMENSION(:), POINTER :: rowdist, coldist
+      INTEGER :: split_rowcol, icol, irow
+
+      CALL dbcsr_r_get_info(matrix, name=name)
+      CALL dbcsr_r_get_split_info(matrix%dist%info, mp_comm, ngroup, igroup, mp_comm_group, split_rowcol)
+      CALL mp_environ(nproc, iproc, mp_comm)
+
+      nblock_p_sum = dbcsr_r_get_num_blocks(matrix)
+      nelement_p_sum = dbcsr_r_get_data_size(matrix)
+
+      tmp = (/nblock_p_sum, nelement_p_sum/)
+      CALL mp_sum(nblock_p_sum, mp_comm)
+      CALL mp_sum(nelement_p_sum, mp_comm)
+
+      CALL mp_max(tmp, mp_comm)
+      nblock_p_max = tmp(1); nelement_p_max = tmp(2)
+
+      nblock_s = dbcsr_r_get_num_blocks(matrix)
+      nelement_s = dbcsr_r_get_data_size(matrix)
+
+      CALL mp_sum(nblock_s, mp_comm_group)
+      CALL mp_sum(nelement_s, mp_comm_group)
+
+      tmp = (/nblock_s, nelement_s/)
+      CALL mp_max(tmp, mp_comm)
+      nblock_s_max = tmp(1); nelement_s_max = tmp(2)
+
+      nblock_tot = dbcsr_r_nblkrows_total(matrix)*dbcsr_r_nblkcols_total(matrix)
+      occupation = -1.0_real_8
+      IF(nblock_tot .NE. 0) occupation = 100.0_real_8*REAL(nblock_p_sum, real_8)/REAL(nblock_tot, real_8)
+
+      rowdist => dbcsr_distribution_row_dist(matrix%matrix%dist)
+      coldist => dbcsr_distribution_col_dist(matrix%matrix%dist)
+
+      IF(output_unit > 0) THEN
+         WRITE(output_unit, "(T2,A)") &
+            "DISTRIBUTION OF "//TRIM(name)
+         WRITE(output_unit, "(T15,A,T68,I13)") "Number of non-zero blocks:", nblock_p_sum
+         WRITE(output_unit, "(T15,A,T75,F6.2)") "Percentage of non-zero blocks:", occupation
+         WRITE(output_unit, "(T15,A,T68,I13)") "Average number of blocks per group:", (nblock_p_sum+ngroup-1)/ngroup
+         WRITE(output_unit, "(T15,A,T68,I13)") "Maximum number of blocks per group:", nblock_s_max
+         WRITE(output_unit, "(T15,A,T68,I13)") "Average number of matrix elements per group:", (nelement_p_sum+ngroup-1)/ngroup
+         WRITE(output_unit, "(T15,A,T68,I13)") "Maximum number of matrix elements per group:", nelement_s_max
+         WRITE(output_unit, "(T15,A,T68,I13)") "Average number of blocks per CPU:", (nblock_p_sum+nproc-1)/nproc
+         WRITE(output_unit, "(T15,A,T68,I13)") "Maximum number of blocks per CPU:", nblock_p_max
+         WRITE(output_unit, "(T15,A,T68,I13)") "Average number of matrix elements per CPU:", (nelement_p_sum+nproc-1)/nproc
+         WRITE(output_unit, "(T15,A,T68,I13)") "Maximum number of matrix elements per CPU:", nelement_p_max
+         IF (PRESENT(dist)) THEN
+            IF (dist) THEN
+               WRITE (output_unit, "(/T15,A)") "Row distribution on subgroup 0:"
+               DO irow = 1, SIZE(rowdist)
+                  WRITE (output_unit, '(I3, 1X)', advance='no') rowdist(irow)
+               ENDDO
+               WRITE (output_unit, "(/T15,A)") "Column distribution on subgroup 0:"
+               DO icol = 1, SIZE(coldist)
+                  WRITE (output_unit, '(I3, 1X)', advance='no') coldist(icol)
+               ENDDO
+               WRITE(output_unit, *)
+            ENDIF
+         ENDIF
+      ENDIF
    END SUBROUTINE
 
 END MODULE

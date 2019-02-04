@@ -30,7 +30,7 @@ MODULE dbcsr_rectangular_reshape_low
    CHARACTER(len=*), PARAMETER, PRIVATE :: moduleN = 'dbcsr_rectangular_reshape_low'
 
    PUBLIC :: block_buffer_type, block_buffer_add_block, block_buffer_create, block_buffer_destroy, &
-             block_buffer_get_next_block, communicate_buffer
+             block_buffer_get_next_block, dbcsr_r_communicate_buffer
 
    TYPE block_buffer_type
       INTEGER :: nblock=-1
@@ -291,7 +291,7 @@ CONTAINS
 !> \param buffer_send ...
 !> \param req_array ...
 ! **************************************************************************************************
-   SUBROUTINE communicate_buffer(mp_comm, buffer_recv, buffer_send, req_array)
+   SUBROUTINE dbcsr_r_communicate_buffer(mp_comm, buffer_recv, buffer_send, req_array)
       INTEGER, INTENT(IN)                    :: mp_comm
       TYPE(block_buffer_type), DIMENSION(0:), INTENT(INOUT) :: buffer_recv, buffer_send
       INTEGER, DIMENSION(:, :), INTENT(OUT)               :: req_array
@@ -299,7 +299,7 @@ CONTAINS
       INTEGER                                :: iproc, mynode, numnodes, rec_counter, &
                                                 send_counter
       INTEGER                                   :: handle
-      CHARACTER(LEN=*), PARAMETER :: routineN = 'communicate_buffer', &
+      CHARACTER(LEN=*), PARAMETER :: routineN = 'dbcsr_r_communicate_buffer', &
          routineP = moduleN//':'//routineN
 
       CALL timeset(routineN, handle)

@@ -51,7 +51,7 @@ MODULE dbcsr_rectangular_reshape
                                               block_buffer_destroy,&
                                               block_buffer_get_next_block,&
                                               block_buffer_type,&
-                                              communicate_buffer
+                                              dbcsr_r_communicate_buffer
    USE dbcsr_rectangular_split,         ONLY: colsplit,&
                                               dbcsr_r_get_split_info,&
                                               rowsplit
@@ -239,7 +239,7 @@ CONTAINS
       CALL timestop(handle2)
 
       CALL timeset(routineN//"_communicate_buffer", handle2)
-      CALL communicate_buffer(mp_comm, buffer_recv, buffer_send, req_array)
+      CALL dbcsr_r_communicate_buffer(mp_comm, buffer_recv, buffer_send, req_array)
       CALL timestop(handle2)
 
       CALL timeset(routineN//"_buffer_obtain", handle2)
@@ -438,7 +438,7 @@ CONTAINS
       CALL dbcsr_data_clear_pointer(block)
 
       CALL timeset(routineN//"_communicate_buffer", handle2)
-      CALL communicate_buffer(mp_comm, buffer_recv, buffer_send, req_array)
+      CALL dbcsr_r_communicate_buffer(mp_comm, buffer_recv, buffer_send, req_array)
       CALL timestop(handle2)
 
       nblk = SUM(num_blocks_recv)
@@ -568,7 +568,7 @@ CONTAINS
       CALL dbcsr_iterator_stop(iter)
 
       CALL timeset(routineN//"_communicate_buffer", handle2)
-      CALL communicate_buffer(mp_comm, buffer_recv, buffer_send, req_array)
+      CALL dbcsr_r_communicate_buffer(mp_comm, buffer_recv, buffer_send, req_array)
       CALL timestop(handle2)
 
       nblk = SUM(num_blocks_recv)

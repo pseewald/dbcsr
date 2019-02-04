@@ -16,7 +16,7 @@ MODULE dbcsr_rectangular_mm
    USE dbcsr_rectangular_base, ONLY: &
       dbcsr_r_create, dbcsr_r_destroy, dbcsr_r_distribution_destroy, dbcsr_r_distribution_new, &
       dbcsr_r_finalize, dbcsr_r_get_data_type, dbcsr_r_info, dbcsr_r_nblkcols_total, &
-      dbcsr_r_nblkrows_total, dbcsr_r_write_matrix_info, dbcsr_r_filter
+      dbcsr_r_nblkrows_total, dbcsr_r_write_matrix_info, dbcsr_r_filter, dbcsr_r_write_dist
    USE dbcsr_rectangular_base_types, ONLY: dbcsr_r_distribution_type, &
       dbcsr_r_split_info, &
       dbcsr_r_type
@@ -246,10 +246,6 @@ CONTAINS
 
       IF(PRESENT(filter_eps)) THEN
          filter_eps_prv = filter_eps
-         IF(dim_split == 2) THEN
-            ! if result matrices are summed up then we need to correctly propagate filter_eps
-            filter_eps_prv = filter_eps_prv/REAL(nsplit, KIND=real_8)
-         ENDIF
       ELSE
          filter_eps_prv = 0.0_real_8
       ENDIF
@@ -262,50 +258,68 @@ CONTAINS
          CALL dbcsr_r_replicate(matrix_b_rs%matrix, dbcsr_r_info(matrix_a_rs), matrix_b_rep)
          SELECT CASE (tr_case)
          CASE (dbcsr_no_transpose)
-            CALL timeset(routineN//"_dbcsr_mm", handle2)
+            CALL timeset(routineN//"_dbcsr_mm_1N", handle2)
+
             CALL dbcsr_multiply(transa=dbcsr_no_transpose, transb=dbcsr_no_transpose, alpha=alpha, &
                                 matrix_a=matrix_a_rs%matrix, matrix_b=matrix_b_rep%matrix, beta=beta, matrix_c=matrix_c_rs%matrix, &
                                 filter_eps=filter_eps_prv, flop=flop)
-
             CALL timestop(handle2)
          CASE (dbcsr_transpose)
-            CALL timeset(routineN//"_dbcsr_mm", handle2)
+            CALL timeset(routineN//"_dbcsr_mm_1T", handle2)
             CALL dbcsr_multiply(transa=dbcsr_transpose, transb=dbcsr_no_transpose, alpha=alpha, &
                                 matrix_a=matrix_b_rep%matrix, matrix_b=matrix_a_rs%matrix, beta=beta, matrix_c=matrix_c_rs%matrix, &
                                 filter_eps=filter_eps_prv, flop=flop)
 
+
+
             CALL timestop(handle2)
          END SELECT
+         IF(PRESENT(io_unit)) THEN
+            CALL dbcsr_r_write_dist(matrix_a_rs, io_unit)
+            CALL dbcsr_r_write_dist(matrix_b_rep, io_unit, dist=.TRUE.)
+            CALL dbcsr_r_write_dist(matrix_c_rs, io_unit)
+         ENDIF
          CALL dbcsr_r_distribution_destroy(matrix_b_rep%dist)
          CALL dbcsr_r_destroy(matrix_b_rep)
       CASE (2)
          CALL dbcsr_r_replicate(matrix_c_rs%matrix, dbcsr_r_info(matrix_a_rs), matrix_c_rep, nodata=.TRUE.)
 
-         CALL timeset(routineN//"_dbcsr_mm", handle2)
+         CALL timeset(routineN//"_dbcsr_mm_2", handle2)
          CALL dbcsr_multiply(transa=transa_prv, transb=transb_prv, alpha=alpha, matrix_a=matrix_a_rs%matrix, &
                              matrix_b=matrix_b_rs%matrix, beta=beta, matrix_c=matrix_c_rep%matrix, &
-                             filter_eps=filter_eps_prv, flop=flop)
+                             filter_eps=filter_eps_prv/REAL(nsplit, KIND=real_8), flop=flop)
          CALL timestop(handle2)
+         IF(PRESENT(io_unit)) THEN
+            CALL dbcsr_r_write_dist(matrix_a_rs, io_unit)
+            CALL dbcsr_r_write_dist(matrix_b_rs, io_unit)
+            CALL dbcsr_r_write_dist(matrix_c_rep, io_unit, dist=.TRUE.)
+         ENDIF
 
          CALL dbcsr_r_merge(matrix_c_rs%matrix, matrix_c_rep)
+         CALL dbcsr_r_filter(matrix_c_rs, filter_eps_prv)
          CALL dbcsr_r_distribution_destroy(matrix_c_rep%dist)
          CALL dbcsr_r_destroy(matrix_c_rep)
       CASE (3)
          CALL dbcsr_r_replicate(matrix_a_rs%matrix, dbcsr_r_info(matrix_b_rs), matrix_a_rep)
          SELECT CASE (tr_case)
          CASE (dbcsr_no_transpose)
-            CALL timeset(routineN//"_dbcsr_mm", handle2)
+            CALL timeset(routineN//"_dbcsr_mm_3N", handle2)
             CALL dbcsr_multiply(transa=dbcsr_no_transpose, transb=dbcsr_no_transpose, alpha=alpha, &
                                 matrix_a=matrix_a_rep%matrix, matrix_b=matrix_b_rs%matrix, beta=beta, matrix_c=matrix_c_rs%matrix, &
                                 filter_eps=filter_eps_prv, flop=flop)
             CALL timestop(handle2)
          CASE (dbcsr_transpose)
-            CALL timeset(routineN//"_dbcsr_mm", handle2)
+            CALL timeset(routineN//"_dbcsr_mm_3T", handle2)
             CALL dbcsr_multiply(transa=dbcsr_no_transpose, transb=dbcsr_transpose, alpha=alpha, &
                                 matrix_a=matrix_b_rs%matrix, matrix_b=matrix_a_rep%matrix, beta=beta, matrix_c=matrix_c_rs%matrix, &
                                 filter_eps=filter_eps_prv, flop=flop)
             CALL timestop(handle2)
          END SELECT
+         IF(PRESENT(io_unit)) THEN
+            CALL dbcsr_r_write_dist(matrix_a_rep, io_unit, dist=.TRUE.)
+            CALL dbcsr_r_write_dist(matrix_b_rs, io_unit)
+            CALL dbcsr_r_write_dist(matrix_c_rs, io_unit)
+         ENDIF
          CALL dbcsr_r_distribution_destroy(matrix_a_rep%dist)
          CALL dbcsr_r_destroy(matrix_a_rep)
       END SELECT
