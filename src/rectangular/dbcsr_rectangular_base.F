@@ -58,7 +58,7 @@ MODULE dbcsr_rectangular_base
    USE dbcsr_rectangular_split,         ONLY: &
         block_index_global_to_local, block_index_local_to_global, colsplit, &
         dbcsr_r_copy_distribution, dbcsr_r_info_hold, dbcsr_r_release_info, dbcsr_r_split, &
-        group_to_mrowcol, rowsplit
+        group_to_mrowcol, rowsplit, dbcsr_r_get_split_info
    USE dbcsr_rectangular_util,          ONLY: dbcsr_mp_environ
    USE dbcsr_types,                     ONLY: dbcsr_distribution_obj,&
                                               dbcsr_iterator,&
@@ -69,7 +69,8 @@ MODULE dbcsr_rectangular_base
    USE dbcsr_kinds,                           ONLY: default_string_length,&
                                               int_8, real_8
    USE dbcsr_mpiwrap,                 ONLY: mp_cart_rank,&
-                                              mp_environ
+                                              mp_environ,&
+                                              mp_sum, mp_max
 #include "../base/dbcsr_base_uses.f90"
 
    IMPLICIT NONE
