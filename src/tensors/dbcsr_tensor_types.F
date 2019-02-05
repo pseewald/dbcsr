@@ -787,9 +787,9 @@ CONTAINS
       CALL timeset(routineN, handle)
       ALLOCATE(tensor%matrix_rep)
       IF(.NOT. PRESENT(name)) THEN
-         CALL dbcsr_r_create(tensor_in%matrix_rep, tensor%matrix_rep, name=tensor_in%name//" matrix")
+         CALL dbcsr_r_create(tensor_in%matrix_rep, tensor%matrix_rep, name=TRIM(tensor_in%name)//" matrix")
       ELSE
-         CALL dbcsr_r_create(tensor_in%matrix_rep, tensor%matrix_rep, name=name//" matrix")
+         CALL dbcsr_r_create(tensor_in%matrix_rep, tensor%matrix_rep, name=TRIM(name)//" matrix")
       ENDIF
       tensor%owns_matrix = .TRUE.
       CALL dbcsr_r_finalize(tensor%matrix_rep)
