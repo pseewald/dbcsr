@@ -1127,10 +1127,10 @@ CONTAINS
       INTEGER, INTENT(IN)                    :: output_unit
       LOGICAL, INTENT(IN), OPTIONAL          :: dist
       CHARACTER(default_string_length)               :: name
-      INTEGER :: mp_comm, ngroup, igroup, mp_comm_group, nproc, iproc, nblock_p_sum, nelement_p_sum, &
+      INTEGER :: mp_comm, ngroup, igroup, mp_comm_group, nproc, iproc, &
                  nblock_p_max, nelement_p_max, nblock_s, nelement_s, nblock_s_max, nelement_s_max
       INTEGER, DIMENSION(2) :: tmp
-      INTEGER(KIND=int_8)   :: nblock_tot
+      INTEGER(KIND=int_8)   :: nblock_tot, nblock_p_sum, nelement_p_sum
       REAL(KIND=real_8) :: occupation
       INTEGER, DIMENSION(:), POINTER :: rowdist, coldist
       INTEGER :: split_rowcol, icol, irow
