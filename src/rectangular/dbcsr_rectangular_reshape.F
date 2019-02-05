@@ -372,7 +372,7 @@ CONTAINS
       END SELECT
 
       CALL dbcsr_r_distribution_new(dist, mp_comm, row_dist_obj, col_dist_obj, split_info=info)
-      CALL dbcsr_r_create(matrix_out, TRIM(matrix_in%name)//"_replicated", &
+      CALL dbcsr_r_create(matrix_out, TRIM(matrix_in%name)//" replicated", &
                           dist, data_type, row_bsize_obj, col_bsize_obj)
 
       IF (nodata_prv) THEN

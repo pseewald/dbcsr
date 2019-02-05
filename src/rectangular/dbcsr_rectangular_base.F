@@ -1183,11 +1183,11 @@ CONTAINS
             IF (dist) THEN
                WRITE (output_unit, "(/T15,A)") "Row distribution on subgroup 0:"
                DO irow = 1, SIZE(rowdist)
-                  WRITE (output_unit, '(I3, 1X)', advance='no') rowdist(irow)
+                  WRITE (output_unit, '(T15, I3, 1X)', advance='no') rowdist(irow)
                ENDDO
                WRITE (output_unit, "(/T15,A)") "Column distribution on subgroup 0:"
                DO icol = 1, SIZE(coldist)
-                  WRITE (output_unit, '(I3, 1X)', advance='no') coldist(icol)
+                  WRITE (output_unit, '(T15, I3, 1X)', advance='no') coldist(icol)
                ENDDO
                WRITE(output_unit, *)
             ENDIF
