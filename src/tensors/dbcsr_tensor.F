@@ -37,7 +37,7 @@ MODULE dbcsr_tensor
         dbcsr_transpose, dbcsr_no_transpose, dbcsr_scalar, dbcsr_put_block, &
         ${uselist(dtype_float_param)}$, dbcsr_clear
    USE dbcsr_rectangular_base, ONLY:&
-        dbcsr_r_copy, dbcsr_r_create, dbcsr_r_finalize, dbcsr_r_get_data_type, dbcsr_r_get_info, dbcsr_r_info
+        dbcsr_r_copy, dbcsr_r_finalize, dbcsr_r_get_data_type, dbcsr_r_get_info, dbcsr_r_info
    USE dbcsr_rectangular_mm, ONLY: dbcsr_r_multiply
    USE dbcsr_tensor_block,              ONLY: dbcsr_t_iterator_type, &
                                               dbcsr_t_get_block, &

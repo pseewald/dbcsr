@@ -789,7 +789,7 @@ CONTAINS
       IF(.NOT. PRESENT(name)) THEN
          CALL dbcsr_r_create(tensor_in%matrix_rep, tensor%matrix_rep, name=tensor_in%name//" matrix")
       ELSE
-         CALL dbcsr_r_create(tensor_in%matrix_rep, tensor%matrix_rep, name=name)
+         CALL dbcsr_r_create(tensor_in%matrix_rep, tensor%matrix_rep, name=name//" matrix")
       ENDIF
       tensor%owns_matrix = .TRUE.
       CALL dbcsr_r_finalize(tensor%matrix_rep)
