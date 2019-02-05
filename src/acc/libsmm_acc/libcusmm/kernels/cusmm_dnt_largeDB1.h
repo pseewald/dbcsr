@@ -1,7 +1,11 @@
-/*****************************************************************************
- *  CP2K: A general program to perform molecular dynamics simulations        *
- *  Copyright (C) 2000 - 2018  CP2K developers group                         *
- *****************************************************************************/
+/*------------------------------------------------------------------------------------------------*
+ * Copyright (C) by the DBCSR developers group - All rights reserved                              *
+ * This file is part of the DBCSR library.                                                        *
+ *                                                                                                *
+ * For information on the license, see the LICENSE file.                                          *
+ * For further information please visit https://dbcsr.cp2k.org                                    *
+ * SPDX-License-Identifier: GPL-2.0+                                                              *
+ *------------------------------------------------------------------------------------------------*/
 
 /*****************************************************************************
  *  Authors: Peter Messmer <pmessmer@nvidia.com>,                            *
@@ -10,7 +14,6 @@
  *****************************************************************************/
 
 #include "cusmm_common.h"
-
 
 
 namespace ns_cusmm_dnt_largeDB1 {
@@ -185,7 +188,7 @@ void cusmm_dnt_largeDB1(const int* param_stack, const int stack_size,
   double myc[M * N];
 
   /* Arrays in shared memory
-   * buff: shared memory buffer containing the elemnts of P_c to be written from regs to smem in slabs */
+   * buff: shared memory buffer containing the elements of P_c to be written from regs to smem in slabs */
   __shared__ double buff[buff_size];
 
   /* param_stack_s: shared memory buffer containing the stack entries this thread should process

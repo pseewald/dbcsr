@@ -27,7 +27,7 @@ To build with CUDA support you further need:
 * CUDA Toolkit
 * a C++ compiler which supports at least C++11 standard
 
-We test against GNU and Intel compilers on Linux systems.
+We test against GNU and Intel compilers on Linux systems, GNU compiler on MacOS systems.
 
 ## Getting started
 
@@ -75,3 +75,8 @@ The configuration flags are (default first):
     -DWITH_EXAMPLES=<ON|OFF>
     -DWITH_GPU=<P100|K20X|K40|K80>
     -DTEST_MPI_RANKS=<auto,N>
+
+## Contributing to DBCSR
+
+Your contribution to the project is welcome! 
+Please see [Contributing.md](https://github.com/cp2k/dbcsr/blob/develop/CONTRIBUTING.md) and this [wiki page](https://github.com/cp2k/dbcsr/wiki/Development). For any help, please notify the other developers.

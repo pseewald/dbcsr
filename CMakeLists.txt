@@ -37,6 +37,9 @@ if (USE_CUDA)
   set(CUDA_ARCH_NUMBER_K80  37)
   set(CUDA_ARCH_NUMBER_P100 60)
   set(CUDA_ARCH_NUMBER ${CUDA_ARCH_NUMBER_${WITH_GPU}})
+
+  # assume that the backend compiler for nvcc understands the -std=c++11
+  set(CMAKE_CUDA_FLAGS "-std=c++11 -arch=sm_${CUDA_ARCH_NUMBER} --cudart static")
 endif ()
 
 
@@ -48,6 +51,7 @@ find_package(PkgConfig)
 
 if (USE_MPI)
   get_property(REQUIRED_MPI_COMPONENTS GLOBAL PROPERTY ENABLED_LANGUAGES)
+  list(REMOVE_ITEM REQUIRED_MPI_COMPONENTS CUDA)  # CUDA does not have a MPI component
   find_package(MPI COMPONENTS ${REQUIRED_MPI_COMPONENTS} REQUIRED)
 endif ()
 
@@ -85,6 +89,7 @@ endif ()
 get_filename_component(Fortran_COMPILER_NAME ${CMAKE_Fortran_COMPILER} NAME)
 
 if (Fortran_COMPILER_NAME MATCHES "gfortran.*")
+  set(CMAKE_CXX_FLAGS              "-std=c++11")
   set(CMAKE_CXX_FLAGS_RELEASE      "-O3 -funroll-loops")
   set(CMAKE_CXX_FLAGS_COVERAGE     "-O0 -fprofile-arcs -ftest-coverage")
   set(CMAKE_CXX_FLAGS_DEBUG        "-O0 -ggdb")
@@ -93,6 +98,14 @@ if (Fortran_COMPILER_NAME MATCHES "gfortran.*")
   set(CMAKE_Fortran_FLAGS_DEBUG    "-O0 -ggdb")
   set(CMAKE_Fortran_FLAGS_COVERAGE "-O0 -fprofile-arcs -ftest-coverage")
   set(F2008_COMPILER_FLAGS         "-std=f2008ts")
+
+  # on Apple we may compile with GCC Fortran, but build/link C/C++ code with Apple's clang, requiring special treatment
+  if (APPLE AND CMAKE_CXX_COMPILER_ID MATCHES "AppleClang")
+    if (CMAKE_BUILD_TYPE MATCHES Coverage)
+      # when building with coverage suppport, shared libs/executables must be explicitly linked to avoid undefined symbols
+      SET(CMAKE_EXE_LINKER_FLAGS  "${CMAKE_EXE_LINKER_FLAGS} -lgcov --coverage")
+    endif ()
+  endif ()
 elseif (Fortran_COMPILER_NAME MATCHES "ifort.*")
   set(CMAKE_CXX_FLAGS_RELEASE      "-O3")
   set(CMAKE_CXX_FLAGS_DEBUG        "-O0 -debug")
@@ -101,10 +114,21 @@ elseif (Fortran_COMPILER_NAME MATCHES "ifort.*")
   set(CMAKE_Fortran_FLAGS_RELEASE  "-O3 -diag-disable=5268")
   set(CMAKE_Fortran_FLAGS_DEBUG    "-O0 -debug")
   set(F2008_COMPILER_FLAGS         "-stand f08")
+elseif (Fortran_COMPILER_NAME MATCHES "pgfortran.*")
+  set(CMAKE_CXX_FLAGS_RELEASE      "-fast")
+  set(CMAKE_CXX_FLAGS_DEBUG        "-g")
+  set(CMAKE_Fortran_FLAGS          "-Mfreeform -Mextend -Mallocatable=03")
+  set(CMAKE_Fortran_FLAGS_RELEASE  "-fast")
+  set(CMAKE_Fortran_FLAGS_DEBUG    "-g")
+  set(F2008_COMPILER_FLAGS         "")
 else ()
+  message(WARNING "\
+Unknown compiler, trying with just '-O2'/'-O0 -g'.\n\
+You will most likely have to pass additonal options for free-form Fortran 2003/2008 for your compiler!\n\
+Please open an issue at https://github.com/cp2k/dbcsr/issues with the reported compiler name and the required flags.")
   message("CMAKE_Fortran_COMPILER full path: " ${CMAKE_Fortran_COMPILER})
-  message("Fortran compiler: " ${Fortran_COMPILER_NAME})
-  message("No optimized Fortran compiler flags are known, we just try -O2...")
+  message("Fortran_COMPILER_NAME: " ${Fortran_COMPILER_NAME})
+
   set(CMAKE_Fortran_FLAGS_RELEASE  "-O2")
   set(CMAKE_Fortran_FLAGS_DEBUG    "-O0 -g")
 endif ()

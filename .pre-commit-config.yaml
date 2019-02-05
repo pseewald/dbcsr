@@ -9,3 +9,17 @@ repos:
   rev: v2.0.0
   hooks:
   - id: flake8
+  - id: check-ast
+    stages: [manual]
+    language_version: "python2"
+  - id: check-ast
+    stages: [manual]
+    language_version: "python3"
+- repo: local
+  hooks:
+  - id: check-header
+    name: check file headers
+    entry: ./.pre-commit/check_header.py --verbose
+    language: script
+    types: [text]
+    exclude: '^tools/'

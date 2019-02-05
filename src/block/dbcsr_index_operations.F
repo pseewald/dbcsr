@@ -49,6 +49,33 @@ MODULE dbcsr_index_operations
         dbcsr_slot_row_p, dbcsr_slot_size, dbcsr_slot_thr_c, dbcsr_type
    USE dbcsr_kinds,                           ONLY: int_4,&
                                               int_8
+   USE dbcsr_array_types, ONLY: array_data, &
+                                array_size
+   USE dbcsr_config, ONLY: default_resize_factor
+   USE dbcsr_dist_methods, ONLY: dbcsr_distribution_local_cols, &
+                                 dbcsr_distribution_local_rows, &
+                                 dbcsr_distribution_ncols, &
+                                 dbcsr_distribution_nlocal_cols, &
+                                 dbcsr_distribution_nlocal_rows, &
+                                 dbcsr_distribution_nrows, &
+                                 dbcsr_distribution_thread_dist
+   USE dbcsr_dist_operations, ONLY: get_stored_canonical
+   USE dbcsr_kinds, ONLY: int_4, &
+                          int_8
+   USE dbcsr_methods, ONLY: dbcsr_distribution, &
+                            dbcsr_get_index_memory_type
+   USE dbcsr_ptr_util, ONLY: ensure_array_size, &
+                             memory_allocate, &
+                             memory_deallocate
+   USE dbcsr_toollib, ONLY: joaat_hash, &
+                            sort, &
+                            swap
+   USE dbcsr_types, ONLY: &
+      dbcsr_distribution_obj, dbcsr_meta_size, dbcsr_num_slots, dbcsr_slot_blk_p, &
+      dbcsr_slot_col_i, dbcsr_slot_coo_l, dbcsr_slot_home_prow, dbcsr_slot_home_vprow, &
+      dbcsr_slot_nblkcols_local, dbcsr_slot_nblkcols_total, dbcsr_slot_nblkrows_local, &
+      dbcsr_slot_nblkrows_total, dbcsr_slot_nblks, dbcsr_slot_nfullcols_local, dbcsr_slot_nze, &
+      dbcsr_slot_row_p, dbcsr_slot_size, dbcsr_slot_thr_c, dbcsr_type
 #include "base/dbcsr_base_uses.f90"
 
 !$ USE OMP_LIB, ONLY: omp_get_max_threads, omp_get_thread_num, omp_get_num_threads
@@ -123,7 +150,7 @@ CONTAINS
       TYPE(dbcsr_type), INTENT(IN)                       :: matrix
 
       CHARACTER(len=*), PARAMETER :: routineN = 'make_index_canonical', &
-         routineP = moduleN//':'//routineN
+                                     routineP = moduleN//':'//routineN
 
       INTEGER                                            :: blk, col, nblks, row, stored_col, &
                                                             stored_row
@@ -139,8 +166,8 @@ CONTAINS
          WRITE (*, *) "old col_i", old_col_i
          WRITE (*, *) "old blk_p", old_blk_p
       ENDIF
-      DO row = 1, SIZE(old_row_p)-1
-         DO blk = old_row_p(row)+1, old_row_p(row+1)
+      DO row = 1, SIZE(old_row_p) - 1
+         DO blk = old_row_p(row) + 1, old_row_p(row + 1)
             col = old_col_i(blk)
             stored_row = row
             stored_col = col
@@ -161,7 +188,7 @@ CONTAINS
       ENDDO
       CALL dbcsr_sort_indices(nblks, row_i, new_col_i, blk_p=new_blk_p)
       ! Re-create the index
-      CALL dbcsr_make_dbcsr_index(new_row_p, row_i, SIZE(new_row_p)-1, nblks)
+      CALL dbcsr_make_dbcsr_index(new_row_p, row_i, SIZE(new_row_p) - 1, nblks)
       IF (debug_mod) THEN
          WRITE (*, *) "new row_p", new_row_p
          WRITE (*, *) "new row_i", row_i
@@ -194,7 +221,7 @@ CONTAINS
       TYPE(dbcsr_type), INTENT(IN)                       :: matrix
 
       CHARACTER(len=*), PARAMETER :: routineN = 'make_index_triangular', &
-         routineP = moduleN//':'//routineN
+                                     routineP = moduleN//':'//routineN
 
       INTEGER                                            :: blk, col, nblks, row, stored_col, &
                                                             stored_row
@@ -210,8 +237,8 @@ CONTAINS
          WRITE (*, *) "old col_i", old_col_i
          WRITE (*, *) "old blk_p", old_blk_p
       ENDIF
-      DO row = 1, SIZE(old_row_p)-1
-         DO blk = old_row_p(row)+1, old_row_p(row+1)
+      DO row = 1, SIZE(old_row_p) - 1
+         DO blk = old_row_p(row) + 1, old_row_p(row + 1)
             col = old_col_i(blk)
             stored_row = row
             stored_col = col
@@ -236,7 +263,7 @@ CONTAINS
       ENDDO
       CALL dbcsr_sort_indices(nblks, row_i, new_col_i, blk_p=new_blk_p)
       ! Re-create the index
-      CALL dbcsr_make_dbcsr_index(new_row_p, row_i, SIZE(new_row_p)-1, nblks)
+      CALL dbcsr_make_dbcsr_index(new_row_p, row_i, SIZE(new_row_p) - 1, nblks)
       IF (debug_mod) THEN
          WRITE (*, *) "new row_p", new_row_p
          WRITE (*, *) "new row_i", row_i
@@ -254,32 +281,32 @@ CONTAINS
 ! **************************************************************************************************
    SUBROUTINE dbcsr_make_dbcsr_index(row_p, row_i, nrows, nblks)
       INTEGER, INTENT(in)                                :: nrows, nblks
-      INTEGER, DIMENSION(1:nrows+1), INTENT(out)         :: row_p
+      INTEGER, DIMENSION(1:nrows + 1), INTENT(out)         :: row_p
       INTEGER, DIMENSION(1:nblks), INTENT(in)            :: row_i
 
       CHARACTER(len=*), PARAMETER :: routineN = 'dbcsr_make_dbcsr_index', &
-         routineP = moduleN//':'//routineN
+                                     routineP = moduleN//':'//routineN
 
       INTEGER                                            :: blk, error_handle, row
 
       CALL timeset(routineN, error_handle)
 
       row_p(1) = 0
-      row_p(nrows+1) = nblks
+      row_p(nrows + 1) = nblks
       row = 1
       blk = 1
       DO WHILE (row .LE. nrows)
          IF (blk .LE. nblks) THEN
             DO WHILE (row_i(blk) .EQ. row)
-               blk = blk+1
+               blk = blk + 1
                IF (blk .GT. nblks) THEN
-                  row_p(row+1) = nblks-1
+                  row_p(row + 1) = nblks - 1
                   EXIT
                ENDIF
             ENDDO
          ENDIF
-         row_p(row+1) = blk-1
-         row = row+1
+         row_p(row + 1) = blk - 1
+         row = row + 1
       ENDDO
 
       CALL timestop(error_handle)
@@ -295,13 +322,13 @@ CONTAINS
 ! **************************************************************************************************
    PURE SUBROUTINE dbcsr_expand_row_index(row_p, row_i, nrows, nblks)
       INTEGER, INTENT(in)                                :: nrows, nblks
-      INTEGER, DIMENSION(1:nrows+1), INTENT(IN)          :: row_p
+      INTEGER, DIMENSION(1:nrows + 1), INTENT(IN)          :: row_p
       INTEGER, DIMENSION(1:nblks), INTENT(out)           :: row_i
 
       INTEGER                                            :: row
 
       DO row = 1, nrows
-         row_i(row_p(row)+1:row_p(row+1)) = row
+         row_i(row_p(row) + 1:row_p(row + 1)) = row
       ENDDO
    END SUBROUTINE dbcsr_expand_row_index
 
@@ -313,14 +340,14 @@ CONTAINS
 ! **************************************************************************************************
    PURE SUBROUTINE dbcsr_count_row_index_inplace(rows, nrows)
       INTEGER, INTENT(IN)                                :: nrows
-      INTEGER, DIMENSION(1:nrows+1), INTENT(INOUT)       :: rows
+      INTEGER, DIMENSION(1:nrows + 1), INTENT(INOUT)       :: rows
 
       INTEGER                                            :: row
 
       DO row = 1, nrows
-         rows(row) = rows(row+1)-rows(row)
+         rows(row) = rows(row + 1) - rows(row)
       ENDDO
-      rows(nrows+1) = 0
+      rows(nrows + 1) = 0
    END SUBROUTINE dbcsr_count_row_index_inplace
 
 ! **************************************************************************************************
@@ -332,33 +359,33 @@ CONTAINS
    PURE SUBROUTINE dbcsr_count_row_index_copy(rows, counts, nrows)
       INTEGER, INTENT(IN)                                :: nrows
       INTEGER, DIMENSION(1:nrows), INTENT(OUT)           :: counts
-      INTEGER, DIMENSION(1:nrows+1), INTENT(IN)          :: rows
+      INTEGER, DIMENSION(1:nrows + 1), INTENT(IN)          :: rows
 
       INTEGER                                            :: row
 
       DO row = 1, nrows
-         counts(row) = rows(row+1)-rows(row)
+         counts(row) = rows(row + 1) - rows(row)
       END DO
    END SUBROUTINE dbcsr_count_row_index_copy
 
 ! **************************************************************************************************
 !> \brief Builds row index array from a columns-per-row count, in-place.
-!> \param[in,out] rows        count of the number of colums per row (input);
+!> \param[in,out] rows        count of the number of columns per row (input);
 !>                            the row_p index (output)
 !> \param[in] nrows           number of rows
 ! **************************************************************************************************
    PURE SUBROUTINE dbcsr_build_row_index_inplace(rows, nrows)
       INTEGER, INTENT(IN)                                :: nrows
-      INTEGER, DIMENSION(1:nrows+1), INTENT(INOUT)       :: rows
+      INTEGER, DIMENSION(1:nrows + 1), INTENT(INOUT)       :: rows
 
       INTEGER                                            :: o, old_count, row
 
       old_count = rows(1)
       rows(1) = 0
       IF (nrows .GE. 1) THEN
-         DO row = 2, nrows+1
+         DO row = 2, nrows + 1
             o = rows(row)
-            rows(row) = rows(row-1)+old_count
+            rows(row) = rows(row - 1) + old_count
             old_count = o
          ENDDO
       ENDIF
@@ -366,14 +393,14 @@ CONTAINS
 
 ! **************************************************************************************************
 !> \brief Builds row index array from a columns-per-row count.
-!> \param[in] counts          count of the number of colums per row
-!> \param[out] rows           count of the number of colums per row (input);
+!> \param[in] counts          count of the number of columns per row
+!> \param[out] rows           count of the number of columns per row (input);
 !>                            the row_p index (output)
 !> \param[in] nrows           number of rows
 ! **************************************************************************************************
    PURE SUBROUTINE dbcsr_build_row_index_copy(counts, rows, nrows)
       INTEGER, INTENT(IN)                                :: nrows
-      INTEGER, DIMENSION(1:nrows+1), INTENT(OUT)         :: rows
+      INTEGER, DIMENSION(1:nrows + 1), INTENT(OUT)         :: rows
       INTEGER, DIMENSION(1:nrows), INTENT(IN)            :: counts
 
 !WTF?!rows(1) = 0
@@ -388,7 +415,7 @@ CONTAINS
    END SUBROUTINE dbcsr_build_row_index_copy
 
 ! **************************************************************************************************
-!> \brief Adds data to the index. Incleases the index size when neccessary.
+!> \brief Adds data to the index. Increases the index size when necessary.
 !> \param[in,out] matrix      bcsr matrix
 !> \param[in] slot  which index array to add (e.g., dbcsr_slot_row_blk_sizes)
 !> \param[in] DATA  (optional) array holding the index data to add to the index
@@ -404,7 +431,7 @@ CONTAINS
       INTEGER, INTENT(IN), OPTIONAL                      :: reservation, extra
 
       CHARACTER(len=*), PARAMETER :: routineN = 'dbcsr_addto_index_array', &
-         routineP = moduleN//':'//routineN
+                                     routineP = moduleN//':'//routineN
 
       INTEGER                                            :: deplus, space, ub, ub_new
 
@@ -432,22 +459,22 @@ CONTAINS
       ub = UBOUND(matrix%index, 1)
       !> The data area was not defined or the new area is greater than the old.
       IF (matrix%index(slot) .EQ. 0 .OR. &
-          space .GT. matrix%index(slot+1)-matrix%index(slot)+1) THEN
+          space .GT. matrix%index(slot + 1) - matrix%index(slot) + 1) THEN
          IF (debug_mod) WRITE (*, *) routineP//' Slot', slot, 'not filled, adding at', &
-            matrix%index(dbcsr_slot_size)+1, 'sized', space
-         matrix%index(slot) = matrix%index(dbcsr_slot_size)+1
-         matrix%index(slot+1) = matrix%index(slot)+space-1
-         matrix%index(dbcsr_slot_size) = matrix%index(slot+1)
+            matrix%index(dbcsr_slot_size) + 1, 'sized', space
+         matrix%index(slot) = matrix%index(dbcsr_slot_size) + 1
+         matrix%index(slot + 1) = matrix%index(slot) + space - 1
+         matrix%index(dbcsr_slot_size) = matrix%index(slot + 1)
       ENDIF
       ! Shorten an index entry.
-      IF (space .LT. matrix%index(slot+1)-matrix%index(slot)+1) THEN
+      IF (space .LT. matrix%index(slot + 1) - matrix%index(slot) + 1) THEN
          IF (debug_mod) WRITE (*, *) routineP//' Shortening index'
-         matrix%index(slot+1) = matrix%index(slot)+space-1
+         matrix%index(slot + 1) = matrix%index(slot) + space - 1
          CALL dbcsr_repoint_index(matrix, slot)
       ENDIF
-      ub_new = matrix%index(slot+1)+deplus
+      ub_new = matrix%index(slot + 1) + deplus
       IF (debug_mod) WRITE (*, *) routineP//' need', space, 'at', matrix%index(slot), &
-         'to', matrix%index(slot+1), '(', ub_new, ')', 'have', ub
+         'to', matrix%index(slot + 1), '(', ub_new, ')', 'have', ub
       IF (ub_new .GT. ub) THEN
          IF (debug_mod) WRITE (*, *) routineP//' Reallocating index to ubound', ub_new
          !CALL reallocate(matrix%index, 1, ub_new)
@@ -461,7 +488,7 @@ CONTAINS
          matrix%index(slot), 'sized', space
       CALL dbcsr_repoint_index(matrix, slot)
       IF (PRESENT(DATA)) &
-         matrix%index(matrix%index(slot):matrix%index(slot+1)) = DATA(:)
+         matrix%index(matrix%index(slot):matrix%index(slot + 1)) = DATA(:)
    END SUBROUTINE dbcsr_addto_index_array
 
 ! **************************************************************************************************
@@ -474,7 +501,7 @@ CONTAINS
       INTEGER, INTENT(IN)                                :: slot
 
       CHARACTER(len=*), PARAMETER :: routineN = 'dbcsr_clearfrom_index_array', &
-         routineP = moduleN//':'//routineN
+                                     routineP = moduleN//':'//routineN
 
       INTEGER                                            :: space
       INTEGER, DIMENSION(5)                              :: max_extents
@@ -489,15 +516,15 @@ CONTAINS
          matrix%index(:dbcsr_num_slots)
       ! Clear index entry pointer
       matrix%index(slot) = 1
-      matrix%index(slot+1) = 0
+      matrix%index(slot + 1) = 0
       CALL dbcsr_repoint_index(matrix, slot)
       ! Update the declared index size
       max_extents = (/ &
-                    matrix%index(dbcsr_slot_row_p+1), &
-                    matrix%index(dbcsr_slot_col_i+1), &
-                    matrix%index(dbcsr_slot_blk_p+1), &
-                    matrix%index(dbcsr_slot_thr_c+1), &
-                    matrix%index(dbcsr_slot_coo_l+1)/)
+                    matrix%index(dbcsr_slot_row_p + 1), &
+                    matrix%index(dbcsr_slot_col_i + 1), &
+                    matrix%index(dbcsr_slot_blk_p + 1), &
+                    matrix%index(dbcsr_slot_thr_c + 1), &
+                    matrix%index(dbcsr_slot_coo_l + 1)/)
       space = MAX(MAXVAL(max_extents), dbcsr_num_slots)
       matrix%index(dbcsr_slot_size) = space
    END SUBROUTINE dbcsr_clearfrom_index_array
@@ -512,7 +539,7 @@ CONTAINS
       INTEGER, INTENT(IN), OPTIONAL                      :: slot
 
       CHARACTER(len=*), PARAMETER :: routineN = 'dbcsr_repoint_index', &
-         routineP = moduleN//':'//routineN
+                                     routineP = moduleN//':'//routineN
 
       INTEGER                                            :: s
       LOGICAL                                            :: all
@@ -535,7 +562,7 @@ CONTAINS
           s .EQ. dbcsr_slot_row_p) THEN
          IF (m%index(dbcsr_slot_row_p) .GT. 0) THEN
             m%row_p => m%index(m%index(dbcsr_slot_row_p): &
-                               m%index(dbcsr_slot_row_p+1))
+                               m%index(dbcsr_slot_row_p + 1))
          ELSE
             NULLIFY (m%row_p)
          ENDIF
@@ -544,7 +571,7 @@ CONTAINS
           s .EQ. dbcsr_slot_col_i) THEN
          IF (m%index(dbcsr_slot_col_i) .GT. 0) THEN
             m%col_i => m%index(m%index(dbcsr_slot_col_i): &
-                               m%index(dbcsr_slot_col_i+1))
+                               m%index(dbcsr_slot_col_i + 1))
          ELSE
             NULLIFY (m%col_i)
          ENDIF
@@ -553,7 +580,7 @@ CONTAINS
           s .EQ. dbcsr_slot_blk_p) THEN
          IF (m%index(dbcsr_slot_blk_p) .GT. 0) THEN
             m%blk_p => m%index(m%index(dbcsr_slot_blk_p): &
-                               m%index(dbcsr_slot_blk_p+1))
+                               m%index(dbcsr_slot_blk_p + 1))
          ELSE
             NULLIFY (m%blk_p)
          ENDIF
@@ -562,7 +589,7 @@ CONTAINS
           s .EQ. dbcsr_slot_thr_c) THEN
          IF (m%index(dbcsr_slot_thr_c) .GT. 0) THEN
             m%thr_c => m%index(m%index(dbcsr_slot_thr_c): &
-                               m%index(dbcsr_slot_thr_c+1))
+                               m%index(dbcsr_slot_thr_c + 1))
          ELSE
             NULLIFY (m%thr_c)
          ENDIF
@@ -571,7 +598,7 @@ CONTAINS
           s .EQ. dbcsr_slot_coo_l) THEN
          IF (m%index(dbcsr_slot_coo_l) .GT. 0) THEN
             m%coo_l => m%index(m%index(dbcsr_slot_coo_l): &
-                               m%index(dbcsr_slot_coo_l+1))
+                               m%index(dbcsr_slot_coo_l + 1))
          ELSE
             NULLIFY (m%coo_l)
          ENDIF
@@ -591,7 +618,7 @@ CONTAINS
       TYPE(dbcsr_type), INTENT(INOUT)                    :: m
 
       CHARACTER(len=*), PARAMETER :: routineN = 'dbcsr_make_index_exist', &
-         routineP = moduleN//':'//routineN
+                                     routineP = moduleN//':'//routineN
 
       INTEGER                                            :: error_handle
 
@@ -602,7 +629,7 @@ CONTAINS
          DBCSR_ABORT("Index array does not yet exist.")
       IF (.NOT. ASSOCIATED(m%row_p)) THEN
          CALL dbcsr_addto_index_array(m, dbcsr_slot_row_p, &
-                                      reservation=m%nblkrows_total+1)
+                                      reservation=m%nblkrows_total + 1)
          m%row_p(:) = 0
       ENDIF
       IF (.NOT. ASSOCIATED(m%col_i)) THEN
@@ -640,7 +667,7 @@ CONTAINS
       INTEGER, DIMENSION(1:), INTENT(INOUT), OPTIONAL    :: blk_p, blk_d
 
       CHARACTER(len=*), PARAMETER :: routineN = 'dbcsr_sort_indices', &
-         routineP = moduleN//':'//routineN
+                                     routineP = moduleN//':'//routineN
       INTEGER(KIND=int_8), PARAMETER                     :: lmask8 = 4294967295_int_8
 
       INTEGER                                            :: error_handle, i
@@ -707,7 +734,7 @@ CONTAINS
       TYPE(dbcsr_type), INTENT(INOUT)                    :: matrix
 
       CHARACTER(len=*), PARAMETER :: routineN = 'dbcsr_index_prune_deleted', &
-         routineP = moduleN//':'//routineN
+                                     routineP = moduleN//':'//routineN
 
       INTEGER                                            :: error_handle, nblks_max, new_blk, nrows, &
                                                             old_blk, row
@@ -723,7 +750,7 @@ CONTAINS
       old_blk_p => matrix%blk_p
       !
       nrows = matrix%nblkrows_total
-      nblks_max = old_row_p(nrows+1)
+      nblks_max = old_row_p(nrows + 1)
       ALLOCATE (new_row_count(nrows))
       ALLOCATE (new_col_i(nblks_max))
       ALLOCATE (new_blk_p(nblks_max))
@@ -733,10 +760,10 @@ CONTAINS
       new_blk = 0
       DO row = 1, nrows
          new_row_count(row) = 0
-         DO old_blk = old_row_p(row)+1, old_row_p(row+1)
+         DO old_blk = old_row_p(row) + 1, old_row_p(row + 1)
             IF (old_blk_p(old_blk) .GT. 0) THEN
-               new_blk = new_blk+1
-               new_row_count(row) = new_row_count(row)+1
+               new_blk = new_blk + 1
+               new_row_count(row) = new_row_count(row) + 1
                new_col_i(new_blk) = old_col_i(old_blk)
                new_blk_p(new_blk) = old_blk_p(old_blk)
             ENDIF
@@ -747,7 +774,7 @@ CONTAINS
       CALL dbcsr_clearfrom_index_array(matrix, dbcsr_slot_col_i)
       CALL dbcsr_clearfrom_index_array(matrix, dbcsr_slot_blk_p)
       CALL dbcsr_addto_index_array(matrix, dbcsr_slot_row_p, &
-                                   reservation=nrows+1, extra=2*new_blk)
+                                   reservation=nrows + 1, extra=2*new_blk)
       old_row_p => matrix%row_p
       CALL dbcsr_build_row_index(counts=new_row_count, rows=old_row_p, &
                                  nrows=nrows)
@@ -779,7 +806,7 @@ CONTAINS
       INTEGER, DIMENSION(:), INTENT(IN), OPTIONAL        :: old_blk_p
 
       CHARACTER(len=*), PARAMETER :: routineN = 'transpose_index_local', &
-         routineP = moduleN//':'//routineN
+                                     routineP = moduleN//':'//routineN
 
       INTEGER                                            :: error_handle, nblks, ncols_new, nrows_old
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: new_col_i
@@ -790,8 +817,8 @@ CONTAINS
       CALL timeset(routineN, error_handle)
       blks = PRESENT(new_blk_p) .AND. PRESENT(old_blk_p)
       nblks = SIZE(old_col_i)
-      nrows_old = SIZE(old_row_p)-1
-      ncols_new = SIZE(new_col_p)-1
+      nrows_old = SIZE(old_row_p) - 1
+      ncols_new = SIZE(new_col_p) - 1
       IF (blks) new_blk_p(:) = old_blk_p(:)
       ALLOCATE (new_col_i(nblks))
       CALL dbcsr_expand_row_index(old_row_p, new_row_i, nrows_old, nblks)
@@ -863,7 +890,7 @@ CONTAINS
       !INTEGER, DIMENSION(:), INTENT(OUT)       :: row_p, col_i, blk_p
       INTEGER, INTENT(IN)                                :: nblkrows_total
       INTEGER, DIMENSION(:), INTENT(OUT)                 :: blk_p, col_i
-      INTEGER, DIMENSION(1:nblkrows_total+1), &
+      INTEGER, DIMENSION(1:nblkrows_total + 1), &
          INTENT(OUT)                                     :: row_p
       INTEGER, INTENT(IN)                                :: nblkcols_total
       INTEGER, DIMENSION(:), INTENT(IN)                  :: myblkrows, myblkcols, row_blk_offsets, &
@@ -872,7 +899,7 @@ CONTAINS
       LOGICAL, INTENT(IN), OPTIONAL                      :: make_tr
 
       CHARACTER(len=*), PARAMETER :: routineN = 'make_dense_index', &
-         routineP = moduleN//':'//routineN
+                                     routineP = moduleN//':'//routineN
 
       INTEGER                                            :: blk, c, col_l, mynblkcols, mynblkrows, &
                                                             nblks, nze, prev_row, row, row_l, &
@@ -899,24 +926,24 @@ CONTAINS
          blk = 0
          DO row_l = 1, mynblkrows
             row = myblkrows(row_l)
-            row_p(prev_row+1:row) = blk
+            row_p(prev_row + 1:row) = blk
             DO col_l = 1, mynblkcols
                c = myblkcols(col_l)
-               col_i(blk+col_l) = c
-               sz = (row_blk_offsets(row+1)-row_blk_offsets(row))* &
-                    (col_blk_offsets(c+1)-col_blk_offsets(c))
+               col_i(blk + col_l) = c
+               sz = (row_blk_offsets(row + 1) - row_blk_offsets(row))* &
+                    (col_blk_offsets(c + 1) - col_blk_offsets(c))
                IF (sz .GT. 0) THEN
-                  blk_p(blk+col_l) = SIGN(nze, sign_carrier)
-                  nze = nze+sz
+                  blk_p(blk + col_l) = SIGN(nze, sign_carrier)
+                  nze = nze + sz
                ELSE
-                  blk_p(blk+col_l) = 0
+                  blk_p(blk + col_l) = 0
                ENDIF
             ENDDO
             prev_row = row
-            blk = blk+mynblkcols
+            blk = blk + mynblkcols
          END DO
          IF (blk /= nblks) DBCSR_ABORT("Block mismatch")
-         row_p(prev_row+1:nblkrows_total+1) = nblks
+         row_p(prev_row + 1:nblkrows_total + 1) = nblks
       ENDIF
       IF (debug_mod) THEN
          WRITE (*, *) routineN//" new index"
@@ -949,7 +976,7 @@ CONTAINS
       INTEGER, DIMENSION(dbcsr_meta_size), INTENT(INOUT) :: meta
 
       CHARACTER(len=*), PARAMETER :: routineN = 'make_undense_index', &
-         routineP = moduleN//':'//routineN
+                                     routineP = moduleN//':'//routineN
 
       INTEGER                                            :: col, lr, lrow, nblkcols_local, &
                                                             nblkrows_local, nblkrows_total, &
@@ -974,20 +1001,20 @@ CONTAINS
       prev_row = 1
       DO lrow = 1, nblkrows_local
          row = local_rows(lrow)
-         row_p(prev_row+1:row) = lr
-         lr = lr+nblkcols_local
-         row_p(row+1) = lr
+         row_p(prev_row + 1:row) = lr
+         lr = lr + nblkcols_local
+         row_p(row + 1) = lr
          prev_row = row
       ENDDO
-      row_p(prev_row+1:nblkrows_total+1) = lr
+      row_p(prev_row + 1:nblkrows_total + 1) = lr
       !
       DO row = 1, nblkrows_local
          DO col = 1, nblkcols_local
-            col_i(nblkcols_local*(row-1)+col) = local_cols(col)
-            blk_p(nblkcols_local*(row-1)+col) = 1+ &
-                                                (local_row_offsets(row)-1)*nfullcols_local &
-                                                +(local_col_offsets(col)-1)* &
-                                                (local_row_offsets(row+1)-local_row_offsets(row))
+            col_i(nblkcols_local*(row - 1) + col) = local_cols(col)
+            blk_p(nblkcols_local*(row - 1) + col) = 1 + &
+                                                    (local_row_offsets(row) - 1)*nfullcols_local &
+                                                    + (local_col_offsets(col) - 1)* &
+                                                    (local_row_offsets(row + 1) - local_row_offsets(row))
          END DO
       END DO
    END SUBROUTINE make_undense_index
@@ -1041,7 +1068,7 @@ CONTAINS
       INTEGER, INTENT(OUT), OPTIONAL                     :: added_size, added_nblks
 
       CHARACTER(len=*), PARAMETER :: routineN = 'merge_index_arrays', &
-         routineP = moduleN//':'//routineN
+                                     routineP = moduleN//':'//routineN
 
       INTEGER                                            :: add_blk, bp, i, merge_from_whom, &
                                                             new_blk, old_blk
@@ -1050,7 +1077,7 @@ CONTAINS
 !   ---------------------------------------------------------------------------
 
       multidata = PRESENT(old_blk_d) .AND. PRESENT(new_blk_d)
-      IF (old_size+add_size .NE. new_size) &
+      IF (old_size + add_size .NE. new_size) &
          DBCSR_WARN("Mismatch of new and old size")
       IF (PRESENT(added_size_offset) .NEQV. PRESENT(added_sizes)) &
          DBCSR_ABORT("Must specify a set of arguments")
@@ -1112,7 +1139,7 @@ CONTAINS
                               add_ip(1, add_blk), add_ip(2, add_blk)
                         ENDIF
                         merge_from_whom = 1
-                        add_blk = add_blk+1
+                        add_blk = add_blk + 1
                      ENDIF
                   ENDIF
                ELSE
@@ -1135,24 +1162,24 @@ CONTAINS
                   new_col_i(new_blk) = add_ip(2, add_blk)
                   new_blk_p(new_blk) = add_ip(3, add_blk)
                   !IF (multidata) new_blk_d(new_blk) = add_ip(4, add_blk)
-                  IF (PRESENT(added_nblks)) added_nblks = added_nblks+1
+                  IF (PRESENT(added_nblks)) added_nblks = added_nblks + 1
                   IF (PRESENT(added_sizes)) THEN
                      new_blk_p(new_blk) = bp
-                     bp = bp+added_sizes(add_blk)
-                     added_size = added_size+added_sizes(add_blk)
+                     bp = bp + added_sizes(add_blk)
+                     added_size = added_size + added_sizes(add_blk)
                   ENDIF
-                  add_blk = add_blk+1
+                  add_blk = add_blk + 1
                CASE (1)
                   ! Merges from the old array
                   new_row_i(new_blk) = old_row_i(old_blk)
                   new_col_i(new_blk) = old_col_i(old_blk)
                   new_blk_p(new_blk) = old_blk_p(old_blk)
                   IF (multidata) new_blk_p(new_blk) = old_blk_d(old_blk)
-                  old_blk = old_blk+1
+                  old_blk = old_blk + 1
                CASE DEFAULT
                   !WRITE(*,*)"Nothing to merge"
                END SELECT
-               new_blk = new_blk+1
+               new_blk = new_blk + 1
             ENDDO
          ENDIF
       ELSE
@@ -1177,7 +1204,7 @@ CONTAINS
       TYPE(dbcsr_type), INTENT(INOUT)                    :: matrix
 
       CHARACTER(len=*), PARAMETER :: routineN = 'dbcsr_make_index_local_row', &
-         routineP = moduleN//':'//routineN
+                                     routineP = moduleN//':'//routineN
 
       INTEGER                                            :: error_handle, lrow, nlocal_rows, &
                                                             ntotal_rows, prow
@@ -1197,7 +1224,7 @@ CONTAINS
          prow = matrix%index(dbcsr_slot_home_prow)
       ENDIF
       nlocal_rows = matrix%nblkrows_local
-      ALLOCATE (local_row_p(nlocal_rows+1))
+      ALLOCATE (local_row_p(nlocal_rows + 1))
       !> The existing row_p is converted from an indexing array into a
       !> counting array.  Because it is later discarded, the counting is
       !> done in-place.
@@ -1245,7 +1272,7 @@ CONTAINS
       LOGICAL, INTENT(IN)                                :: thread_redist
 
       CHARACTER(len=*), PARAMETER :: routineN = 'dbcsr_make_index_list', &
-         routineP = moduleN//':'//routineN
+                                     routineP = moduleN//':'//routineN
       LOGICAL, PARAMETER                                 :: dbg = .FALSE.
 
       INTEGER                                            :: blk, error_handle, ithread, my_cnt, &
@@ -1269,10 +1296,10 @@ CONTAINS
          DBCSR_ABORT("Block count mismatch")
       !
       IF (matrix%local_indexing) THEN
-         IF (SIZE(matrix%row_p)-1 /= matrix%nblkrows_local) &
+         IF (SIZE(matrix%row_p) - 1 /= matrix%nblkrows_local) &
             DBCSR_ABORT("Local row index incorrectly sized.")
       ELSE
-         IF (SIZE(matrix%row_p)-1 /= matrix%nblkrows_total) &
+         IF (SIZE(matrix%row_p) - 1 /= matrix%nblkrows_total) &
             DBCSR_ABORT("Global row index incorrectly sized")
       ENDIF
       !
@@ -1329,7 +1356,7 @@ CONTAINS
 !$OMP        MASTER
 !$       nthreads = OMP_GET_NUM_THREADS()
          CALL dbcsr_addto_index_array(matrix, dbcsr_slot_thr_c, &
-                                      reservation=nthreads+1, extra=3*nblks)
+                                      reservation=nthreads + 1, extra=3*nblks)
          thr_c => matrix%thr_c
          CALL dbcsr_addto_index_array(matrix, dbcsr_slot_coo_l, &
                                       reservation=3*nblks)
@@ -1344,25 +1371,25 @@ CONTAINS
          !DO blk = 1, nblks
          !   IF (td(blki(1, blk)) .EQ. ithread) my_cnt = my_cnt+1
          !ENDDO
-         thr_c(ithread+1) = my_cnt
+         thr_c(ithread + 1) = my_cnt
 !$OMP        BARRIER
 !$OMP        MASTER
          CALL dbcsr_build_row_index_inplace(thr_c, nthreads)
 !$OMP        END MASTER
 !$OMP        BARRIER
-         my_cnt = (thr_c(ithread+1)+1)*3-2
+         my_cnt = (thr_c(ithread + 1) + 1)*3 - 2
          IF (matrix%local_indexing) THEN
             DO blk = 1, nblks
                IF (td(local_rows(blki(1, blk))) .EQ. ithread) THEN
-                  matrix%coo_l(my_cnt:my_cnt+2) = blki(1:3, blk)
-                  my_cnt = my_cnt+3
+                  matrix%coo_l(my_cnt:my_cnt + 2) = blki(1:3, blk)
+                  my_cnt = my_cnt + 3
                ENDIF
             ENDDO
          ELSE
             DO blk = 1, nblks
                IF (td(blki(1, blk)) .EQ. ithread) THEN
-                  matrix%coo_l(my_cnt:my_cnt+2) = blki(1:3, blk)
-                  my_cnt = my_cnt+3
+                  matrix%coo_l(my_cnt:my_cnt + 2) = blki(1:3, blk)
+                  my_cnt = my_cnt + 3
                ENDIF
             ENDDO
          ENDIF
@@ -1370,10 +1397,11 @@ CONTAINS
       ELSE
          ! Small price to pay for avoiding infinite recursions.
          DO blk = 2, nblks
-            IF (blki(1, blk) .EQ. blki(1, blk-1) .AND. blki(2, blk) .EQ. blki(2, blk-1)) THEN
+            IF (blki(1, blk) .EQ. blki(1, blk - 1) .AND. blki(2, blk) .EQ. blki(2, blk - 1)) THEN
                ! Weird assertion to give some idea of the two blocks.
-               IF (-blki(1, blk) /= blki(2, blk)) CALL dbcsr_abort(__LOCATION__, &
-                                                              "Should not have duplicate matrix blocks. (-row, col) is duplicated.")
+               IF (-blki(1, blk) /= blki(2, blk)) &
+                  CALL dbcsr_abort(__LOCATION__, &
+                                   "Should not have duplicate matrix blocks. (-row, col) is duplicated.")
             ENDIF
          ENDDO
          !
@@ -1399,7 +1427,7 @@ CONTAINS
       TYPE(dbcsr_type), INTENT(INOUT)                    :: matrix
 
       CHARACTER(len=*), PARAMETER :: routineN = 'dbcsr_index_compact', &
-         routineP = moduleN//':'//routineN
+                                     routineP = moduleN//':'//routineN
 
       INTEGER                                            :: error_handle, new_size, size_blk_p, &
                                                             size_col_i, size_coo_l, size_row_p, &
@@ -1445,8 +1473,8 @@ CONTAINS
          size_coo_l = 0
       ENDIF
       !
-      new_size = dbcsr_num_slots+ &
-                 size_row_p+size_col_i+size_blk_p+size_thr_c+size_coo_l
+      new_size = dbcsr_num_slots + &
+                 size_row_p + size_col_i + size_blk_p + size_thr_c + size_coo_l
       compact = new_size .LT. SIZE(matrix%index)
       IF (compact) THEN
          ! Store old index arrays.
@@ -1482,7 +1510,7 @@ CONTAINS
          ! Now copy the old index arrays into the index. We must not
          ! copy the positions of the old pointers.
          matrix%index(1:dbcsr_meta_size) = meta(1:dbcsr_meta_size)
-         matrix%index(dbcsr_meta_size+1:) = 0
+         matrix%index(dbcsr_meta_size + 1:) = 0
          matrix%index(dbcsr_slot_size) = dbcsr_num_slots
          IF (has_thr_c) THEN
             CALL dbcsr_addto_index_array(matrix, dbcsr_slot_thr_c, thr_c)
@@ -1527,7 +1555,7 @@ CONTAINS
       INTEGER, INTENT(OUT)                               :: checksum
 
       CHARACTER(len=*), PARAMETER :: routineN = 'dbcsr_index_checksum', &
-         routineP = moduleN//':'//routineN
+                                     routineP = moduleN//':'//routineN
 
       INTEGER                                            :: error_handle
 
@@ -1552,7 +1580,7 @@ CONTAINS
       LOGICAL                                            :: local_indexing
 
       CHARACTER(len=*), PARAMETER :: routineN = 'dbcsr_has_local_row_index', &
-         routineP = moduleN//':'//routineN
+                                     routineP = moduleN//':'//routineN
 
       local_indexing = matrix%local_indexing
    END FUNCTION dbcsr_has_local_row_index

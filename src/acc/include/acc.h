@@ -1,7 +1,12 @@
-/*****************************************************************************
- *  CP2K: A general program to perform molecular dynamics simulations        *
- *  Copyright (C) 2000 - 2018  CP2K developers group                         *
- *****************************************************************************/
+/*------------------------------------------------------------------------------------------------*
+ * Copyright (C) by the DBCSR developers group - All rights reserved                              *
+ * This file is part of the DBCSR library.                                                        *
+ *                                                                                                *
+ * For information on the license, see the LICENSE file.                                          *
+ * For further information please visit https://dbcsr.cp2k.org                                    *
+ * SPDX-License-Identifier: GPL-2.0+                                                              *
+ *------------------------------------------------------------------------------------------------*/
+
 #include <stddef.h>
 
 #ifdef __cplusplus
@@ -27,7 +32,7 @@ int acc_stream_wait_event(void* stream, void* event);
 int acc_event_create(void** event_p);
 int acc_event_destroy(void* event);
 int acc_event_record(void* event, void* stream);
-int acc_event_query(void* event, int* has_occured);
+int acc_event_query(void* event, int* has_occurred);
 int acc_event_synchronize(void* event);
 
 // memory

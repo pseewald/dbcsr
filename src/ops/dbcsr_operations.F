@@ -251,7 +251,7 @@ CONTAINS
 
       CALL timeset(routineN, handle)
 
-      SELECT CASE (dbcsr_get_data_type (matrix_a))
+      SELECT CASE (dbcsr_get_data_type(matrix_a))
       CASE (dbcsr_type_complex_4)
 !$OMP       PARALLEL WORKSHARE DEFAULT(NONE), SHARED(matrix_a)
          matrix_a%data_area%d%c_sp = (0.0, 0.0)
@@ -289,12 +289,12 @@ CONTAINS
       INTEGER, DIMENSION(4), INTENT(IN), OPTIONAL        :: limits
 
       CHARACTER(len=*), PARAMETER :: routineN = 'dbcsr_scale_anytype', &
-         routineP = moduleN//':'//routineN
+                                     routineP = moduleN//':'//routineN
       INTEGER, PARAMETER                                 :: first_col_i = 3, first_row_i = 1, &
                                                             last_col_i = 4, last_row_i = 2
 
       INTEGER :: a_col, a_col_size, a_row, a_row_size, col_offset, handle, row_offset, &
-         scale_col_offset, scale_col_size, scale_row_offset, scale_row_size
+                 scale_col_offset, scale_col_size, scale_row_offset, scale_row_size
       INTEGER, DIMENSION(4)                              :: my_limits
       LOGICAL                                            :: do_scale, has_limits, tr
       TYPE(dbcsr_data_obj)                               :: data_any
@@ -405,9 +405,9 @@ CONTAINS
       INTEGER                                            :: f, l
 
       f = MAX(block_offset, first_limit)
-      l = MIN(block_offset+block_size-1, last_limit)
-      frame_size = MAX(l-f+1, 0)
-      frame_offset = MIN(f-block_offset+1, block_size)
+      l = MIN(block_offset + block_size - 1, last_limit)
+      frame_size = MAX(l - f + 1, 0)
+      frame_offset = MIN(f - block_offset + 1, block_size)
    END SUBROUTINE frame_block_limit
 
 ! **************************************************************************************************
@@ -422,7 +422,7 @@ CONTAINS
       CHARACTER(LEN=*), INTENT(IN)                       :: side
 
       CHARACTER(len=*), PARAMETER :: routineN = 'dbcsr_scale_by_vector_anytype', &
-         routineP = moduleN//':'//routineN
+                                     routineP = moduleN//':'//routineN
 
       INTEGER                                            :: a_blk, a_col, a_col_size, a_nze, a_row, &
                                                             a_row_size, col_offset, data_type, &
@@ -466,26 +466,26 @@ CONTAINS
             SELECT CASE (data_type)
             CASE (dbcsr_type_real_4)
                DO i = 1, a_col_size
-                  DO icol = (i-1)*a_row_size+1, (i-1)*a_row_size+a_row_size
-                     data_any%d%r_sp(icol) = data_any%d%r_sp(icol)*alpha%d%r_sp(col_offset+i-1)
+                  DO icol = (i - 1)*a_row_size + 1, (i - 1)*a_row_size + a_row_size
+                     data_any%d%r_sp(icol) = data_any%d%r_sp(icol)*alpha%d%r_sp(col_offset + i - 1)
                   END DO
                END DO
             CASE (dbcsr_type_real_8)
                DO i = 1, a_col_size
-                  DO icol = (i-1)*a_row_size+1, (i-1)*a_row_size+a_row_size
-                     data_any%d%r_dp(icol) = data_any%d%r_dp(icol)*alpha%d%r_dp(col_offset+i-1)
+                  DO icol = (i - 1)*a_row_size + 1, (i - 1)*a_row_size + a_row_size
+                     data_any%d%r_dp(icol) = data_any%d%r_dp(icol)*alpha%d%r_dp(col_offset + i - 1)
                   END DO
                END DO
             CASE (dbcsr_type_complex_4)
                DO i = 1, a_col_size
-                  DO icol = (i-1)*a_row_size+1, (i-1)*a_row_size+a_row_size
-                     data_any%d%c_sp(icol) = data_any%d%c_sp(icol)*alpha%d%c_sp(col_offset+i-1)
+                  DO icol = (i - 1)*a_row_size + 1, (i - 1)*a_row_size + a_row_size
+                     data_any%d%c_sp(icol) = data_any%d%c_sp(icol)*alpha%d%c_sp(col_offset + i - 1)
                   END DO
                END DO
             CASE (dbcsr_type_complex_8)
                DO i = 1, a_col_size
-                  DO icol = (i-1)*a_row_size+1, (i-1)*a_row_size+a_row_size
-                     data_any%d%c_dp(icol) = data_any%d%c_dp(icol)*alpha%d%c_dp(col_offset+i-1)
+                  DO icol = (i - 1)*a_row_size + 1, (i - 1)*a_row_size + a_row_size
+                     data_any%d%c_dp(icol) = data_any%d%c_dp(icol)*alpha%d%c_dp(col_offset + i - 1)
                   END DO
                END DO
             END SELECT
@@ -493,26 +493,26 @@ CONTAINS
             SELECT CASE (data_type)
             CASE (dbcsr_type_real_4)
                DO i = 1, a_row_size
-                  DO irow = i, i+a_col_size**2-1, a_col_size
-                     data_any%d%r_sp(irow) = data_any%d%r_sp(irow)*alpha%d%r_sp(row_offset+i-1)
+                  DO irow = i, i + a_col_size**2 - 1, a_col_size
+                     data_any%d%r_sp(irow) = data_any%d%r_sp(irow)*alpha%d%r_sp(row_offset + i - 1)
                   END DO
                ENDDO
             CASE (dbcsr_type_real_8)
                DO i = 1, a_row_size
-                  DO irow = i, i+a_col_size**2-1, a_col_size
-                     data_any%d%r_dp(irow) = data_any%d%r_dp(irow)*alpha%d%r_dp(row_offset+i-1)
+                  DO irow = i, i + a_col_size**2 - 1, a_col_size
+                     data_any%d%r_dp(irow) = data_any%d%r_dp(irow)*alpha%d%r_dp(row_offset + i - 1)
                   END DO
                ENDDO
             CASE (dbcsr_type_complex_4)
                DO i = 1, a_row_size
-                  DO irow = i, i+a_col_size**2-1, a_col_size
-                     data_any%d%c_sp(irow) = data_any%d%c_sp(irow)*alpha%d%c_sp(row_offset+i-1)
+                  DO irow = i, i + a_col_size**2 - 1, a_col_size
+                     data_any%d%c_sp(irow) = data_any%d%c_sp(irow)*alpha%d%c_sp(row_offset + i - 1)
                   END DO
                ENDDO
             CASE (dbcsr_type_complex_8)
                DO i = 1, a_row_size
-                  DO irow = i, i+a_col_size**2-1, a_col_size
-                     data_any%d%c_dp(irow) = data_any%d%c_dp(irow)*alpha%d%c_dp(row_offset+i-1)
+                  DO irow = i, i + a_col_size**2 - 1, a_col_size
+                     data_any%d%c_dp(irow) = data_any%d%c_dp(irow)*alpha%d%c_dp(row_offset + i - 1)
                   END DO
                ENDDO
             END SELECT
@@ -542,7 +542,7 @@ CONTAINS
       INTEGER(KIND=int_8), INTENT(INOUT), OPTIONAL       :: flop
 
       CHARACTER(len=*), PARAMETER :: routineN = 'dbcsr_add_anytype', &
-         routineP = moduleN//':'//routineN
+                                     routineP = moduleN//':'//routineN
 
       INTEGER                                            :: data_type_a, data_type_b, &
                                                             handle, size_work, iw
@@ -587,13 +587,13 @@ CONTAINS
 
       IF ((.NOT. dbcsr_scalar_are_equal(my_beta_scalar, &
                                         dbcsr_scalar_zero(data_type_b))) .AND. &
-           dbcsr_get_num_blocks(matrix_b) .GT. 0) THEN
+          dbcsr_get_num_blocks(matrix_b) .GT. 0) THEN
 
          ! Pre-size work arrays of matrix_a to avoid continuous reallocation.
-         ! Overestimate for summetric matrix and multiple threads!
+         ! Overestimate for symmetric matrix and multiple threads!
          local_matrix_size = INT(dbcsr_nfullrows_local(matrix_a), KIND=int_8)* &
-              dbcsr_nfullcols_local(matrix_a)
-         size_work = MAX(0, INT(MIN(local_matrix_size-INT(dbcsr_get_nze(matrix_a), KIND=int_8), &
+                             dbcsr_nfullcols_local(matrix_a)
+         size_work = MAX(0, INT(MIN(local_matrix_size - INT(dbcsr_get_nze(matrix_a), KIND=int_8), &
                                     INT(dbcsr_get_nze(matrix_b), KIND=int_8)), KIND=int_4))
          my_flop = 0
 !$OMP        PARALLEL DEFAULT (NONE) &
@@ -607,7 +607,7 @@ CONTAINS
                                 work_mutable=.FALSE.)
 !$OMP        BARRIER
          iw = 1
-!$       iw = omp_get_thread_num () + 1
+!$       iw = omp_get_thread_num() + 1
          CALL dbcsr_iterator_start(iter, matrix_b, &
                                    shared=.TRUE., read_only=.TRUE., contiguous_pointers=.FALSE., &
                                    dynamic=.TRUE., dynamic_byrows=.TRUE.)
@@ -627,7 +627,7 @@ CONTAINS
 
          CALL dbcsr_finalize(matrix_a)
 !$OMP        END PARALLEL
-         IF (PRESENT(flop)) flop = flop+my_flop
+         IF (PRESENT(flop)) flop = flop + my_flop
       ENDIF
       CALL timestop(handle)
    END SUBROUTINE dbcsr_add_anytype
@@ -781,7 +781,7 @@ CONTAINS
    END SUBROUTINE dbcsr_add_on_diag_ds
 
 ! **************************************************************************************************
-!> \brief Computes varios functions (defined by func) of matrix elements
+!> \brief Computes various functions (defined by func) of matrix elements
 !> \param[in] matrix_a        DBCSR matrix
 !> \param func ...
 !> \param a0 ...
@@ -812,7 +812,7 @@ CONTAINS
       REAL(kind=dp), INTENT(IN), OPTIONAL                :: a0, a1, a2
 
       CHARACTER(len=*), PARAMETER :: routineN = 'dbcsr_function_of_elements', &
-         routineP = moduleN//':'//routineN
+                                     routineP = moduleN//':'//routineN
 
       INTEGER                                            :: blk, col, col_size, data_type, handle, &
                                                             ielem, nze, row, row_size
@@ -885,38 +885,38 @@ CONTAINS
                !ELSE
                !   a_data%d%r_dp(1:nze) = 1.0_real_8/(p1*a_data%d%r_dp(1:nze)+p0)
                !ENDIF
-               a_data%d%r_dp(1:nze) = 1.0_real_8/(a_data%d%r_dp(1:nze)+SIGN(p0, a_data%d%r_dp(1:nze)))
+               a_data%d%r_dp(1:nze) = 1.0_real_8/(a_data%d%r_dp(1:nze) + SIGN(p0, a_data%d%r_dp(1:nze)))
             CASE (dbcsr_func_inverse)
-               a_data%d%r_dp(1:nze) = 1.0_real_8/(p1*a_data%d%r_dp(1:nze)+p0)
+               a_data%d%r_dp(1:nze) = 1.0_real_8/(p1*a_data%d%r_dp(1:nze) + p0)
                IF (MAXVAL(ABS(a_data%d%r_dp)) .GE. HUGE(0.0_real_8)) &
                   DBCSR_ABORT("Division by zero")
             CASE (dbcsr_func_tanh)
-               a_data%d%r_dp(1:nze) = TANH(p1*a_data%d%r_dp(1:nze)+p0)
+               a_data%d%r_dp(1:nze) = TANH(p1*a_data%d%r_dp(1:nze) + p0)
             CASE (dbcsr_func_dtanh)
-               a_data%d%r_dp(1:nze) = TANH(p1*a_data%d%r_dp(1:nze)+p0)
+               a_data%d%r_dp(1:nze) = TANH(p1*a_data%d%r_dp(1:nze) + p0)
                a_data%d%r_dp(1:nze) = a_data%d%r_dp(1:nze)**2
-               a_data%d%r_dp(1:nze) = p1*(1.0_real_8-a_data%d%r_dp(1:nze))
+               a_data%d%r_dp(1:nze) = p1*(1.0_real_8 - a_data%d%r_dp(1:nze))
             CASE (dbcsr_func_ddtanh)
-               a_data%d%r_dp(1:nze) = TANH(p1*a_data%d%r_dp(1:nze)+p0)
-               a_data%d%r_dp(1:nze) = a_data%d%r_dp(1:nze)**3-a_data%d%r_dp(1:nze)
+               a_data%d%r_dp(1:nze) = TANH(p1*a_data%d%r_dp(1:nze) + p0)
+               a_data%d%r_dp(1:nze) = a_data%d%r_dp(1:nze)**3 - a_data%d%r_dp(1:nze)
                a_data%d%r_dp(1:nze) = 2.0_real_8*(p1**2)*a_data%d%r_dp(1:nze)
             CASE (dbcsr_func_artanh)
-               a_data%d%r_dp(1:nze) = p1*a_data%d%r_dp(1:nze)+p0
+               a_data%d%r_dp(1:nze) = p1*a_data%d%r_dp(1:nze) + p0
                IF (MAXVAL(ABS(a_data%d%r_dp)) .GE. 1.0_real_8) &
                   DBCSR_ABORT("ARTANH is undefined for |x|>=1")
-               a_data%d%r_dp(1:nze) = (1.0_real_8+a_data%d%r_dp(1:nze)) &
-                                      /(1.0_real_8-a_data%d%r_dp(1:nze))
+               a_data%d%r_dp(1:nze) = (1.0_real_8 + a_data%d%r_dp(1:nze)) &
+                                      /(1.0_real_8 - a_data%d%r_dp(1:nze))
                a_data%d%r_dp(1:nze) = 0.5_real_8*LOG(a_data%d%r_dp(1:nze))
             CASE (dbcsr_func_sin)
-               a_data%d%r_dp(1:nze) = SIN(p1*a_data%d%r_dp(1:nze)+p0)
+               a_data%d%r_dp(1:nze) = SIN(p1*a_data%d%r_dp(1:nze) + p0)
             CASE (dbcsr_func_cos)
-               a_data%d%r_dp(1:nze) = COS(p1*a_data%d%r_dp(1:nze)+p0)
+               a_data%d%r_dp(1:nze) = COS(p1*a_data%d%r_dp(1:nze) + p0)
             CASE (dbcsr_func_dsin)
-               a_data%d%r_dp(1:nze) = p1*COS(p1*a_data%d%r_dp(1:nze)+p0)
+               a_data%d%r_dp(1:nze) = p1*COS(p1*a_data%d%r_dp(1:nze) + p0)
             CASE (dbcsr_func_ddsin)
-               a_data%d%r_dp(1:nze) = -p1*p1*SIN(p1*a_data%d%r_dp(1:nze)+p0)
+               a_data%d%r_dp(1:nze) = -p1*p1*SIN(p1*a_data%d%r_dp(1:nze) + p0)
             CASE (dbcsr_func_asin)
-               a_data%d%r_dp(1:nze) = p1*a_data%d%r_dp(1:nze)+p0
+               a_data%d%r_dp(1:nze) = p1*a_data%d%r_dp(1:nze) + p0
                IF (MAXVAL(ABS(a_data%d%r_dp)) .GT. 1.0_real_8) &
                   DBCSR_ABORT("ASIN is undefined for |x|>1")
                a_data%d%r_dp(1:nze) = ASIN(a_data%d%r_dp(1:nze))
@@ -952,7 +952,7 @@ CONTAINS
       REAL(KIND=dp), INTENT(IN), OPTIONAL                :: b_assume_value
 
       CHARACTER(len=*), PARAMETER :: routineN = 'dbcsr_hadamard_product', &
-         routineP = moduleN//':'//routineN
+                                     routineP = moduleN//':'//routineN
 
       INTEGER                                            :: blk, col, col_size, data_type, handle, &
                                                             nze, row, row_size
@@ -991,7 +991,7 @@ CONTAINS
       CALL dbcsr_data_new(b_data, data_type)
       CALL dbcsr_iterator_start(iter, matrix_a)
       DO WHILE (dbcsr_iterator_blocks_left(iter))
-         SELECT CASE (dbcsr_get_data_type (matrix_a))
+         SELECT CASE (dbcsr_get_data_type(matrix_a))
             !CASE (dbcsr_type_real_4)
          CASE (dbcsr_type_real_8)
             CALL dbcsr_iterator_next_block(iter, row, col, a_data, tr_a, blk, &
@@ -1067,7 +1067,7 @@ CONTAINS
       LOGICAL, OPTIONAL                                  :: keep_sparsity
 
       CHARACTER(len=*), PARAMETER :: routineN = 'dbcsr_init_random', &
-         routineP = moduleN//':'//routineN
+                                     routineP = moduleN//':'//routineN
 
       INTEGER                                            :: col, col_size, handle, hold, iseed(4), &
                                                             mynode, ncol, nrow, row, row_size, &
@@ -1140,7 +1140,7 @@ CONTAINS
       TYPE(dbcsr_type), INTENT(INOUT)                    :: diag
 
       CHARACTER(len=*), PARAMETER :: routineN = 'dbcsr_get_block_diag', &
-         routineP = moduleN//':'//routineN
+                                     routineP = moduleN//':'//routineN
 
       INTEGER                                            :: blk, col, handle, row
       LOGICAL                                            :: tr
@@ -1293,12 +1293,12 @@ CONTAINS
          IF (PRESENT(matrix_type)) THEN
             IF (.NOT. symmetry_compatible(dbcsr_get_matrix_type(matrix_a), matrix_type)) &
                CALL dbcsr_abort(__LOCATION__, "Specified target matrix symmetry "//matrix_type// &
-                             " not compatible with source matrix type "//dbcsr_get_matrix_type(matrix_a))
+                                " not compatible with source matrix type "//dbcsr_get_matrix_type(matrix_a))
             new_matrix_type = matrix_type
          END IF
          IF (.NOT. symmetry_consistent(new_matrix_type, new_type)) &
             CALL dbcsr_abort(__LOCATION__, "Target matrix symmetry "// &
-                          new_matrix_type//" not consistent with its data type.")
+                             new_matrix_type//" not consistent with its data type.")
          IF (PRESENT(name)) THEN
             CALL dbcsr_create(matrix_b, name=TRIM(name), &
                               template=matrix_a, &
@@ -1355,7 +1355,7 @@ CONTAINS
       TYPE(dbcsr_type), INTENT(IN)                       :: matrix_a
 
       CHARACTER(len=*), PARAMETER :: routineN = 'dbcsr_copy_into_existing', &
-         routineP = moduleN//':'//routineN
+                                     routineP = moduleN//':'//routineN
 
       INTEGER                                            :: col_size, data_type, dst_col, dst_row, &
                                                             handle, rel, row_size, src_col, &
@@ -1389,7 +1389,7 @@ CONTAINS
       CALL dbcsr_iterator_start(src_iter, matrix_a)
       CALL dbcsr_iterator_start(dst_iter, matrix_b)
       ! Iterate through the blocks of the source and destination
-      ! matrix. There are three possibilites: 1. copy the data for
+      ! matrix. There are three possibilities: 1. copy the data for
       ! blocks present in both; 2 skip source blocks not present in the
       ! target; 3 zero blocks not present in the source.
       IF (dbcsr_iterator_blocks_left(src_iter)) THEN
@@ -1458,7 +1458,7 @@ CONTAINS
       TYPE(dbcsr_type), INTENT(IN)                       :: matrix_a
 
       CHARACTER(len=*), PARAMETER :: routineN = 'dbcsr_copy_into_existing_sym', &
-         routineP = moduleN//':'//routineN
+                                     routineP = moduleN//':'//routineN
 
       INTEGER                                            :: col_size, data_type, dst_col, dst_row, &
                                                             handle, row_size, src_col, src_cs, &
@@ -1579,7 +1579,7 @@ CONTAINS
       LOGICAL, INTENT(IN), OPTIONAL                      :: shallow_data
 
       CHARACTER(len=*), PARAMETER :: routineN = 'dbcsr_copy_submatrix', &
-         routineP = moduleN//':'//routineN
+                                     routineP = moduleN//':'//routineN
 
       INTEGER                                            :: blk_p, col, handle, nblocks, new_blk, &
                                                             old_blk, row
@@ -1666,9 +1666,9 @@ CONTAINS
             row_list(new_blk) = row
             col_list(new_blk) = col
             blkp_list(new_blk) = blk_p
-            new_blk = new_blk+1
+            new_blk = new_blk + 1
          ENDDO
-         new_blk = new_blk-1
+         new_blk = new_blk - 1
          CALL dbcsr_iterator_stop(iter)
          CALL dbcsr_reserve_blocks(matrix_b, row_list(1:new_blk), &
                                    col_list(1:new_blk), blkp_list(1:new_blk))
@@ -1698,7 +1698,7 @@ CONTAINS
       LOGICAL, INTENT(IN), OPTIONAL                      :: shallow_data
 
       CHARACTER(len=*), PARAMETER :: routineN = 'dbcsr_crop_matrix', &
-         routineP = moduleN//':'//routineN
+                                     routineP = moduleN//':'//routineN
 
       INTEGER                                            :: col, f_col_f, f_row_f, handle, l_col_l, &
                                                             l_row_l, row
@@ -1745,7 +1745,7 @@ CONTAINS
          f_row_f = -7
          IF (part_f_row) THEN
             ! Block offset of last cleared row
-            f_row_f = full_row_bounds(1)- &
+            f_row_f = full_row_bounds(1) - &
                       array_get(dbcsr_row_block_offsets(matrix_a), block_row_bounds(1))
          ENDIF
          part_l_row = .FALSE.
@@ -1756,13 +1756,13 @@ CONTAINS
                                        dbcsr_nblkrows_total(matrix_a), &
                                        dbcsr_row_block_offsets(matrix_a), &
                                        hint=0)
-            part_l_row = array_get(dbcsr_row_block_offsets(matrix_a), block_row_bounds(2)+1)-1 &
+            part_l_row = array_get(dbcsr_row_block_offsets(matrix_a), block_row_bounds(2) + 1) - 1 &
                          .NE. full_row_bounds(2)
          ENDIF
          ! Block offset of first cleared row
          l_row_l = -7
          IF (part_l_row) THEN
-            l_row_l = 2+full_row_bounds(2)- &
+            l_row_l = 2 + full_row_bounds(2) - &
                       array_get(dbcsr_row_block_offsets(matrix_a), block_row_bounds(2))
          ENDIF
          part_row = part_f_row .OR. part_l_row
@@ -1791,7 +1791,7 @@ CONTAINS
          f_col_f = -7
          IF (part_f_col) THEN
             ! Block offset of last cleared column
-            f_col_f = full_column_bounds(1)- &
+            f_col_f = full_column_bounds(1) - &
                       array_get(dbcsr_col_block_offsets(matrix_a), block_col_bounds(1))
          ENDIF
          part_l_col = .FALSE.
@@ -1802,13 +1802,13 @@ CONTAINS
                                        dbcsr_nblkcols_total(matrix_a), &
                                        dbcsr_col_block_offsets(matrix_a), &
                                        hint=0)
-            part_l_col = array_get(dbcsr_col_block_offsets(matrix_a), block_col_bounds(2)+1)-1 &
+            part_l_col = array_get(dbcsr_col_block_offsets(matrix_a), block_col_bounds(2) + 1) - 1 &
                          .NE. full_column_bounds(2)
          ENDIF
          l_col_l = -7
          IF (part_l_col) THEN
             ! Block offset of first cleared column
-            l_col_l = 2+full_column_bounds(2)- &
+            l_col_l = 2 + full_column_bounds(2) - &
                       array_get(dbcsr_col_block_offsets(matrix_a), block_col_bounds(2))
          ENDIF
          part_col = part_f_col .OR. part_l_col
@@ -1896,7 +1896,7 @@ CONTAINS
          IF (row .GT. col) CALL dbcsr_remove_block(matrix_a, row, col, blk_nze, blk)
          IF (row .EQ. col) THEN
             DO j = 1, col_size
-            DO i = j+1, row_size
+            DO i = j + 1, row_size
                DATA(i, j) = 0.0_dp
             ENDDO
             ENDDO
@@ -1989,7 +1989,7 @@ CONTAINS
                CASE (dbcsr_filter_frobenius)
                   !
                   ! Frobenius based
-                  nrm_s = SQRT(SDOT(SIZE(data_s), data_s(1), 1, data_s(1), 1))
+                  nrm_s = SQRT(REAL(SDOT(SIZE(data_s), data_s(1), 1, data_s(1), 1), KIND=real_4))
                   IF (nrm_s .LT. my_absolute*eps%r_sp) &
                      CALL dbcsr_remove_block(matrix, row, col, blk_nze, blk)
                CASE DEFAULT
@@ -2074,7 +2074,7 @@ CONTAINS
       TYPE(dbcsr_data_obj), INTENT(INOUT), OPTIONAL      :: norm_vector
 
       CHARACTER(len=*), PARAMETER :: routineN = 'dbcsr_norm_anytype', &
-         routineP = moduleN//':'//routineN
+                                     routineP = moduleN//':'//routineN
 
       INTEGER                                            :: blk, col, col_offset, handle, i, j, row, &
                                                             row_offset
@@ -2118,25 +2118,25 @@ CONTAINS
             DO WHILE (dbcsr_iterator_blocks_left(iter))
                CALL dbcsr_iterator_next_block(iter, row, col, data_a, tr, &
                                               blk, row_offset=row_offset, col_offset=col_offset)
-               SELECT CASE (dbcsr_get_data_type (matrix))
+               SELECT CASE (dbcsr_get_data_type(matrix))
                CASE (dbcsr_type_real_4)
                   IF (dbcsr_has_symmetry(matrix) .AND. row .NE. col) THEN
                      DO j = 1, SIZE(data_a%d%r2_sp, 2)
                      DO i = 1, SIZE(data_a%d%r2_sp, 1)
-                        norm_vector%d%r_sp(col_offset+j-1) &
-                           = norm_vector%d%r_sp(col_offset+j-1) &
-                             +data_a%d%r2_sp(i, j)**2
-                        norm_vector%d%r_sp(row_offset+i-1) &
-                           = norm_vector%d%r_sp(row_offset+i-1) &
-                             +data_a%d%r2_sp(i, j)**2
+                        norm_vector%d%r_sp(col_offset + j - 1) &
+                           = norm_vector%d%r_sp(col_offset + j - 1) &
+                             + data_a%d%r2_sp(i, j)**2
+                        norm_vector%d%r_sp(row_offset + i - 1) &
+                           = norm_vector%d%r_sp(row_offset + i - 1) &
+                             + data_a%d%r2_sp(i, j)**2
                      ENDDO
                      ENDDO
                   ELSE
                      DO j = 1, SIZE(data_a%d%r2_sp, 2)
                      DO i = 1, SIZE(data_a%d%r2_sp, 1)
-                        norm_vector%d%r_sp(col_offset+j-1) &
-                           = norm_vector%d%r_sp(col_offset+j-1) &
-                             +data_a%d%r2_sp(i, j)*data_a%d%r2_sp(i, j)
+                        norm_vector%d%r_sp(col_offset + j - 1) &
+                           = norm_vector%d%r_sp(col_offset + j - 1) &
+                             + data_a%d%r2_sp(i, j)*data_a%d%r2_sp(i, j)
                      ENDDO
                      ENDDO
                   ENDIF
@@ -2144,20 +2144,20 @@ CONTAINS
                   IF (dbcsr_has_symmetry(matrix) .AND. row .NE. col) THEN
                      DO j = 1, SIZE(data_a%d%r2_dp, 2)
                      DO i = 1, SIZE(data_a%d%r2_dp, 1)
-                        norm_vector%d%r_dp(col_offset+j-1) &
-                           = norm_vector%d%r_dp(col_offset+j-1) &
-                             +data_a%d%r2_dp(i, j)**2
-                        norm_vector%d%r_dp(row_offset+i-1) &
-                           = norm_vector%d%r_dp(row_offset+i-1) &
-                             +data_a%d%r2_dp(i, j)**2
+                        norm_vector%d%r_dp(col_offset + j - 1) &
+                           = norm_vector%d%r_dp(col_offset + j - 1) &
+                             + data_a%d%r2_dp(i, j)**2
+                        norm_vector%d%r_dp(row_offset + i - 1) &
+                           = norm_vector%d%r_dp(row_offset + i - 1) &
+                             + data_a%d%r2_dp(i, j)**2
                      ENDDO
                      ENDDO
                   ELSE
                      DO j = 1, SIZE(data_a%d%r2_dp, 2)
                      DO i = 1, SIZE(data_a%d%r2_dp, 1)
-                        norm_vector%d%r_dp(col_offset+j-1) &
-                           = norm_vector%d%r_dp(col_offset+j-1) &
-                             +data_a%d%r2_dp(i, j)*data_a%d%r2_dp(i, j)
+                        norm_vector%d%r_dp(col_offset + j - 1) &
+                           = norm_vector%d%r_dp(col_offset + j - 1) &
+                             + data_a%d%r2_dp(i, j)*data_a%d%r2_dp(i, j)
                      ENDDO
                      ENDDO
                   ENDIF
@@ -2170,7 +2170,7 @@ CONTAINS
             CALL dbcsr_iterator_stop(iter)
             CALL dbcsr_data_clear_pointer(data_a)
             CALL dbcsr_data_release(data_a)
-            SELECT CASE (dbcsr_get_data_type (matrix))
+            SELECT CASE (dbcsr_get_data_type(matrix))
             CASE (dbcsr_type_real_4)
                CALL mp_sum(norm_vector%d%r_sp, &
                            dbcsr_mp_group(dbcsr_distribution_mp(matrix%dist)))
@@ -2293,15 +2293,15 @@ CONTAINS
       buff_d = 0.0_dp
       CALL dbcsr_iterator_start(iter, matrix)
       DO WHILE (dbcsr_iterator_blocks_left(iter))
-         SELECT CASE (dbcsr_get_data_type (matrix))
+         SELECT CASE (dbcsr_get_data_type(matrix))
          CASE (dbcsr_type_real_4)
             CALL dbcsr_iterator_next_block(iter, row, col, data_r, tr, blk, &
                                            row_offset=row_offset, col_offset=col_offset)
             DO j = 1, SIZE(data_r, 2)
             DO i = 1, SIZE(data_r, 1)
-               buff_d(row_offset+i-1) = buff_d(row_offset+i-1)+ABS(data_r(i, j))
+               buff_d(row_offset + i - 1) = buff_d(row_offset + i - 1) + ABS(data_r(i, j))
                IF (any_sym .AND. row .NE. col) &
-                  buff_d(col_offset+j-1) = buff_d(col_offset+j-1)+ABS(data_r(i, j))
+                  buff_d(col_offset + j - 1) = buff_d(col_offset + j - 1) + ABS(data_r(i, j))
             ENDDO
             ENDDO
          CASE (dbcsr_type_real_8)
@@ -2309,9 +2309,9 @@ CONTAINS
                                            row_offset=row_offset, col_offset=col_offset)
             DO j = 1, SIZE(data_d, 2)
             DO i = 1, SIZE(data_d, 1)
-               buff_d(row_offset+i-1) = buff_d(row_offset+i-1)+ABS(data_d(i, j))
+               buff_d(row_offset + i - 1) = buff_d(row_offset + i - 1) + ABS(data_d(i, j))
                IF (any_sym .AND. row .NE. col) &
-                  buff_d(col_offset+j-1) = buff_d(col_offset+j-1)+ABS(data_d(i, j))
+                  buff_d(col_offset + j - 1) = buff_d(col_offset + j - 1) + ABS(data_d(i, j))
             ENDDO
             ENDDO
          CASE (dbcsr_type_complex_4)
@@ -2319,7 +2319,7 @@ CONTAINS
                                            row_offset=row_offset, col_offset=col_offset)
             DO j = 1, SIZE(data_c, 2)
             DO i = 1, SIZE(data_c, 1)
-               buff_d(row_offset+i-1) = buff_d(row_offset+i-1)+ABS(data_c(i, j))
+               buff_d(row_offset + i - 1) = buff_d(row_offset + i - 1) + ABS(data_c(i, j))
                IF (any_sym .AND. row .NE. col) &
                   DBCSR_ABORT("Only nonsymmetric matrix so far")
                !     buff_d(col_offset+j-1) = buff_d(col_offset+j-1) + ABS(data_c(i,j))
@@ -2330,7 +2330,7 @@ CONTAINS
                                            row_offset=row_offset, col_offset=col_offset)
             DO j = 1, SIZE(data_z, 2)
             DO i = 1, SIZE(data_z, 1)
-               buff_d(row_offset+i-1) = buff_d(row_offset+i-1)+ABS(data_z(i, j))
+               buff_d(row_offset + i - 1) = buff_d(row_offset + i - 1) + ABS(data_z(i, j))
                IF (any_sym .AND. row .NE. col) &
                   DBCSR_ABORT("Only nonsymmetric matrix so far")
                !     buff_d(col_offset+j-1) = buff_d(col_offset+j-1) + ABS(data_z(i,j))
@@ -2371,7 +2371,7 @@ CONTAINS
       norm = 0.0_dp
       CALL dbcsr_iterator_start(iter, matrix)
       DO WHILE (dbcsr_iterator_blocks_left(iter))
-         SELECT CASE (dbcsr_get_data_type (matrix))
+         SELECT CASE (dbcsr_get_data_type(matrix))
          CASE (dbcsr_type_real_4)
             CALL dbcsr_iterator_next_block(iter, row, col, data_r, tr, blk)
             norm = MAX(norm, REAL(MAXVAL(ABS(data_r)), dp))
@@ -2430,29 +2430,29 @@ CONTAINS
       norm = 0.0_dp
       CALL dbcsr_iterator_start(iter, matrix)
       DO WHILE (dbcsr_iterator_blocks_left(iter))
-         SELECT CASE (dbcsr_get_data_type (matrix))
+         SELECT CASE (dbcsr_get_data_type(matrix))
          CASE (dbcsr_type_real_4)
             CALL dbcsr_iterator_next_block(iter, row, col, data_r, tr, blk)
             fac = 1.0_dp
             IF (any_sym .AND. row .NE. col) fac = 2.0_dp
-            norm = norm+fac*SUM(data_r**2)
+            norm = norm + fac*SUM(data_r**2)
          CASE (dbcsr_type_real_8)
             CALL dbcsr_iterator_next_block(iter, row, col, data_d, tr, blk)
             fac = 1.0_dp
             IF (any_sym .AND. row .NE. col) fac = 2.0_dp
-            norm = norm+fac*SUM(data_d**2)
+            norm = norm + fac*SUM(data_d**2)
          CASE (dbcsr_type_complex_4)
             CALL dbcsr_iterator_next_block(iter, row, col, data_c, tr, blk)
             fac = 1.0_dp
             IF (any_sym .AND. row .NE. col) &
                DBCSR_ABORT("Only nonsymmetric matrix so far")
-            norm = norm+fac*REAL(SUM(CONJG(data_c)*data_c), KIND=real_8)
+            norm = norm + fac*REAL(SUM(CONJG(data_c)*data_c), KIND=real_8)
          CASE (dbcsr_type_complex_8)
             CALL dbcsr_iterator_next_block(iter, row, col, data_z, tr, blk)
             fac = 1.0_dp
             IF (any_sym .AND. row .NE. col) &
                DBCSR_ABORT("Only nonsymmetric matrix so far")
-            norm = norm+fac*REAL(SUM(CONJG(data_z)*data_z), KIND=real_8)
+            norm = norm + fac*REAL(SUM(CONJG(data_z)*data_z), KIND=real_8)
          CASE DEFAULT
             DBCSR_ABORT("Wrong data type")
          END SELECT
@@ -2473,7 +2473,7 @@ CONTAINS
       TYPE(dbcsr_type), INTENT(inout)                    :: matrix
 
       CHARACTER(len=*), PARAMETER :: routineN = 'dbcsr_sum_replicated', &
-         routineP = moduleN//':'//routineN
+                                     routineP = moduleN//':'//routineN
 
       INTEGER                                            :: comm, handle, index_checksum, mynode, &
                                                             numnodes
@@ -2495,7 +2495,7 @@ CONTAINS
       IF (.NOT. ALL(all_checksums .EQ. index_checksum)) &
          DBCSR_ABORT("Replicated matrices do not all have the same index structure.")
       !
-      SELECT CASE (dbcsr_data_get_type (matrix%data_area))
+      SELECT CASE (dbcsr_data_get_type(matrix%data_area))
       CASE (dbcsr_type_real_4)
          CALL mp_sum(matrix%data_area%d%r_sp, comm)
       CASE (dbcsr_type_real_8)
@@ -2522,7 +2522,7 @@ CONTAINS
       REAL(kind=real_8), INTENT(INOUT)                   :: trace
 
       CHARACTER(len=*), PARAMETER :: routineN = 'dbcsr_trace_a_b_d', &
-         routineP = moduleN//':'//routineN
+                                     routineP = moduleN//':'//routineN
 
       INTEGER                                            :: handle
       REAL(kind=real_4)                                  :: trace_4
@@ -2556,14 +2556,14 @@ CONTAINS
       TYPE(dbcsr_scalar_type), INTENT(INOUT)             :: trace
 
       CHARACTER(len=*), PARAMETER :: routineN = 'dbcsr_trace_a_any', &
-         routineP = moduleN//':'//routineN
+                                     routineP = moduleN//':'//routineN
 
       INTEGER                                            :: error_handle
 
 !   ---------------------------------------------------------------------------
 
       CALL timeset(routineN, error_handle)
-      SELECT CASE (dbcsr_scalar_get_type (trace))
+      SELECT CASE (dbcsr_scalar_get_type(trace))
       CASE (dbcsr_type_real_4)
          CALL dbcsr_trace(matrix_a, trace%r_sp)
       CASE (dbcsr_type_real_8)
@@ -2641,10 +2641,10 @@ CONTAINS
                              matrix_type, data_type)
       TYPE(dbcsr_type), INTENT(IN)                       :: matrix
       INTEGER, INTENT(OUT), OPTIONAL :: nblkrows_total, nblkcols_total, nfullrows_total, &
-         nfullcols_total, nblkrows_local, nblkcols_local, nfullrows_local, nfullcols_local, &
-         my_prow, my_pcol
+                                        nfullcols_total, nblkrows_local, nblkcols_local, nfullrows_local, nfullcols_local, &
+                                        my_prow, my_pcol
       INTEGER, DIMENSION(:), OPTIONAL, POINTER :: local_rows, local_cols, proc_row_dist, &
-         proc_col_dist, row_blk_size, col_blk_size, row_blk_offset, col_blk_offset
+                                                  proc_col_dist, row_blk_size, col_blk_size, row_blk_offset, col_blk_offset
       TYPE(dbcsr_distribution_obj), INTENT(OUT), &
          OPTIONAL                                        :: distribution
       CHARACTER(len=*), INTENT(OUT), OPTIONAL            :: name
@@ -2656,7 +2656,7 @@ CONTAINS
 
 !   ---------------------------------------------------------------------------
 
-      !vw avoid massive priting of warnings
+      !vw avoid massive printing of warnings
       !DBCSR_WARN("Invalid matrix")
       IF (PRESENT(nblkrows_total)) nblkrows_total = matrix%nblkrows_total
       IF (PRESENT(nblkcols_total)) nblkcols_total = matrix%nblkcols_total
@@ -2690,7 +2690,7 @@ CONTAINS
    END SUBROUTINE dbcsr_get_info
 
 ! **************************************************************************************************
-!> \brief Returns whether the matrix could be represeneted in a dense form
+!> \brief Returns whether the matrix could be represented in a dense form
 !> \param[in] matrix          matrix
 !> \param occ_thresh ...
 !> \return use the mutable and not append-only working
@@ -2735,12 +2735,12 @@ CONTAINS
       IF (nfullrows .NE. 0 .AND. nfullcols .NE. 0) THEN
          IF (dbcsr_has_symmetry(matrix)) THEN
             IF (2*nze_global .EQ. &
-                (INT(nfullrows, KIND=int_8)*INT(nfullrows+1, KIND=int_8)+SUM(row_blk_size*(row_blk_size-1)))) THEN
+                (INT(nfullrows, KIND=int_8)*INT(nfullrows + 1, KIND=int_8) + SUM(row_blk_size*(row_blk_size - 1)))) THEN
                occupation = 1.0_real_8
             ELSE
                occupation = 2.0_real_8*REAL(nze_global, real_8)/ &
-                            (REAL(nfullrows, real_8)*REAL(nfullrows+1, real_8)+ &
-                             SUM(REAL(row_blk_size, real_8)*REAL(row_blk_size-1, real_8)))
+                            (REAL(nfullrows, real_8)*REAL(nfullrows + 1, real_8) + &
+                             SUM(REAL(row_blk_size, real_8)*REAL(row_blk_size - 1, real_8)))
             ENDIF
          ELSE
             IF (nze_global .EQ. INT(nfullrows, KIND=int_8)*INT(nfullcols, KIND=int_8)) THEN
