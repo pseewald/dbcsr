@@ -72,6 +72,8 @@ CONTAINS
 !> \brief copy data (involves reshape)
 !> \param tensor_in ...
 !> \param tensor_out ...
+!> todo: option to deallocate in matrix before communication and release buffer_send after communication
+!> --> factor 2 in local memory instead of factor 4
 ! **************************************************************************************************
    SUBROUTINE dbcsr_t_reshape(tensor_in, tensor_out, summation)
 

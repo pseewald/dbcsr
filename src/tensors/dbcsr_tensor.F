@@ -120,6 +120,11 @@ MODULE dbcsr_tensor
       MODULE PROCEDURE dims_tensor
    END INTERFACE
 
+   INTERFACE dbcsr_t_split_blocks
+      MODULE PROCEDURE dbcsr_t_split_blocks_samesize
+      MODULE PROCEDURE dbcsr_t_split_blocks_arbsize
+   END INTERFACE
+
 CONTAINS
 
 ! **************************************************************************************************
@@ -1153,29 +1158,29 @@ CONTAINS
    END SUBROUTINE
 
 ! **************************************************************************************************
-!> \brief Split tensor blocks into smaller blocks of maximum size PRODUCT(block_sizes).
+!> \brief Split tensor blocks into smaller blocks
 !> \param tensor_in Input tensor
 !> \param tensor_out Output tensor (splitted blocks)
 !> \param block_sizes block sizes for each of the tensor dimensions
 ! **************************************************************************************************
-   SUBROUTINE dbcsr_t_split_blocks(tensor_in, tensor_out, block_sizes)
+   SUBROUTINE dbcsr_t_split_blocks_arbsize(tensor_in, tensor_out, ${varlist("blk_size")}$)
       TYPE(dbcsr_t_type), INTENT(INOUT)               :: tensor_in
       TYPE(dbcsr_t_type), INTENT(OUT)                 :: tensor_out
-      INTEGER, DIMENSION(dbcsr_t_ndims(tensor_in)), &
-         INTENT(IN)                                   :: block_sizes
+      INTEGER, DIMENSION(:), INTENT(IN), OPTIONAL     :: ${varlist("blk_size")}$
 
       TYPE(dbcsr_t_distribution_type)                 :: dist_old, dist_split
       TYPE(dbcsr_t_iterator_type)                     :: iter
       INTEGER, DIMENSION(:), ALLOCATABLE              :: ${varlist("nd_dist_split")}$
       INTEGER, DIMENSION(:), ALLOCATABLE              :: ${varlist("nd_blk_size_split")}$
       INTEGER, DIMENSION(:), ALLOCATABLE              :: ${varlist("index_split_offset")}$
+      INTEGER, DIMENSION(:), ALLOCATABLE              :: ${varlist("inblock_offset")}$
       INTEGER                                         :: ${varlist("split_blk")}$
-      INTEGER :: idim, i, isplit_sum, blk_remainder, blk, nsplit, isplit, handle
+      INTEGER :: idim, i, isplit_sum, blk_remainder, blk, nsplit, isplit, handle, splitsum
       INTEGER, DIMENSION(:), ALLOCATABLE :: dist_d, blk_size_d, blk_size_split_d, dist_split_d, &
          map1_2d, map2_2d
-      INTEGER, DIMENSION(dbcsr_t_ndims(tensor_in)) :: blk_index, blk_size, blk_offset, nsplit_blk, &
+      INTEGER, DIMENSION(dbcsr_t_ndims(tensor_in)) :: blk_index, blk_size, blk_offset, &
          isplit_sum_blk, blk_remainder_nd, blk_shape
-      INTEGER, DIMENSION(${maxdim}$) :: split_index
+      INTEGER, DIMENSION(${maxdim}$) :: bi_split, inblock_offset
       LOGICAL :: found
 
 #:for dparam, dtype, dsuffix in dtype_float_list
@@ -1185,7 +1190,6 @@ CONTAINS
 #:endfor
       CHARACTER(LEN=*), PARAMETER :: routineN = 'dbcsr_t_split_blocks', &
          routineP = moduleN//':'//routineN
-
 
       CALL timeset(routineN, handle)
 
@@ -1197,34 +1201,37 @@ CONTAINS
 
 #:for idim in range(1, maxdim+1)
          IF (idim == ${idim}$) THEN
+            ! split block index offset for each normal block index
             ALLOCATE(index_split_offset_${idim}$(SIZE(dist_d)))
+            ! how many split blocks for each normal block index
+            ALLOCATE(blk_nsplit_${idim}$(SIZE(dist_d)))
+            ! data offset of split blocks w.r.t. corresponding normal block
+            ALLOCATE(inblock_offset_${idim}$(SIZE(blk_size_${idim}$)))
+            CALL allocate_any(blk_size_split_d, source=blk_size_${idim}$)
          ENDIF
 #:endfor
 
-         isplit_sum=0
-         DO i = 1, SIZE(dist_d)
-            nsplit = (blk_size_d(i)+block_sizes(idim)-1)/block_sizes(idim)
-            isplit_sum = isplit_sum+nsplit
-         ENDDO
-         ALLOCATE(dist_split_d(isplit_sum))
-         ALLOCATE(blk_size_split_d(isplit_sum))
+         ! distribution vector for split blocks
+         ALLOCATE(dist_split_d(SIZE(blk_size_split_d))
 
-         isplit_sum = 0
-         DO i = 1, SIZE(dist_d)
-            nsplit = (blk_size_d(i)+block_sizes(idim)-1)/block_sizes(idim)
-            blk_remainder = blk_size_d(i)
+         isplit_sum = 0 ! counting splits
+         DO i = 1, SIZE(blk_size_d)
+            nsplit = 0 ! number of splits for current normal block
+            splitsum = 0 ! summing split block sizes for current normal block
+            DO WHILE(splitsum < blk_size_d(i))
+               nsplit = nsplit + 1
+               isplit_sum = isplit_sum + 1
+               inblock_offset_${idim}$(isplit_sum) = splitsum
+               dist_split_d(isplit_sum) = dist_d(i)
+               splitsum = splitsum + blk_size_split_d(isplit_sum)
+            ENDDO
+            DBCSR_ASSERT(splitsum == blk_size_d(i))
 #:for idim in range(1, maxdim+1)
             IF(idim == ${idim}$) THEN
-               index_split_offset_${idim}$(i) = isplit_sum
+               blk_nsplit_${idim}$(i) = nsplit
+               index_split_offset_${idim}$(i) = isplit_sum - nsplit
             ENDIF
 #:endfor
-            DO isplit = 1, nsplit
-               isplit_sum = isplit_sum + 1
-               dist_split_d(isplit_sum) = dist_d(i)
-               blk_size_split_d(isplit_sum) = MIN(block_sizes(idim), blk_remainder)
-               blk_remainder = blk_remainder - block_sizes(idim)
-            ENDDO
-
          ENDDO
 
 #:for idim in range(1, maxdim+1)
@@ -1266,31 +1273,31 @@ CONTAINS
          ENDIF
 #:endfor
 
-         nsplit_blk = (blk_size + block_sizes - 1)/block_sizes
-
 #:for ndim in ndims
          IF (dbcsr_t_ndims(tensor_in) == ${ndim}$) THEN
 #:for idim in range(1,ndim+1)
 
-            blk_remainder_nd(${idim}$) = blk_size(${idim}$)
-            isplit_sum_blk(${idim}$) = 0
-            DO split_blk_${idim}$ = 1, nsplit_blk(${idim}$)
-               isplit_sum_blk(${idim}$) = isplit_sum_blk(${idim}$) + 1
+            bi = blk_index(${idim}$)
+            DO split_blk_${idim}$ = 1, blk_nsplit_${idim}$(bi)
 
-               blk_shape(${idim}$) = MIN(block_sizes(${idim}$), blk_remainder_nd(${idim}$))
-               blk_remainder_nd(${idim}$) = blk_remainder_nd(${idim}$) - block_sizes(${idim}$)
+               ! split block index
+               bi_split(${idim}$) = index_split_offset_${idim}$(bi) + split_blk_${idim}$
+               blk_shape(${idim}$) = blk_size_${idim}$(bi_split)
 #:endfor
-
-               split_index(1:${ndim}$) = [${", ".join(["index_split_offset_"+str(idim)+"(blk_index("+str(idim)+")) + isplit_sum_blk("+str(idim)+")" for idim in range(1, ndim+1)])}$]
 
 #:for dparam, dtype, dsuffix in dtype_float_list
 
                IF (dbcsr_t_get_data_type(tensor_in) == ${dparam}$) THEN
 
-                  CALL dbcsr_t_put_block(tensor_out, split_index(1:${ndim}$), &
+#:for idim in range(1,ndim+1)
+                  inblock_offset(${idim}$) = inblock_offset_${idim}$(bi_split(${idim}$))
+#:endfor
+
+                  CALL dbcsr_t_put_block(tensor_out, bi_split(1:${ndim}$), &
                                          blk_shape, &
                                          block_${dsuffix}$_${ndim}$d( &
-                                         ${", ".join(["(isplit_sum_blk("+str(idim)+") - 1)*block_sizes("+str(idim)+") + 1:MIN(isplit_sum_blk("+str(idim)+")*block_sizes("+str(idim)+"), blk_size("+str(idim)+"))" for idim in range(1, ndim+1)])}$))
+                                         ${", ".join(["inblock_offset("+str(idim)+") + 1:inblock_offset("+str(idim)+") + blk_shape("+str(idim)+")" for idim in range(1, ndim+1)])}$))
+
                ENDIF
 #:endfor
 
@@ -1311,6 +1318,59 @@ CONTAINS
       CALL dbcsr_t_finalize(tensor_out)
 
       CALL timestop(handle)
+
+   END SUBROUTINE
+
+
+! **************************************************************************************************
+!> \brief Split tensor blocks into smaller blocks of maximum size PRODUCT(block_sizes).
+!> \param tensor_in Input tensor
+!> \param tensor_out Output tensor (splitted blocks)
+!> \param block_sizes block sizes for each of the tensor dimensions
+! **************************************************************************************************
+   SUBROUTINE dbcsr_t_split_blocks_samesize(tensor_in, tensor_out, block_sizes)
+      TYPE(dbcsr_t_type), INTENT(INOUT)               :: tensor_in
+      TYPE(dbcsr_t_type), INTENT(OUT)                 :: tensor_out
+      INTEGER, DIMENSION(dbcsr_t_ndims(tensor_in)), &
+         INTENT(IN)                                   :: block_sizes
+
+      INTEGER, DIMENSION(:), ALLOCATABLE              :: ${varlist("nd_blk_size_split")}$
+      INTEGER :: idim, i, isplit_sum, blk_remainder, nsplit, isplit
+      INTEGER, DIMENSION(:), ALLOCATABLE :: blk_size_d, blk_size_split_d, &
+
+#:for dparam, dtype, dsuffix in dtype_float_list
+#:for ndim in ndims
+      ${dtype}$, DIMENSION(${shape_colon(n=ndim)}$), ALLOCATABLE :: block_${dsuffix}$_${ndim}$d
+#:endfor
+#:endfor
+      CHARACTER(LEN=*), PARAMETER :: routineN = 'dbcsr_t_split_blocks', &
+         routineP = moduleN//':'//routineN
+
+      DO idim = 1, ndims_tensor(tensor_in)
+         CALL get_ith_array(tensor_in%blk_sizes, idim, blk_size_d)
+
+         ALLOCATE(blk_size_split_d(isplit_sum))
+
+         isplit_sum = 0
+         DO i = 1, SIZE(blk_size_d)
+            nsplit = (blk_size_d(i)+block_sizes(idim)-1)/block_sizes(idim)
+            blk_remainder = blk_size_d(i)
+            DO isplit = 1, nsplit
+               isplit_sum = isplit_sum + 1
+               blk_size_split_d(isplit_sum) = MIN(block_sizes(idim), blk_remainder)
+               blk_remainder = blk_remainder - block_sizes(idim)
+            ENDDO
+
+         ENDDO
+
+#:for idim in range(1, maxdim+1)
+         IF(idim == ${idim}$) THEN
+            CALL allocate_any(nd_blk_size_split_${idim}$, source=blk_size_split_d)
+         ENDIF
+#:endfor
+      ENDDO
+
+      CALL dbcsr_t_split_blocks_arbsize(tensor_in, tensor_out, ${varlist("nd_blk_size_split")}$)
 
    END SUBROUTINE
 
