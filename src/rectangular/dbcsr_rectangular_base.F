@@ -1142,7 +1142,7 @@ CONTAINS
       nblock_p_sum = dbcsr_r_get_num_blocks(matrix)
       nelement_p_sum = dbcsr_r_get_data_size(matrix)
 
-      tmp = (/nblock_p_sum, nelement_p_sum/)
+      tmp = INT((/nblock_p_sum, nelement_p_sum/))
       CALL mp_sum(nblock_p_sum, mp_comm)
       CALL mp_sum(nelement_p_sum, mp_comm)
 
