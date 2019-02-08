@@ -111,7 +111,8 @@ MODULE dbcsr_tensor
       dbcsr_t_split_blocks,&
       dbcsr_t_split_blocks_generic,&
       dbcsr_t_copy_matrix_to_tensor,&
-      dbcsr_t_copy_tensor_to_matrix
+      dbcsr_t_copy_tensor_to_matrix,&
+      dbcsr_t_split_copyback
 
    INTERFACE dbcsr_t_ndims
       MODULE PROCEDURE ndims_tensor
@@ -1378,7 +1379,7 @@ CONTAINS
 
    END SUBROUTINE
 
-   SUBROUTINE dbcsr_t_split_localcopy(tensor_split_in, tensor_out)
+   SUBROUTINE dbcsr_t_split_copyback(tensor_split_in, tensor_out)
       TYPE(dbcsr_t_type), INTENT(INOUT)               :: tensor_split_in
       TYPE(dbcsr_t_type), INTENT(INOUT)               :: tensor_out
       INTEGER, DIMENSION(:), ALLOCATABLE              :: first_split_d, last_split_d

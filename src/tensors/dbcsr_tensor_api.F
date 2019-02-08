@@ -23,6 +23,7 @@ MODULE dbcsr_tensor_api
                                               dbcsr_t_put_block,&
                                               dbcsr_t_reserve_blocks,&
                                               dbcsr_t_split_blocks,&
+                                              dbcsr_t_split_copyback,&
                                               dbcsr_t_copy_matrix_to_tensor,&
                                               dbcsr_t_copy,&
                                               dbcsr_t_copy_tensor_to_matrix
@@ -89,5 +90,6 @@ MODULE dbcsr_tensor_api
    PUBLIC :: dbcsr_t_get_info
    PUBLIC :: dbcsr_t_checksum
    PUBLIC :: dbcsr_t_finalize
+   PUBLIC :: dbcsr_t_split_copyback
 
 END MODULE dbcsr_tensor_api
