@@ -71,6 +71,7 @@ MODULE dbcsr_rectangular_base
    USE dbcsr_mpiwrap,                 ONLY: mp_cart_rank,&
                                               mp_environ,&
                                               mp_sum, mp_max
+   USE dbcsr_index_operations,        ONLY: dbcsr_sort_indices
 #include "../base/dbcsr_base_uses.f90"
 
    IMPLICIT NONE
@@ -87,7 +88,7 @@ MODULE dbcsr_rectangular_base
              dbcsr_r_nblkcols_local, dbcsr_r_nblkrows_local, dbcsr_r_iterator_blocks_left, &
              dbcsr_r_blk_sizes, dbcsr_r_iterator_start, dbcsr_r_iterator_stop, dbcsr_r_reserve_blocks, &
              dbcsr_r_get_info, dbcsr_r_set, dbcsr_r_filter, dbcsr_r_get_num_blocks, dbcsr_r_get_data_size,&
-             dbcsr_r_write_matrix_info, dbcsr_r_clear, dbcsr_r_write_dist
+             dbcsr_r_write_matrix_info, dbcsr_r_clear, dbcsr_r_write_dist, index_unique
 
    INTERFACE dbcsr_r_create
       MODULE PROCEDURE dbcsr_r_create_new
@@ -783,20 +784,24 @@ CONTAINS
          routineP = moduleN//':'//routineN
 
       INTEGER                                            :: handle, icol, irow
-      INTEGER, DIMENSION(SIZE(rows))                     :: columns_group, rows_group
+      INTEGER, DIMENSION(SIZE(rows), 2)                :: rowcols_group
+      INTEGER, DIMENSION(:,:), ALLOCATABLE             :: rowcols_group_u
 
       CALL timeset(routineN, handle)
 
       DO irow = 1, SIZE(rows)
-         CALL block_index_global_to_local(dbcsr_r_info(matrix), matrix%dist, row=rows(irow), row_group=rows_group(irow))
+         CALL block_index_global_to_local(dbcsr_r_info(matrix), matrix%dist, row=rows(irow), &
+                                          row_group=rowcols_group(irow, 1))
       ENDDO
 
       DO icol = 1, SIZE(columns)
          CALL block_index_global_to_local(dbcsr_r_info(matrix), matrix%dist, column=columns(icol), &
-                                          column_group=columns_group(icol))
+                                          column_group=rowcols_group(icol, 2))
       ENDDO
 
-      CALL dbcsr_reserve_blocks(matrix%matrix, rows_group, columns_group)
+      CALL index_unique(rowcols_group, rowcols_group_u) ! todo: is this really needed?
+
+      CALL dbcsr_reserve_blocks(matrix%matrix, rowcols_group_u(:,1), rowcols_group_u(:,2))
 
       CALL timestop(handle)
    END SUBROUTINE
@@ -1195,6 +1200,41 @@ CONTAINS
             ENDIF
          ENDIF
       ENDIF
+   END SUBROUTINE
+
+! **************************************************************************************************
+!> \brief ...
+!> \param index_in ...
+!> \param index_out ...
+! **************************************************************************************************
+   SUBROUTINE index_unique(index_in, index_out)
+      INTEGER, DIMENSION(:, :), INTENT(IN)   :: index_in
+      INTEGER, ALLOCATABLE, &
+         DIMENSION(:, :), INTENT(OUT)                    :: index_out
+
+      INTEGER                                            :: blk, count, orig_size
+      INTEGER, ALLOCATABLE, DIMENSION(:, :)  :: index_tmp
+      INTEGER, DIMENSION(2)                  :: prev_index
+      INTEGER, DIMENSION(1:SIZE(index_in, 1)&
+         , 1:SIZE(index_in, 2))                          :: index_sorted
+
+      orig_size = SIZE(index_in, 1)
+      ALLOCATE (index_tmp(orig_size, 2))
+      index_sorted(:, :) = index_in(:, :)
+      CALL dbcsr_sort_indices(orig_size, index_sorted(:, 1), index_sorted(:, 2))
+      count = 0
+      prev_index(:) = [0, 0]
+      DO blk = 1, orig_size
+         IF (ANY(index_sorted(blk, :) .NE. prev_index(:))) THEN
+            count = count+1
+            index_tmp(count, :) = index_sorted(blk, :)
+            prev_index(:) = index_sorted(blk, :)
+         ENDIF
+      ENDDO
+
+      ALLOCATE (index_out(count, 2))
+      index_out(:, :) = index_tmp(1:count, :)
+
    END SUBROUTINE
 
 END MODULE

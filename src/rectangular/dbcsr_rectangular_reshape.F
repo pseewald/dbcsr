@@ -35,7 +35,7 @@ MODULE dbcsr_rectangular_reshape
         dbcsr_r_get_data_type, dbcsr_r_get_stored_coordinates, dbcsr_r_info, &
         dbcsr_r_iterator_blocks_left, dbcsr_r_iterator_next_block, dbcsr_r_iterator_start, &
         dbcsr_r_iterator_stop, dbcsr_r_put_block, dbcsr_r_reserve_blocks, &
-        dbcsr_repl_get_stored_coordinates
+        dbcsr_repl_get_stored_coordinates, index_unique
    USE dbcsr_rectangular_base_types,    ONLY: dbcsr_r_distribution_type,&
                                               dbcsr_r_iterator,&
                                               dbcsr_r_split_info,&
@@ -610,41 +610,6 @@ CONTAINS
       CALL dbcsr_finalize(matrix_out)
 
       CALL timestop(handle)
-   END SUBROUTINE
-
-! **************************************************************************************************
-!> \brief ...
-!> \param index_in ...
-!> \param index_out ...
-! **************************************************************************************************
-   SUBROUTINE index_unique(index_in, index_out)
-      INTEGER, DIMENSION(:, :), INTENT(IN)   :: index_in
-      INTEGER, ALLOCATABLE, &
-         DIMENSION(:, :), INTENT(OUT)                    :: index_out
-
-      INTEGER                                            :: blk, count, orig_size
-      INTEGER, ALLOCATABLE, DIMENSION(:, :)  :: index_tmp
-      INTEGER, DIMENSION(2)                  :: prev_index
-      INTEGER, DIMENSION(1:SIZE(index_in, 1)&
-         , 1:SIZE(index_in, 2))                          :: index_sorted
-
-      orig_size = SIZE(index_in, 1)
-      ALLOCATE (index_tmp(orig_size, 2))
-      index_sorted(:, :) = index_in(:, :)
-      CALL dbcsr_sort_indices(orig_size, index_sorted(:, 1), index_sorted(:, 2))
-      count = 0
-      prev_index(:) = [0, 0]
-      DO blk = 1, orig_size
-         IF (ANY(index_sorted(blk, :) .NE. prev_index(:))) THEN
-            count = count+1
-            index_tmp(count, :) = index_sorted(blk, :)
-            prev_index(:) = index_sorted(blk, :)
-         ENDIF
-      ENDDO
-
-      ALLOCATE (index_out(count, 2))
-      index_out(:, :) = index_tmp(1:count, :)
-
    END SUBROUTINE
 
 END MODULE
