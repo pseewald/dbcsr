@@ -1298,7 +1298,10 @@ CONTAINS
       CALL dbcsr_t_distribution_destroy(dist_split)
 
       IF(PRESENT(nodata)) THEN
-         IF(nodata) RETURN
+         IF(nodata) THEN
+            CALL timestop(handle)
+            RETURN
+         ENDIF
       ENDIF
 
       CALL dbcsr_t_iterator_start(iter, tensor_in)
@@ -1624,7 +1627,7 @@ CONTAINS
 
 #:for idim in range(1, maxdim+1)
          IF(idim == ${idim}$) THEN
-            CALL allocate_any(blk_size_split_${idim}$, source=blk_size_d_split)
+            CALL allocate_any(blk_size_split_${idim}$, source=blk_size_d_split(:isplit))
          ENDIF
 #:endfor
 
