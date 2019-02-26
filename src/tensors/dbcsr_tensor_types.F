@@ -1310,8 +1310,8 @@ CONTAINS
                   ENDDO
                ENDIF
 #:endfor
-               WRITE (output_unit, *)
             ENDIF
+            WRITE (output_unit, *)
          ENDIF
       ENDIF
 

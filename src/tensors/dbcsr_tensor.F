@@ -139,11 +139,12 @@ CONTAINS
 !> \param order Permutation of target tensor index. Exact same convention as order argument of RESHAPE
 !>              intrinsic
 ! **************************************************************************************************
-   SUBROUTINE dbcsr_t_copy(tensor_in, tensor_out, order, summation)
+   SUBROUTINE dbcsr_t_copy(tensor_in, tensor_out, order, summation, unit_nr)
       TYPE(dbcsr_t_type), INTENT(INOUT), TARGET      :: tensor_in, tensor_out
       INTEGER, DIMENSION(ndims_tensor(tensor_in)), &
          INTENT(IN), OPTIONAL                        :: order
       LOGICAL, INTENT(IN), OPTIONAL                  :: summation
+      INTEGER, INTENT(IN), OPTIONAL                  :: unit_nr
 
       TYPE(dbcsr_t_type), POINTER                    :: in_tmp_1, in_tmp_2, out_tmp_1
       INTEGER                                        :: handle
@@ -183,6 +184,27 @@ CONTAINS
          ALLOCATE(in_tmp_2, out_tmp_1)
          new_in_2 = .TRUE.; new_out_1 = .TRUE.
          CALL dbcsr_t_make_compatible_blocks(in_tmp_1, tensor_out, in_tmp_2, out_tmp_1, nodata2=.TRUE.)
+
+         IF (PRESENT(unit_nr)) THEN
+            IF (unit_nr > 0) THEN
+               WRITE (unit_nr, '(A)') repeat("-", 80)
+               WRITE (unit_nr, '(A,1X,A,1X,A,1X,A,1X,A,1X,A)') "DBCSR TENSOR COPY in:", &
+                  TRIM(in_tmp_2%name), 'x', TRIM(in_tmp_1%name)
+               WRITE (unit_nr, '(A)') repeat("-", 80)
+            ENDIF
+            CALL dbcsr_t_write_tensor_info(in_tmp_1, unit_nr, full_info=.TRUE.)
+            CALL dbcsr_t_write_tensor_dist(in_tmp_1, unit_nr)
+            IF (unit_nr > 0) THEN
+               WRITE (unit_nr, '(A)') repeat("-", 80)
+               WRITE (unit_nr, '(A,1X,A,1X,A,1X,A,1X,A,1X,A)') "DBCSR TENSOR COPY split:", &
+                  TRIM(in_tmp_2%name), 'x', TRIM(out_tmp_1%name)
+               WRITE (unit_nr, '(A)') repeat("-", 80)
+            ENDIF
+            CALL dbcsr_t_write_tensor_info(in_tmp_2, unit_nr, full_info=.TRUE.)
+            CALL dbcsr_t_write_tensor_dist(in_tmp_2, unit_nr)
+            CALL dbcsr_t_write_tensor_info(out_tmp_1, unit_nr, full_info=.TRUE.)
+            CALL dbcsr_t_write_tensor_dist(out_tmp_1, unit_nr)
+         ENDIF
       ELSE
          in_tmp_2 => in_tmp_1
          out_tmp_1 => tensor_out
@@ -214,6 +236,9 @@ CONTAINS
       ENDIF
 
       IF(new_out_1) THEN
+         IF (PRESENT(unit_nr)) THEN
+            CALL dbcsr_t_write_tensor_dist(out_tmp_1, unit_nr)
+         ENDIF
          CALL dbcsr_t_split_copyback(out_tmp_1, tensor_out, summation)
          CALL dbcsr_t_destroy(out_tmp_1)
          DEALLOCATE(out_tmp_1)
@@ -1212,7 +1237,8 @@ CONTAINS
       INTEGER, DIMENSION(:), ALLOCATABLE              :: ${varlist("inblock_offset")}$
       INTEGER, DIMENSION(:), ALLOCATABLE              :: ${varlist("blk_nsplit")}$
       INTEGER                                         :: ${varlist("split_blk")}$
-      INTEGER :: idim, i, isplit_sum, blk, nsplit, handle, splitsum
+      INTEGER :: idim, i, isplit_sum, blk, nsplit, handle, splitsum, nblk, bcount, proc, proc_out, nproc
+      INTEGER, DIMENSION(:, :), ALLOCATABLE           :: blks_to_allocate
       INTEGER, DIMENSION(:), ALLOCATABLE :: dist_d, blk_size_d, blk_size_split_d, dist_split_d, &
          map1_2d, map2_2d
       INTEGER, DIMENSION(dbcsr_t_ndims(tensor_in)) :: blk_index, blk_size, blk_offset, &
@@ -1304,6 +1330,36 @@ CONTAINS
          ENDIF
       ENDIF
 
+      nblk = dbcsr_t_get_num_blocks(tensor_in)
+      ALLOCATE(blks_to_allocate(nblk, dbcsr_t_ndims(tensor_in)))
+
+      CALL dbcsr_t_iterator_start(iter, tensor_in)
+
+      bcount = 0
+      DO WHILE (dbcsr_t_iterator_blocks_left(iter))
+         CALL dbcsr_t_iterator_next_block(iter, blk_index, blk, blk_size=blk_size, blk_offset=blk_offset)
+         bcount = bcount + 1
+
+#:for ndim in ndims
+         IF (dbcsr_t_ndims(tensor_in) == ${ndim}$) THEN
+#:for idim in range(1,ndim+1)
+            DO split_blk_${idim}$ = 1, blk_nsplit_${idim}$(blk_index(${idim}$))
+               bi_split(${idim}$) = index_split_offset_${idim}$(blk_index(${idim}$)) + split_blk_${idim}$
+#:endfor
+
+#:for idim in range(1,ndim+1)
+            ENDDO
+
+            blks_to_allocate(bcount, :) = bi_split(1:dbcsr_t_ndims(tensor_in))
+#:endfor
+         ENDIF
+#:endfor
+      ENDDO
+
+      CALL dbcsr_t_iterator_stop(iter)
+
+      CALL dbcsr_t_reserve_blocks(tensor_out, blks_to_allocate)
+
       CALL dbcsr_t_iterator_start(iter, tensor_in)
 
       DO WHILE (dbcsr_t_iterator_blocks_left(iter))
@@ -1318,7 +1374,6 @@ CONTAINS
 #:endfor
          ENDIF
 #:endfor
-
 #:for ndim in ndims
          IF (dbcsr_t_ndims(tensor_in) == ${ndim}$) THEN
 #:for idim in range(1,ndim+1)
