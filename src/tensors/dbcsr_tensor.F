@@ -394,9 +394,9 @@ CONTAINS
 
       IF(occ_1 == 0 .OR. occ_2 == 0) THEN
          CALL dbcsr_t_scale(tensor_3, beta)
+         CALL timestop(handle)
          RETURN
       ENDIF
-
 
       IF (PRESENT(unit_nr)) THEN
          IF (unit_nr > 0) THEN
@@ -1237,7 +1237,7 @@ CONTAINS
       INTEGER, DIMENSION(:), ALLOCATABLE              :: ${varlist("inblock_offset")}$
       INTEGER, DIMENSION(:), ALLOCATABLE              :: ${varlist("blk_nsplit")}$
       INTEGER                                         :: ${varlist("split_blk")}$
-      INTEGER :: idim, i, isplit_sum, blk, nsplit, handle, splitsum, nblk, bcount, proc, proc_out, nproc
+      INTEGER :: idim, i, isplit_sum, blk, nsplit, handle, splitsum, nblk, bcount
       INTEGER, DIMENSION(:, :), ALLOCATABLE           :: blks_to_allocate
       INTEGER, DIMENSION(:), ALLOCATABLE :: dist_d, blk_size_d, blk_size_split_d, dist_split_d, &
          map1_2d, map2_2d
