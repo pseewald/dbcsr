@@ -66,7 +66,7 @@ CONTAINS
 !> \param matrix_c ...
 ! **************************************************************************************************
    SUBROUTINE dbcsr_r_multiply(transa, transb, transc, alpha, matrix_a, matrix_b, beta, matrix_c, &
-                               optimize_dist, filter_eps, flop, io_unit)
+                               optimize_dist, filter_eps, flop, move_data, io_unit)
       CHARACTER(LEN=1), INTENT(IN)                       :: transa, transb, transc
       TYPE(dbcsr_scalar_type), INTENT(IN) :: alpha
       TYPE(dbcsr_r_type), TARGET, INTENT(INOUT) :: matrix_a, matrix_b
@@ -77,6 +77,7 @@ CONTAINS
       LOGICAL, INTENT(IN), OPTIONAL             :: optimize_dist
       REAL(KIND=real_8), INTENT(IN), OPTIONAL            :: filter_eps
       INTEGER(KIND=int_8), INTENT(OUT), OPTIONAL        :: flop
+      LOGICAL, INTENT(IN), OPTIONAL                     :: move_data
       REAL(KIND=real_8)                                  :: filter_eps_prv
       INTEGER(KIND=int_8), DIMENSION(2) :: dims_a, dims_b, dims_c
       INTEGER(KIND=int_8), DIMENSION(3) :: dims
@@ -89,7 +90,7 @@ CONTAINS
       INTEGER, DIMENSION(2) :: pdims, pcoord
       CHARACTER(LEN=1) :: transa_prv, transb_prv, transc_prv
       TYPE(dbcsr_scalar_type) :: zero
-      LOGICAL :: new_a, new_b, new_c
+      LOGICAL :: new_a, new_b, new_c, move_prv
       TYPE(dbcsr_r_split_info) :: info
       CHARACTER(LEN=*), PARAMETER :: routineN = 'dbcsr_r_multiply', &
                                      routineP = moduleN//':'//routineN
@@ -100,6 +101,12 @@ CONTAINS
          io_unit_prv = io_unit
       ELSE
          io_unit_prv = 0
+      ENDIF
+
+      IF(PRESENT(move_data)) THEN
+         move_prv = move_data
+      ELSE
+         move_prv = .FALSE.
       ENDIF
 
       CALL timeset(routineN, handle)
@@ -177,12 +184,13 @@ CONTAINS
       CASE (1)
 
          CALL reshape_mm_compatible(matrix_a, matrix_c, matrix_a_rs, matrix_c_rs, &
-            new_a, new_c, transa_prv, transc_prv, optimize_dist=optimize_dist, nodata2 = .TRUE., comm_new=comm_tmp, unit_nr=io_unit)
+            new_a, new_c, transa_prv, transc_prv, optimize_dist=optimize_dist, nodata2 = .TRUE., comm_new=comm_tmp, &
+            move_data=move_data, unit_nr=io_unit)
 
          CALL dbcsr_r_get_split_info(dbcsr_r_info(matrix_a_rs), mp_comm=mp_comm)
 
          ALLOCATE(matrix_b_rs)
-         CALL reshape_mm_small(mp_comm, matrix_b, matrix_b_rs, transb_prv==dbcsr_transpose, transb_prv)
+         CALL reshape_mm_small(mp_comm, matrix_b, matrix_b_rs, transb_prv==dbcsr_transpose, transb_prv, move_data=move_data)
          new_b = .TRUE.
          tr_case = transa_prv
 
@@ -197,7 +205,8 @@ CONTAINS
       CASE (2)
 
          CALL reshape_mm_compatible(matrix_a, matrix_b, matrix_a_rs, matrix_b_rs, new_a, new_b, transa_prv, transb_prv, &
-                                    optimize_dist=optimize_dist, comm_new=comm_tmp, unit_nr=io_unit)
+                                    optimize_dist=optimize_dist, comm_new=comm_tmp, &
+                                    move_data=move_data, unit_nr=io_unit)
 
          CALL dbcsr_r_get_split_info(dbcsr_r_info(matrix_a_rs), mp_comm=mp_comm)
 
@@ -217,12 +226,13 @@ CONTAINS
       CASE (3)
 
          CALL reshape_mm_compatible(matrix_b, matrix_c, matrix_b_rs, matrix_c_rs, new_b, new_c, transb_prv, &
-                                    transc_prv, optimize_dist=optimize_dist, nodata2=.TRUE., comm_new=comm_tmp, unit_nr=io_unit)
+                                    transc_prv, optimize_dist=optimize_dist, nodata2=.TRUE., comm_new=comm_tmp, &
+                                    move_data=move_data, unit_nr=io_unit)
 
          CALL dbcsr_r_get_split_info(dbcsr_r_info(matrix_b_rs), mp_comm=mp_comm)
 
          ALLOCATE(matrix_a_rs)
-         CALL reshape_mm_small(mp_comm, matrix_a, matrix_a_rs, transa_prv==dbcsr_transpose, transa_prv)
+         CALL reshape_mm_small(mp_comm, matrix_a, matrix_a_rs, transa_prv==dbcsr_transpose, transa_prv, move_data=move_data)
          new_a = .TRUE.
          tr_case = transb_prv
 
@@ -255,7 +265,7 @@ CONTAINS
       zero = dbcsr_scalar_zero(data_type)
       SELECT CASE (dim_split)
       CASE (1)
-         CALL dbcsr_r_replicate(matrix_b_rs%matrix, dbcsr_r_info(matrix_a_rs), matrix_b_rep)
+         CALL dbcsr_r_replicate(matrix_b_rs%matrix, dbcsr_r_info(matrix_a_rs), matrix_b_rep, move_data=.TRUE.)
          SELECT CASE (tr_case)
          CASE (dbcsr_no_transpose)
             CALL timeset(routineN//"_dbcsr_mm_1N", handle2)
@@ -295,12 +305,12 @@ CONTAINS
             CALL dbcsr_r_write_dist(matrix_c_rep, io_unit, dist=.TRUE.)
          ENDIF
 
-         CALL dbcsr_r_merge(matrix_c_rs%matrix, matrix_c_rep)
+         CALL dbcsr_r_merge(matrix_c_rs%matrix, matrix_c_rep, move_data=.TRUE.)
          CALL dbcsr_r_filter(matrix_c_rs, filter_eps_prv)
          CALL dbcsr_r_distribution_destroy(matrix_c_rep%dist)
          CALL dbcsr_r_destroy(matrix_c_rep)
       CASE (3)
-         CALL dbcsr_r_replicate(matrix_a_rs%matrix, dbcsr_r_info(matrix_b_rs), matrix_a_rep)
+         CALL dbcsr_r_replicate(matrix_a_rs%matrix, dbcsr_r_info(matrix_b_rs), matrix_a_rep, move_data=.TRUE.)
          SELECT CASE (tr_case)
          CASE (dbcsr_no_transpose)
             CALL timeset(routineN//"_dbcsr_mm_3N", handle2)
@@ -334,7 +344,8 @@ CONTAINS
       ENDIF
       IF (new_c) THEN
          CALL dbcsr_scale(matrix_c%matrix, beta)
-         CALL dbcsr_r_reshape(matrix_c_rs, matrix_c, summation=.TRUE., transposed=transc_prv/=transc)
+         CALL dbcsr_r_reshape(matrix_c_rs, matrix_c, summation=.TRUE., transposed=transc_prv/=transc, &
+                             move_data=.TRUE.)
          IF(PRESENT(filter_eps)) CALL dbcsr_r_filter(matrix_c, filter_eps)
          CALL dbcsr_r_destroy(matrix_c_rs)
          DEALLOCATE(matrix_c_rs)
@@ -358,13 +369,13 @@ CONTAINS
 
    END SUBROUTINE
 
-   SUBROUTINE reshape_mm_small(mp_comm, matrix_in, matrix_out, transposed, trans, nodata)
+   SUBROUTINE reshape_mm_small(mp_comm, matrix_in, matrix_out, transposed, trans, nodata, move_data)
       INTEGER, INTENT(IN) :: mp_comm
       TYPE(dbcsr_r_type), INTENT(INOUT) :: matrix_in
       TYPE(dbcsr_r_type), INTENT(OUT) :: matrix_out
       LOGICAL, INTENT(IN) :: transposed
       CHARACTER(LEN=1), INTENT(OUT) :: trans
-      LOGICAL, INTENT(IN), OPTIONAL :: nodata
+      LOGICAL, INTENT(IN), OPTIONAL :: nodata, move_data
       INTEGER :: numnodes
       INTEGER(KIND=int_8), DIMENSION(2) :: dims
       INTEGER, DIMENSION(2) :: pdims, pcoord
@@ -410,7 +421,7 @@ CONTAINS
                              matrix_in%col_blk_size, matrix_in%row_blk_size, own_dist=.TRUE.)
 
       ENDIF
-      IF(.NOT. nodata_prv) CALL dbcsr_r_reshape(matrix_in, matrix_out, transposed=transposed)
+      IF(.NOT. nodata_prv) CALL dbcsr_r_reshape(matrix_in, matrix_out, transposed=transposed, move_data=move_data)
 
       CALL timestop(handle)
 
@@ -418,14 +429,14 @@ CONTAINS
 
 
    SUBROUTINE reshape_mm_compatible(matrix1_in, matrix2_in, matrix1_out, matrix2_out, new1, new2, trans1, trans2, &
-                                    optimize_dist, nodata1, nodata2, comm_new, unit_nr)
+                                    optimize_dist, nodata1, nodata2, move_data, comm_new, unit_nr)
       TYPE(dbcsr_r_type), TARGET, INTENT(INOUT) :: matrix1_in, matrix2_in
       TYPE(dbcsr_r_type), POINTER, INTENT(OUT) :: matrix1_out, matrix2_out
       LOGICAL, INTENT(OUT) :: new1, new2
       CHARACTER(LEN=1), INTENT(INOUT) :: trans1, trans2
       LOGICAL, INTENT(IN), OPTIONAL :: optimize_dist
       INTEGER, INTENT(OUT), OPTIONAL :: comm_new
-      LOGICAL, OPTIONAL, INTENT(IN) :: nodata1, nodata2
+      LOGICAL, OPTIONAL, INTENT(IN) :: nodata1, nodata2, move_data
       INTEGER, INTENT(IN), OPTIONAL :: unit_nr
 
       INTEGER(KIND=int_8), DIMENSION(2) :: dims1, dims2
@@ -531,8 +542,8 @@ CONTAINS
                                    matrix2_in%col_blk_size, matrix2_in%row_blk_size, own_dist=.TRUE.)
             ENDIF
 
-            CALL dbcsr_r_reshape(matrix1_in, matrix1_out, transposed=trans1_newdist)
-            CALL dbcsr_r_reshape(matrix2_in, matrix2_out, transposed=trans2_newdist)
+            CALL dbcsr_r_reshape(matrix1_in, matrix1_out, transposed=trans1_newdist, move_data=move_data)
+            CALL dbcsr_r_reshape(matrix2_in, matrix2_out, transposed=trans2_newdist, move_data=move_data)
             new1 = .TRUE.
             new2 = .TRUE.
 
@@ -543,7 +554,7 @@ CONTAINS
                ENDIF
 
                ALLOCATE (matrix2_out)
-               CALL reshape_mm_template(matrix1_in, matrix2_in, matrix2_out, trans2, nodata=nodata2)
+               CALL reshape_mm_template(matrix1_in, matrix2_in, matrix2_out, trans2, nodata=nodata2, move_data=move_data)
                new2 = .TRUE.
                matrix1_out => matrix1_in
             ELSE
@@ -551,7 +562,7 @@ CONTAINS
                   WRITE(io_unit, "(T2,A,1X,A)") "Redistribution of", TRIM(matrix1_in%matrix%name)
                ENDIF
                ALLOCATE (matrix1_out)
-               CALL reshape_mm_template(matrix2_in, matrix1_in, matrix1_out, trans1, nodata=nodata1)
+               CALL reshape_mm_template(matrix2_in, matrix1_in, matrix1_out, trans1, nodata=nodata1, move_data=move_data)
                new1 = .TRUE.
                matrix2_out => matrix2_in
             ENDIF
@@ -653,12 +664,12 @@ CONTAINS
 
       END FUNCTION
 
-      SUBROUTINE reshape_mm_template(template, matrix_in, matrix_out, trans, nodata)
+      SUBROUTINE reshape_mm_template(template, matrix_in, matrix_out, trans, nodata, move_data)
          TYPE(dbcsr_r_type), INTENT(IN) :: template
          TYPE(dbcsr_r_type), INTENT(INOUT) :: matrix_in
          TYPE(dbcsr_r_type), INTENT(OUT) :: matrix_out
          CHARACTER(LEN=1), INTENT(INOUT) :: trans
-         LOGICAL, INTENT(IN), OPTIONAL :: nodata
+         LOGICAL, INTENT(IN), OPTIONAL :: nodata, move_data
          CLASS(dbcsr_r_distribution), ALLOCATABLE :: row_dist, col_dist
 
          TYPE(dbcsr_r_distribution_type) :: dist_new
@@ -727,7 +738,7 @@ CONTAINS
                                 matrix_in%col_blk_size, matrix_in%row_blk_size, own_dist=.TRUE.)
          ENDIF
 
-         IF (.NOT. nodata_prv) CALL dbcsr_r_reshape(matrix_in, matrix_out, transposed=transposed)
+         IF (.NOT. nodata_prv) CALL dbcsr_r_reshape(matrix_in, matrix_out, transposed=transposed, move_data=move_data)
 
          CALL timestop(handle)
 

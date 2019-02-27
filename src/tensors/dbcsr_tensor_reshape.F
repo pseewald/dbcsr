@@ -28,7 +28,8 @@ MODULE dbcsr_tensor_reshape
                                               dbcsr_t_get_data_type,&
                                               dbcsr_t_type,&
                                               ndims_tensor,&
-                                              dbcsr_t_get_stored_coordinates
+                                              dbcsr_t_get_stored_coordinates,&
+                                              dbcsr_t_clear
    USE dbcsr_kinds,                     ONLY: default_string_length
    USE dbcsr_kinds,                     ONLY: ${uselist(dtype_float_prec)}$
    USE dbcsr_api,                       ONLY: ${uselist(dtype_float_param)}$
@@ -37,7 +38,6 @@ MODULE dbcsr_tensor_reshape
                                               mp_irecv,&
                                               mp_isend,&
                                               mp_waitall
-   USE dbcsr_operations,                ONLY: dbcsr_clear
 
 
 #include "base/dbcsr_base_uses.f90"
@@ -75,10 +75,11 @@ CONTAINS
 !> todo: option to deallocate in matrix before communication and release buffer_send after communication
 !> --> factor 2 in local memory instead of factor 4
 ! **************************************************************************************************
-   SUBROUTINE dbcsr_t_reshape(tensor_in, tensor_out, summation)
+   SUBROUTINE dbcsr_t_reshape(tensor_in, tensor_out, summation, move_data)
 
       TYPE(dbcsr_t_type), INTENT(INOUT)               :: tensor_in, tensor_out
       LOGICAL, INTENT(IN), OPTIONAL                    :: summation
+      LOGICAL, INTENT(IN), OPTIONAL                    :: move_data
 
       INTEGER                                            :: blk, iproc, mp_comm, mynode, ndata, &
                                                             numnodes, bcount, nblk
@@ -90,7 +91,7 @@ CONTAINS
       TYPE(block_nd)                                     :: blk_data
       TYPE(block_buffer_type), ALLOCATABLE, DIMENSION(:) :: buffer_recv, buffer_send
       INTEGER, DIMENSION(ndims_tensor(tensor_in))       :: blk_size, ind_nd, index
-      LOGICAL :: found, summation_prv
+      LOGICAL :: found, summation_prv, move_prv
 
       IF(PRESENT(summation)) THEN
          summation_prv = summation
@@ -98,9 +99,15 @@ CONTAINS
          summation_prv = .FALSE.
       ENDIF
 
+      IF(PRESENT(move_data)) THEN
+         move_prv = move_data
+      ELSE
+         move_prv = .FALSE.
+      ENDIF
+
       DBCSR_ASSERT(tensor_out%valid)
 
-      IF(.NOT. summation_prv) CALL dbcsr_clear(tensor_out%matrix_rep%matrix)
+      IF (.NOT. summation_prv) CALL dbcsr_t_clear(tensor_out)
 
       mp_comm = tensor_in%pgrid%mp_comm_2d
       CALL mp_environ(numnodes, mynode, mp_comm)
@@ -145,7 +152,12 @@ CONTAINS
       ENDDO
       CALL dbcsr_t_iterator_stop(iter)
 
+      IF (move_prv) CALL dbcsr_t_clear(tensor_in)
+
       CALL communicate_buffer(mp_comm, buffer_recv, buffer_send, req_array)
+      DO iproc = 0, numnodes - 1
+         CALL block_buffer_destroy(buffer_send(iproc))
+      ENDDO
 
       nblk = SUM(num_blocks_recv)
       ALLOCATE (blks_to_allocate(nblk, ndims_tensor(tensor_in)))
@@ -173,7 +185,6 @@ CONTAINS
             CALL destroy_block(blk_data)
          ENDDO
          CALL block_buffer_destroy(buffer_recv(iproc))
-         CALL block_buffer_destroy(buffer_send(iproc))
       ENDDO
    END SUBROUTINE
 

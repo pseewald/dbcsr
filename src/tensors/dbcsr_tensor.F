@@ -139,11 +139,11 @@ CONTAINS
 !> \param order Permutation of target tensor index. Exact same convention as order argument of RESHAPE
 !>              intrinsic
 ! **************************************************************************************************
-   SUBROUTINE dbcsr_t_copy(tensor_in, tensor_out, order, summation, unit_nr)
+   SUBROUTINE dbcsr_t_copy(tensor_in, tensor_out, order, summation, move_data, unit_nr)
       TYPE(dbcsr_t_type), INTENT(INOUT), TARGET      :: tensor_in, tensor_out
       INTEGER, DIMENSION(ndims_tensor(tensor_in)), &
          INTENT(IN), OPTIONAL                        :: order
-      LOGICAL, INTENT(IN), OPTIONAL                  :: summation
+      LOGICAL, INTENT(IN), OPTIONAL                  :: summation, move_data
       INTEGER, INTENT(IN), OPTIONAL                  :: unit_nr
 
       TYPE(dbcsr_t_type), POINTER                    :: in_tmp_1, in_tmp_2, out_tmp_1
@@ -153,9 +153,16 @@ CONTAINS
       CHARACTER(LEN=*), PARAMETER :: routineN = 'dbcsr_t_copy', &
          routineP = moduleN//':'//routineN
       LOGICAL                                        :: dist_compatible, summation_prv, new_in_1, &
-                                                        new_in_2, new_out_1, block_compatible
+                                                        new_in_2, new_out_1, block_compatible, &
+                                                        move_prv
 
       CALL timeset(routineN, handle)
+
+      IF(PRESENT(move_data)) THEN
+         move_prv = move_data
+      ELSE
+         move_prv = .FALSE.
+      ENDIF
 
       DBCSR_ASSERT(tensor_out%valid)
 
@@ -183,9 +190,12 @@ CONTAINS
       IF(.NOT. block_compatible) THEN
          ALLOCATE(in_tmp_2, out_tmp_1)
          new_in_2 = .TRUE.; new_out_1 = .TRUE.
-         CALL dbcsr_t_make_compatible_blocks(in_tmp_1, tensor_out, in_tmp_2, out_tmp_1, nodata2=.TRUE.)
+         IF(.NOT. summation_prv) THEN
+            CALL dbcsr_t_make_compatible_blocks(in_tmp_1, tensor_out, in_tmp_2, out_tmp_1, nodata2=.TRUE., move_data=move_data)
+         ENDIF
 
          IF (PRESENT(unit_nr)) THEN
+            ! only left for debugging, todo: remove
             IF (unit_nr > 0) THEN
                WRITE (unit_nr, '(A)') repeat("-", 80)
                WRITE (unit_nr, '(A,1X,A,1X,A,1X,A,1X,A,1X,A)') "DBCSR TENSOR COPY in:", &
@@ -221,8 +231,9 @@ CONTAINS
 
       IF (dist_compatible) THEN
          CALL dbcsr_r_copy(out_tmp_1%matrix_rep, in_tmp_2%matrix_rep, summation)
+         IF(move_prv) CALL dbcsr_t_clear(in_tmp_2)
       ELSE
-         CALL dbcsr_t_reshape(in_tmp_2, out_tmp_1, summation)
+         CALL dbcsr_t_reshape(in_tmp_2, out_tmp_1, summation, move_data=move_data)
       ENDIF
 
       IF(new_in_1) THEN
@@ -344,7 +355,7 @@ CONTAINS
    SUBROUTINE dbcsr_t_contract(alpha, tensor_1, tensor_2, beta, tensor_3, &
                                contract_1, notcontract_1, &
                                contract_2, notcontract_2, &
-                               map_1, map_2, optimize_dist, filter_eps, flop, unit_nr)
+                               map_1, map_2, optimize_dist, filter_eps, flop, move_data, unit_nr)
       TYPE(dbcsr_scalar_type), INTENT(IN) :: alpha
       TYPE(dbcsr_t_type), INTENT(INOUT)  :: tensor_1, tensor_2
       TYPE(dbcsr_scalar_type), INTENT(IN) :: beta
@@ -354,6 +365,7 @@ CONTAINS
       LOGICAL, INTENT(IN), OPTIONAL                  :: optimize_dist
       REAL(KIND=real_8), INTENT(IN), OPTIONAL        :: filter_eps
       INTEGER(KIND=int_8), INTENT(OUT), OPTIONAL       :: flop
+      LOGICAL, INTENT(IN), OPTIONAL                  :: move_data
       INTEGER, OPTIONAL, INTENT(IN)                  :: unit_nr
 
       TYPE(dbcsr_t_type), POINTER                    :: tensor_contr_1=>NULL(), tensor_contr_2=>NULL(), tensor_contr_3=>NULL()
@@ -508,9 +520,10 @@ CONTAINS
          CALL reshape_mm_compatible(tensor_tmp_1, tensor_tmp_3, tensor_contr_1, tensor_contr_3, &
                                     contract_1_mod, notcontract_1_mod, map_2_mod, map_1_mod, &
                                     trans_1, trans_3, new_1, new_3, nodata2=.TRUE., optimize_dist=optimize_dist, &
-                                    unit_nr=unit_nr)
+                                    move_data=move_data, unit_nr=unit_nr)
 
-         CALL reshape_mm_small(tensor_tmp_2, contract_2_mod, notcontract_2_mod, tensor_contr_2, trans_2, new_2, unit_nr=unit_nr)
+         CALL reshape_mm_small(tensor_tmp_2, contract_2_mod, notcontract_2_mod, tensor_contr_2, trans_2, &
+                               new_2, move_data=move_data, unit_nr=unit_nr)
 
       CASE (2)
          IF (PRESENT(unit_nr)) THEN
@@ -533,11 +546,12 @@ CONTAINS
 
          CALL reshape_mm_compatible(tensor_tmp_1, tensor_tmp_2, tensor_contr_1, tensor_contr_2, &
                                     notcontract_1_mod, contract_1_mod, notcontract_2_mod, contract_2_mod, &
-                                    trans_1, trans_2, new_1, new_2, optimize_dist=optimize_dist, unit_nr=unit_nr)
+                                    trans_1, trans_2, new_1, new_2, optimize_dist=optimize_dist, &
+                                    move_data=move_data, unit_nr=unit_nr)
          CALL invert_transpose_flag(trans_1)
 
          CALL reshape_mm_small(tensor_tmp_3, map_1_mod, map_2_mod, tensor_contr_3, trans_3, &
-                               new_3, nodata=.TRUE., unit_nr=unit_nr)
+                               new_3, nodata=.TRUE., move_data=move_data, unit_nr=unit_nr)
 
       CASE (3)
          IF (PRESENT(unit_nr)) THEN
@@ -560,12 +574,13 @@ CONTAINS
          CALL reshape_mm_compatible(tensor_tmp_2, tensor_tmp_3, tensor_contr_2, tensor_contr_3, &
                                     contract_2_mod, notcontract_2_mod, map_1_mod, map_2_mod, &
                                     trans_2, trans_3, new_2, new_3, nodata2=.TRUE., optimize_dist=optimize_dist, &
-                                    unit_nr=unit_nr)
+                                    move_data=move_data, unit_nr=unit_nr)
 
          CALL invert_transpose_flag(trans_2)
          CALL invert_transpose_flag(trans_3)
 
-         CALL reshape_mm_small(tensor_tmp_1, notcontract_1_mod, contract_1_mod, tensor_contr_1, trans_1, new_1, unit_nr=unit_nr)
+         CALL reshape_mm_small(tensor_tmp_1, notcontract_1_mod, contract_1_mod, tensor_contr_1, &
+                               trans_1, new_1, move_data=move_data, unit_nr=unit_nr)
 
       END SELECT
 
@@ -596,7 +611,7 @@ CONTAINS
       IF (new_3) THEN
          ! need redistribute if we created new tensor for tensor 3
          CALL dbcsr_t_scale(tensor_tmp_3, beta)
-         CALL dbcsr_t_copy(tensor_contr_3, tensor_tmp_3, summation=.TRUE.)
+         CALL dbcsr_t_copy(tensor_contr_3, tensor_tmp_3, summation=.TRUE., move_data=move_data)
          IF(PRESENT(filter_eps)) CALL dbcsr_t_filter(tensor_tmp_3, filter_eps)
          ! tensor_3 automatically has correct data because tensor_tmp_3 contains a matrix
          ! pointer to data of tensor_3
@@ -677,7 +692,7 @@ CONTAINS
 !> \param trans2 'N' if tensor 2 out has format (ind linked, ind free), 'T' otherwise
 ! **************************************************************************************************
       SUBROUTINE reshape_mm_compatible(tensor1, tensor2, tensor1_out, tensor2_out, ind1_free, ind1_linked, &
-                                       ind2_free, ind2_linked, trans1, trans2, new1, new2, nodata1, nodata2, &
+                                       ind2_free, ind2_linked, trans1, trans2, new1, new2, nodata1, nodata2, move_data, &
                                        optimize_dist, unit_nr)
          TYPE(dbcsr_t_type), TARGET, INTENT(INOUT)   :: tensor1
          TYPE(dbcsr_t_type), TARGET, INTENT(INOUT)   :: tensor2
@@ -686,7 +701,7 @@ CONTAINS
          INTEGER, DIMENSION(:), INTENT(IN)           :: ind1_linked, ind2_linked
          CHARACTER(LEN=1), INTENT(OUT)               :: trans1, trans2
          LOGICAL, INTENT(OUT)                        :: new1, new2
-         LOGICAL, INTENT(IN), OPTIONAL               :: nodata1, nodata2
+         LOGICAL, INTENT(IN), OPTIONAL               :: nodata1, nodata2, move_data
          LOGICAL, INTENT(IN), OPTIONAL               :: optimize_dist
          INTEGER, INTENT(IN), OPTIONAL               :: unit_nr
          INTEGER                                     :: ref_tensor, compat1, compat1_old, compat2, compat2_old,&
@@ -761,7 +776,8 @@ CONTAINS
                nblkcols = PRODUCT(INT(dims(ind1_free), KIND=int_8))
                comm_2d = dbcsr_r_mp_comm(tensor1%pgrid%mp_comm_2d, nblkrows, nblkcols)
                ALLOCATE(tensor1_out)
-               CALL dbcsr_t_remap(tensor1, ind1_linked, ind1_free, tensor1_out, comm_2d=comm_2d, nodata=nodata1)
+               CALL dbcsr_t_remap(tensor1, ind1_linked, ind1_free, tensor1_out, comm_2d=comm_2d, &
+                                  nodata=nodata1, move_data=move_data)
                CALL mp_comm_free(comm_2d)
                compat1 = 1
             ELSE
@@ -779,14 +795,14 @@ CONTAINS
                   CALL get_mapping_info(dist_in%pgrid%nd_index_grid, dims1_2d=mp_dims)
                   ALLOCATE(tensor2_out)
                   CALL dbcsr_t_remap(tensor2, ind2_linked, ind2_free, tensor2_out, comm_2d=dist_in%pgrid%mp_comm_2d, &
-                                     dist1=dist_list, mp_dims_1=mp_dims, nodata=nodata2)
+                                     dist1=dist_list, mp_dims_1=mp_dims, nodata=nodata2, move_data=move_data)
                ELSEIF (compat1 == 2) THEN ! linked index is second 2d dimension
                   ! get distribution of linked index, tensor 2 must adopt this distribution
                   ! get grid dimensions of linked index
                   CALL get_mapping_info(dist_in%pgrid%nd_index_grid, dims2_2d=mp_dims)
                   ALLOCATE(tensor2_out)
                   CALL dbcsr_t_remap(tensor2, ind2_free, ind2_linked, tensor2_out, comm_2d=dist_in%pgrid%mp_comm_2d, &
-                                     dist2=dist_list, mp_dims_2=mp_dims, nodata=nodata2)
+                                     dist2=dist_list, mp_dims_2=mp_dims, nodata=nodata2, move_data=move_data)
                ELSE
                   DBCSR_ABORT("should not happen")
                ENDIF
@@ -804,7 +820,7 @@ CONTAINS
                nblkcols = PRODUCT(INT(dims(ind2_free), KIND=int_8))
                comm_2d = dbcsr_r_mp_comm(tensor2%pgrid%mp_comm_2d, nblkrows, nblkcols)
                ALLOCATE(tensor2_out)
-               CALL dbcsr_t_remap(tensor2, ind2_linked, ind2_free, tensor2_out, nodata=nodata2)
+               CALL dbcsr_t_remap(tensor2, ind2_linked, ind2_free, tensor2_out, nodata=nodata2, move_data=move_data)
                CALL mp_comm_free(comm_2d)
                compat2 = 1
             ELSE
@@ -820,12 +836,12 @@ CONTAINS
                   CALL get_mapping_info(dist_in%pgrid%nd_index_grid, dims1_2d=mp_dims)
                   ALLOCATE(tensor1_out)
                   CALL dbcsr_t_remap(tensor1, ind1_linked, ind1_free, tensor1_out, comm_2d=dist_in%pgrid%mp_comm_2d, &
-                                     dist1=dist_list, mp_dims_1=mp_dims, nodata=nodata1)
+                                     dist1=dist_list, mp_dims_1=mp_dims, nodata=nodata1, move_data=move_data)
                ELSEIF (compat1 == 2) THEN
                   CALL get_mapping_info(dist_in%pgrid%nd_index_grid, dims2_2d=mp_dims)
                   ALLOCATE(tensor1_out)
                   CALL dbcsr_t_remap(tensor1, ind1_free, ind1_linked, tensor1_out, comm_2d=dist_in%pgrid%mp_comm_2d, &
-                                     dist2=dist_list, mp_dims_2=mp_dims, nodata=nodata1)
+                                     dist2=dist_list, mp_dims_2=mp_dims, nodata=nodata1, move_data=move_data)
                ELSE
                   DBCSR_ABORT("should not happen")
                ENDIF
@@ -881,14 +897,14 @@ CONTAINS
 
       END SUBROUTINE
 
-      SUBROUTINE reshape_mm_small(tensor_in, ind1, ind2, tensor_out, trans, new, nodata, unit_nr)
+      SUBROUTINE reshape_mm_small(tensor_in, ind1, ind2, tensor_out, trans, new, nodata, move_data, unit_nr)
          ! was called prep_tensor
          TYPE(dbcsr_t_type), TARGET, INTENT(INOUT)   :: tensor_in
          INTEGER, DIMENSION(:), INTENT(IN)           :: ind1, ind2
          TYPE(dbcsr_t_type), POINTER, INTENT(OUT)    :: tensor_out
          CHARACTER(LEN=1), INTENT(OUT)               :: trans
          LOGICAL, INTENT(OUT)                        :: new
-         LOGICAL, INTENT(IN), OPTIONAL               :: nodata
+         LOGICAL, INTENT(IN), OPTIONAL               :: nodata, move_data
          INTEGER, INTENT(IN), OPTIONAL               :: unit_nr
          INTEGER                                     :: compat1, compat2, compat1_old, compat2_old, io_unit
          LOGICAL                                     :: nodata_prv
@@ -922,7 +938,7 @@ CONTAINS
          IF (compat1 == 0 .or. compat2 == 0) THEN ! index mapping not compatible with contract index
 
             IF (io_unit > 0) WRITE (unit_nr, '(T2,A,1X,A)') "Redistribution of", TRIM(tensor_in%name)
-            CALL dbcsr_t_remap(tensor_in, ind1, ind2, tensor_out, nodata=nodata)
+            CALL dbcsr_t_remap(tensor_in, ind1, ind2, tensor_out, nodata=nodata, move_data=move_data)
             compat1 = 1
             compat2 = 2
             new = .TRUE.
@@ -1036,12 +1052,12 @@ CONTAINS
 !> \param name ...
 ! **************************************************************************************************
    SUBROUTINE dbcsr_t_remap(tensor_in, map1_2d, map2_2d, tensor_out, comm_2d, dist1, dist2, &
-                            mp_dims_1, mp_dims_2, name, nodata)
+                            mp_dims_1, mp_dims_2, name, nodata, move_data)
       TYPE(dbcsr_t_type), INTENT(INOUT)      :: tensor_in
       INTEGER, DIMENSION(:), INTENT(IN)      :: map1_2d, map2_2d
       TYPE(dbcsr_t_type), INTENT(OUT)        :: tensor_out
       CHARACTER(len=*), INTENT(IN), OPTIONAL :: name
-      LOGICAL, INTENT(IN), OPTIONAL          :: nodata
+      LOGICAL, INTENT(IN), OPTIONAL          :: nodata, move_data
       INTEGER, INTENT(IN), OPTIONAL          :: comm_2d
       TYPE(array_list), INTENT(IN), OPTIONAL :: dist1, dist2
       INTEGER, DIMENSION(SIZE(map1_2d)), OPTIONAL :: mp_dims_1
@@ -1128,7 +1144,7 @@ CONTAINS
          nodata_prv = .FALSE.
       ENDIF
 
-      IF(.NOT. nodata_prv) CALL dbcsr_t_copy(tensor_in, tensor_out)
+      IF(.NOT. nodata_prv) CALL dbcsr_t_copy(tensor_in, tensor_out, move_data=move_data)
       CALL dbcsr_t_distribution_destroy(dist)
 
       CALL timestop(handle)
@@ -1163,7 +1179,7 @@ CONTAINS
    END SUBROUTINE
 
 ! **************************************************************************************************
-!> \brief Create new tensor by reordering index, data is copied exactly
+!> \brief Create new tensor by reordering index, data is copied exactly (shallow copy)
 !> \param tensor_in ...
 !> \param tensor_out ...
 !> \param order ...
@@ -1620,13 +1636,31 @@ CONTAINS
 
    END SUBROUTINE
 
-   SUBROUTINE dbcsr_t_make_compatible_blocks(tensor1, tensor2, tensor1_split, tensor2_split, nodata1, nodata2)
+   SUBROUTINE dbcsr_t_make_compatible_blocks(tensor1, tensor2, tensor1_split, tensor2_split, nodata1, nodata2, move_data)
       TYPE(dbcsr_t_type), INTENT(INOUT) :: tensor1, tensor2
       TYPE(dbcsr_t_type), INTENT(OUT)   :: tensor1_split, tensor2_split
-      LOGICAL, INTENT(IN), OPTIONAL     :: nodata1, nodata2
+      LOGICAL, INTENT(IN), OPTIONAL     :: nodata1, nodata2, move_data
       INTEGER, DIMENSION(:), ALLOCATABLE  :: ${varlist("blk_size_split")}$,&
                                              blk_size_d_1, blk_size_d_2, blk_size_d_split
       INTEGER :: size_sum_1, size_sum_2, size_sum, bind_1, bind_2, isplit, bs, idim
+      LOGICAL :: move_prv, nodata1_prv, nodata2_prv
+
+      IF(PRESENT(move_data)) THEN
+         move_prv = move_data
+      ELSE
+         move_prv = .FALSE.
+      ENDIF
+
+      IF(PRESENT(nodata1)) THEN
+         nodata1_prv = nodata1
+      ELSE
+         nodata1_prv = .FALSE.
+      ENDIF
+      IF(PRESENT(nodata2)) THEN
+         nodata2_prv = nodata2
+      ELSE
+         nodata2_prv = .FALSE.
+      ENDIF
 
       DO idim = 1, ndims_tensor(tensor1)
          CALL get_ith_array(tensor1%blk_sizes, idim, blk_size_d_1)
@@ -1692,7 +1726,9 @@ CONTAINS
 #:for ndim in ndims
       IF (ndims_tensor(tensor1) == ${ndim}$) THEN
          CALL dbcsr_t_split_blocks_generic(tensor1, tensor1_split, ${varlist("blk_size_split", nmax=ndim)}$, nodata=nodata1)
+         IF(move_prv .AND. .NOT. nodata1_prv) CALL dbcsr_t_clear(tensor1)
          CALL dbcsr_t_split_blocks_generic(tensor2, tensor2_split, ${varlist("blk_size_split", nmax=ndim)}$, nodata=nodata2)
+         IF(move_prv .AND. .NOT. nodata2_prv) CALL dbcsr_t_clear(tensor2)
       ENDIF
 #:endfor
 

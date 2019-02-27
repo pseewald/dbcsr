@@ -35,7 +35,7 @@ MODULE dbcsr_rectangular_reshape
         dbcsr_r_get_data_type, dbcsr_r_get_stored_coordinates, dbcsr_r_info, &
         dbcsr_r_iterator_blocks_left, dbcsr_r_iterator_next_block, dbcsr_r_iterator_start, &
         dbcsr_r_iterator_stop, dbcsr_r_put_block, dbcsr_r_reserve_blocks, &
-        dbcsr_repl_get_stored_coordinates, index_unique
+        dbcsr_repl_get_stored_coordinates, index_unique, dbcsr_r_clear
    USE dbcsr_rectangular_base_types,    ONLY: dbcsr_r_distribution_type,&
                                               dbcsr_r_iterator,&
                                               dbcsr_r_split_info,&
@@ -123,12 +123,12 @@ CONTAINS
 !> \param matrix_in ...
 !> \param matrix_out ...
 !> \param transposed ...
-!> todo: memory optimizations
 ! **************************************************************************************************
-   RECURSIVE SUBROUTINE dbcsr_r_reshape(matrix_in, matrix_out, summation, transposed)
+   RECURSIVE SUBROUTINE dbcsr_r_reshape(matrix_in, matrix_out, summation, transposed, move_data)
       TYPE(dbcsr_r_type), INTENT(INOUT)                  :: matrix_in, matrix_out
       LOGICAL, INTENT(IN), OPTIONAL                      :: summation
       LOGICAL, INTENT(IN), OPTIONAL                      :: transposed
+      LOGICAL, INTENT(IN), OPTIONAL                      :: move_data
 
       CHARACTER(LEN=*), PARAMETER :: routineN = 'dbcsr_r_reshape', &
          routineP = moduleN//':'//routineN
@@ -142,7 +142,7 @@ CONTAINS
                                                             num_rec, num_send
       INTEGER, ALLOCATABLE, DIMENSION(:, :)              :: req_array
       INTEGER, DIMENSION(2)                              :: blk_size
-      LOGICAL                                            :: tr, tr_in
+      LOGICAL                                            :: tr, tr_in, move_prv
       TYPE(block_buffer_type), ALLOCATABLE, DIMENSION(:) :: buffer_recv, buffer_send
       TYPE(dbcsr_data_obj)                               :: block
       TYPE(dbcsr_r_iterator)                             :: iter
@@ -154,6 +154,12 @@ CONTAINS
          IF(.NOT. summation) CALL dbcsr_clear(matrix_out%matrix)
       ELSE
          CALL dbcsr_clear(matrix_out%matrix)
+      ENDIF
+
+      IF(PRESENT(move_data)) THEN
+         move_prv = move_data
+      ELSE
+         move_prv = .FALSE.
       ENDIF
 
       IF (PRESENT(transposed)) THEN
@@ -198,6 +204,7 @@ CONTAINS
       CALL dbcsr_r_iterator_stop(iter)
       CALL timestop(handle2)
 
+
       CALL timeset(routineN//"_alltoall", handle2)
       CALL mp_alltoall(num_send, num_rec, 2, mp_comm)
       CALL timestop(handle2)
@@ -237,10 +244,17 @@ CONTAINS
       CALL dbcsr_r_iterator_stop(iter)
       CALL dbcsr_data_clear_pointer(block)
 
+      IF (move_prv) CALL dbcsr_r_clear(matrix_in)
+
       CALL timestop(handle2)
 
       CALL timeset(routineN//"_communicate_buffer", handle2)
       CALL dbcsr_r_communicate_buffer(mp_comm, buffer_recv, buffer_send, req_array)
+
+      DO iproc = 0, numnodes-1
+         CALL block_buffer_destroy(buffer_send(iproc))
+      ENDDO
+
       CALL timestop(handle2)
 
       CALL timeset(routineN//"_buffer_obtain", handle2)
@@ -270,13 +284,11 @@ CONTAINS
             CALL internal_data_deallocate(block%d)
          ENDDO
          CALL block_buffer_destroy(buffer_recv(iproc))
-         CALL block_buffer_destroy(buffer_send(iproc))
       ENDDO
       CALL dbcsr_data_clear_pointer(block)
       CALL dbcsr_data_release(block)
 
       CALL timestop(handle2)
-
 
       CALL dbcsr_r_finalize(matrix_out)
 
@@ -289,13 +301,13 @@ CONTAINS
 !> \param info ...
 !> \param matrix_out ...
 !> \param nodata ...
-!> todo: memory optimizations
 ! **************************************************************************************************
-   SUBROUTINE dbcsr_r_replicate(matrix_in, info, matrix_out, nodata)
+   SUBROUTINE dbcsr_r_replicate(matrix_in, info, matrix_out, nodata, move_data)
       TYPE(dbcsr_type), INTENT(INOUT)                    :: matrix_in
       TYPE(dbcsr_r_split_info), INTENT(IN)               :: info
       TYPE(dbcsr_r_type), INTENT(OUT)                    :: matrix_out
       LOGICAL, INTENT(IN), OPTIONAL                      :: nodata
+      LOGICAL, INTENT(IN), OPTIONAL                      :: move_data
 
       INTEGER                                            :: data_type, nblkcols, nblkrows
       INTEGER, DIMENSION(2)                              :: pcoord, pdims
@@ -322,7 +334,7 @@ CONTAINS
       TYPE(dbcsr_iterator) :: iter
       INTEGER :: nblock, i, iproc, bcount, nblk
       INTEGER, DIMENSION(:), ALLOCATABLE :: iprocs
-      LOGICAL :: tr, nodata_prv
+      LOGICAL :: tr, nodata_prv, move_prv
       INTEGER(KIND=int_8), ALLOCATABLE, DIMENSION(:, :) :: index_recv
       INTEGER :: ndata
 
@@ -339,6 +351,12 @@ CONTAINS
          nodata_prv = nodata
       ELSE
          nodata_prv = .FALSE.
+      ENDIF
+
+      IF(PRESENT(move_data)) THEN
+         move_prv = move_data
+      ELSE
+         move_prv = .FALSE.
       ENDIF
 
       CALL dbcsr_get_info(matrix_in, distribution=dbcsr_dist, data_type=data_type, &
@@ -439,8 +457,15 @@ CONTAINS
       CALL dbcsr_iterator_stop(iter)
       CALL dbcsr_data_clear_pointer(block)
 
+      IF (move_prv) CALL dbcsr_clear(matrix_in)
+
       CALL timeset(routineN//"_communicate_buffer", handle2)
       CALL dbcsr_r_communicate_buffer(mp_comm, buffer_recv, buffer_send, req_array)
+
+      DO iproc = 0, numnodes-1
+         CALL block_buffer_destroy(buffer_send(iproc))
+      ENDDO
+
       CALL timestop(handle2)
 
       nblk = SUM(num_blocks_recv)
@@ -469,7 +494,6 @@ CONTAINS
          ENDDO
 
          CALL block_buffer_destroy(buffer_recv(iproc))
-         CALL block_buffer_destroy(buffer_send(iproc))
       ENDDO
       CALL dbcsr_data_clear_pointer(block)
       CALL dbcsr_data_release(block)
@@ -484,11 +508,11 @@ CONTAINS
 !> \brief ...
 !> \param matrix_out ...
 !> \param matrix_in ...
-!> todo: memory optimizations
 ! **************************************************************************************************
-   SUBROUTINE dbcsr_r_merge(matrix_out, matrix_in)
+   SUBROUTINE dbcsr_r_merge(matrix_out, matrix_in, move_data)
       TYPE(dbcsr_type), INTENT(INOUT)                    :: matrix_out
       TYPE(dbcsr_r_type), INTENT(INOUT)                  :: matrix_in
+      LOGICAL, INTENT(IN), OPTIONAL                      :: move_data
 
       CHARACTER(LEN=*), PARAMETER :: routineN = 'dbcsr_r_merge', routineP = moduleN//':'//routineN
 
@@ -501,7 +525,7 @@ CONTAINS
                                                             num_entries_send, num_rec, num_send
       INTEGER, ALLOCATABLE, DIMENSION(:, :)              :: req_array, blks_to_allocate, blks_to_allocate_u
       INTEGER, DIMENSION(2)                              :: blk_index, blk_size
-      LOGICAL                                            :: tr
+      LOGICAL                                            :: tr, move_prv
       TYPE(block_buffer_type), ALLOCATABLE, DIMENSION(:) :: buffer_recv, buffer_send
       TYPE(dbcsr_data_obj)                               :: block
       TYPE(dbcsr_iterator)                               :: iter
@@ -510,6 +534,12 @@ CONTAINS
       CALL timeset(routineN, handle)
 
       CALL dbcsr_clear(matrix_out)
+
+      IF(PRESENT(move_data)) THEN
+         move_prv = move_data
+      ELSE
+         move_prv = .FALSE.
+      ENDIF
 
       data_type = dbcsr_r_get_data_type(matrix_in)
 
@@ -570,8 +600,15 @@ CONTAINS
 
       CALL dbcsr_iterator_stop(iter)
 
+      IF (move_prv) CALL dbcsr_r_clear(matrix_in)
+
       CALL timeset(routineN//"_communicate_buffer", handle2)
       CALL dbcsr_r_communicate_buffer(mp_comm, buffer_recv, buffer_send, req_array)
+
+      DO iproc = 0, numnodes-1
+         CALL block_buffer_destroy(buffer_send(iproc))
+      ENDDO
+
       CALL timestop(handle2)
 
       nblk = SUM(num_blocks_recv)
@@ -602,7 +639,6 @@ CONTAINS
             CALL internal_data_deallocate(block%d)
          ENDDO
          CALL block_buffer_destroy(buffer_recv(iproc))
-         CALL block_buffer_destroy(buffer_send(iproc))
       ENDDO
       CALL dbcsr_data_clear_pointer(block)
       CALL dbcsr_data_release(block)
