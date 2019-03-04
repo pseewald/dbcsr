@@ -721,7 +721,7 @@ CONTAINS
       LOGICAL :: found
       ${dtype}$, DIMENSION(${arrlist("sizes", nmax=ndim)}$) &
                                                             :: block_check
-      LOGICAL, PARAMETER :: debug = .TRUE.
+      LOGICAL, PARAMETER :: debug = .FALSE.
 
       IF(debug) THEN
          CALL dbcsr_t_get_block(tensor, ind, sizes, block_check, found=found)
