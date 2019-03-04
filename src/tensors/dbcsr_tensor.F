@@ -1346,15 +1346,31 @@ CONTAINS
          ENDIF
       ENDIF
 
-      nblk = dbcsr_t_get_num_blocks(tensor_in)
-      ALLOCATE(blks_to_allocate(nblk, dbcsr_t_ndims(tensor_in)))
+      CALL dbcsr_t_iterator_start(iter, tensor_in)
+
+      bcount = 0
+      DO WHILE (dbcsr_t_iterator_blocks_left(iter))
+         CALL dbcsr_t_iterator_next_block(iter, blk_index, blk, blk_size=blk_size)
+#:for ndim in ndims
+         IF (dbcsr_t_ndims(tensor_in) == ${ndim}$) THEN
+#:for idim in range(1,ndim+1)
+            DO split_blk_${idim}$ = 1, blk_nsplit_${idim}$(blk_index(${idim}$))
+#:endfor
+               bcount = bcount + 1
+#:for idim in range(1,ndim+1)
+            ENDDO
+#:endfor
+         ENDIF
+#:endfor
+      ENDDO
+
+      ALLOCATE(blks_to_allocate(bcount, dbcsr_t_ndims(tensor_in)))
 
       CALL dbcsr_t_iterator_start(iter, tensor_in)
 
       bcount = 0
       DO WHILE (dbcsr_t_iterator_blocks_left(iter))
          CALL dbcsr_t_iterator_next_block(iter, blk_index, blk, blk_size=blk_size, blk_offset=blk_offset)
-         bcount = bcount + 1
 
 #:for ndim in ndims
          IF (dbcsr_t_ndims(tensor_in) == ${ndim}$) THEN
@@ -1362,11 +1378,10 @@ CONTAINS
             DO split_blk_${idim}$ = 1, blk_nsplit_${idim}$(blk_index(${idim}$))
                bi_split(${idim}$) = index_split_offset_${idim}$(blk_index(${idim}$)) + split_blk_${idim}$
 #:endfor
-
+               bcount = bcount + 1
+               blks_to_allocate(bcount, :) = bi_split(1:dbcsr_t_ndims(tensor_in))
 #:for idim in range(1,ndim+1)
             ENDDO
-
-            blks_to_allocate(bcount, :) = bi_split(1:dbcsr_t_ndims(tensor_in))
 #:endfor
          ENDIF
 #:endfor
