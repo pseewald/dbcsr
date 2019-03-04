@@ -26,7 +26,8 @@ MODULE dbcsr_tensor_block
                                               dbcsr_iterator_stop, &
                                               dbcsr_type, &
                                               dbcsr_reserve_blocks,&
-                                              dbcsr_scalar_type
+                                              dbcsr_scalar_type, &
+                                              dbcsr_finalize
    USE dbcsr_rectangular_base_types,    ONLY: dbcsr_r_iterator
    USE dbcsr_rectangular_base,          ONLY: dbcsr_r_iterator_next_block,&
                                               dbcsr_r_iterator_blocks_left,&
@@ -489,6 +490,8 @@ CONTAINS
       CALL dbcsr_t_iterator_stop(iter)
 
       CALL dbcsr_reserve_blocks(matrix_out, blk_ind_1, blk_ind_2)
+      CALL dbcsr_finalize(matrix_out)
+
       CALL timestop(handle)
    END SUBROUTINE
 
@@ -715,6 +718,15 @@ CONTAINS
       INTEGER                                   :: handle
       CHARACTER(LEN=*), PARAMETER :: routineN = 'dbcsr_t_put_${ndim}$d_block_${dsuffix}$', &
          routineP = moduleN//':'//routineN
+      LOGICAL :: found
+      ${dtype}$, DIMENSION(${arrlist("sizes", nmax=ndim)}$) &
+                                                            :: block_check
+      LOGICAL, PARAMETER :: debug = .TRUE.
+
+      IF(debug) THEN
+         CALL dbcsr_t_get_block(tensor, ind, sizes, block_check, found=found)
+         DBCSR_ASSERT(found)
+      ENDIF
 
       CALL timeset(routineN, handle)
       ! reshape block
