@@ -1363,6 +1363,7 @@ CONTAINS
          ENDIF
 #:endfor
       ENDDO
+      CALL dbcsr_t_iterator_stop(iter)
 
       ALLOCATE(blks_to_allocate(bcount, dbcsr_t_ndims(tensor_in)))
 
