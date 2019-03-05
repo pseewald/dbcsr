@@ -1196,8 +1196,8 @@ CONTAINS
 
    SUBROUTINE dbcsr_t_clear(tensor)
       TYPE(dbcsr_t_type), INTENT(INOUT) :: tensor
-      CALL dbcsr_t_set(tensor, 0.0_dp)
-      CALL dbcsr_t_filter(tensor, 1.0_dp)
+      CALL dbcsr_t_set(tensor, 0.0_real_8)
+      CALL dbcsr_t_filter(tensor, 1.0_real_8)
    END SUBROUTINE
 
    SUBROUTINE dbcsr_t_finalize(tensor)

@@ -1000,8 +1000,8 @@ CONTAINS
    SUBROUTINE dbcsr_r_clear(matrix)
       TYPE(dbcsr_r_type), INTENT(INOUT) :: matrix
 
-      CALL dbcsr_r_set(matrix, 0.0_dp)
-      CALL dbcsr_r_filter(matrix, 1.0_dp)
+      CALL dbcsr_r_set(matrix, 0.0_real_8)
+      CALL dbcsr_r_filter(matrix, 1.0_real_8)
    END SUBROUTINE
 
    SUBROUTINE dbcsr_r_get_info(matrix, nblkrows_total, nblkcols_total, &
