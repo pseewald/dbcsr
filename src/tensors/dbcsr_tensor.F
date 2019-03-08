@@ -391,7 +391,7 @@ CONTAINS
                                                      indchar2_mod, indchar3_mod
       CHARACTER(LEN=1), DIMENSION(15) :: alph = &
                                          ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o']
-      LOGICAL                         :: debug=.TRUE.
+      LOGICAL                         :: debug=.FALSE.
 
       CALL timeset(routineN, handle)
 
