@@ -492,13 +492,16 @@ CONTAINS
       ALLOCATE (dims2(ndims2))
       ALLOCATE (dims3(ndims3))
 
+      ! ideally we should consider block sizes and occupancy to measure tensor sizes but current solution should work for most
+      ! cases and is more elegant. Note that we can not easily consider occupancy since it is unknown for result tensor
       CALL blk_dims_tensor(tensor_1, dims1)
       CALL blk_dims_tensor(tensor_2, dims2)
       CALL blk_dims_tensor(tensor_3, dims3)
 
-      max_mm_dim = MAXLOC([PRODUCT(dims1(notcontract_1)), PRODUCT(dims1(contract_1)), PRODUCT(dims2(notcontract_2))], DIM=1)
-      max_tensor = MAXLOC([PRODUCT(dims1), PRODUCT(dims2), PRODUCT(dims3)], DIM=1)
-
+      max_mm_dim = MAXLOC([PRODUCT(INT(dims1(notcontract_1), int_8)), &
+                           PRODUCT(INT(dims1(contract_1), int_8)), &
+                           PRODUCT(INT(dims2(notcontract_2), int_8))], DIM=1)
+      max_tensor = MAXLOC([PRODUCT(INT(dims1, int_8)), PRODUCT(INT(dims2, int_8)), PRODUCT(INT(dims3, int_8))], DIM=1)
       SELECT CASE (max_mm_dim)
       CASE (1)
          IF (PRESENT(unit_nr)) THEN

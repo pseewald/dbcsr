@@ -27,7 +27,8 @@ MODULE dbcsr_tensor_block
                                               dbcsr_type, &
                                               dbcsr_reserve_blocks,&
                                               dbcsr_scalar_type, &
-                                              dbcsr_finalize
+                                              dbcsr_finalize, &
+                                              dbcsr_get_num_blocks
    USE dbcsr_rectangular_base_types,    ONLY: dbcsr_r_iterator
    USE dbcsr_rectangular_base,          ONLY: dbcsr_r_iterator_next_block,&
                                               dbcsr_r_iterator_blocks_left,&
@@ -441,14 +442,8 @@ CONTAINS
          routineP = moduleN//':'//routineN
 
       CALL timeset(routineN, handle)
-      nblk = 0
-      CALL dbcsr_iterator_start(iter, matrix_in)
-      DO WHILE (dbcsr_iterator_blocks_left(iter))
-         CALL dbcsr_iterator_next_block(iter, ind_2d(1), ind_2d(2), blk)
-         nblk = nblk + 1
-      ENDDO
-      CALL dbcsr_iterator_stop(iter)
 
+      nblk = dbcsr_get_num_blocks(matrix_in)
       ALLOCATE (blk_ind_1(nblk), blk_ind_2(nblk))
       CALL dbcsr_iterator_start(iter, matrix_in)
       DO iblk = 1, nblk
@@ -473,14 +468,8 @@ CONTAINS
       INTEGER, DIMENSION(2)              :: ind_2d
 
       CALL timeset(routineN, handle)
-      nblk = 0
-      CALL dbcsr_t_iterator_start(iter, tensor_in)
-      DO WHILE(dbcsr_t_iterator_blocks_left(iter))
-         CALL dbcsr_t_iterator_next_block(iter, ind_2d, blk)
-         nblk = nblk + 1
-      ENDDO
-      CALL dbcsr_t_iterator_stop(iter)
 
+      nblk = dbcsr_t_get_num_blocks(tensor_in)
       ALLOCATE(blk_ind_1(nblk), blk_ind_2(nblk))
       CALL dbcsr_t_iterator_start(iter, tensor_in)
       DO iblk=1, nblk

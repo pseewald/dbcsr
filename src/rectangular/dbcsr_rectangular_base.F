@@ -38,7 +38,8 @@ MODULE dbcsr_rectangular_base
                                               dbcsr_nfullcols_total,&
                                               dbcsr_release,&
                                               dbcsr_get_data_size,&
-                                              dbcsr_get_num_blocks
+                                              dbcsr_get_num_blocks,&
+                                              dbcsr_get_nze
    USE dbcsr_operations,                ONLY: dbcsr_copy,&
                                               dbcsr_get_info,&
                                               dbcsr_clear
@@ -88,7 +89,8 @@ MODULE dbcsr_rectangular_base
              dbcsr_r_nblkcols_local, dbcsr_r_nblkrows_local, dbcsr_r_iterator_blocks_left, &
              dbcsr_r_blk_sizes, dbcsr_r_iterator_start, dbcsr_r_iterator_stop, dbcsr_r_reserve_blocks, &
              dbcsr_r_get_info, dbcsr_r_set, dbcsr_r_filter, dbcsr_r_get_num_blocks, dbcsr_r_get_data_size,&
-             dbcsr_r_write_matrix_info, dbcsr_r_clear, dbcsr_r_write_dist, index_unique
+             dbcsr_r_write_matrix_info, dbcsr_r_clear, dbcsr_r_write_dist, index_unique, dbcsr_r_get_nze, &
+             dbcsr_r_get_nze_total
 
    INTERFACE dbcsr_r_create
       MODULE PROCEDURE dbcsr_r_create_new
@@ -552,15 +554,7 @@ CONTAINS
       CALL dbcsr_data_init(block)
       CALL dbcsr_data_new(block, dbcsr_type_1d_to_2d(dbcsr_r_get_data_type(matrix_rect)))
 
-
-      CALL dbcsr_r_iterator_start(iter, matrix_rect)
-      nblks_local = 0
-      DO WHILE (dbcsr_r_iterator_blocks_left(iter))
-         CALL dbcsr_r_iterator_next_block(iter, row, col, block_number)
-         nblks_local = nblks_local+1
-      ENDDO
-      CALL dbcsr_r_iterator_stop(iter)
-
+      nblks_local = dbcsr_r_get_num_blocks(matrix_rect)
       CALL dbcsr_r_iterator_start(iter, matrix_rect)
       ALLOCATE(nz_rows(nblks_local), nz_cols(nblks_local))
       rb_count = 0
@@ -988,6 +982,24 @@ CONTAINS
       INTEGER                        :: num_blocks
 
       num_blocks = dbcsr_get_num_blocks(matrix%matrix)
+   END FUNCTION
+
+   PURE FUNCTION dbcsr_r_get_nze(matrix)
+      TYPE(dbcsr_r_type), INTENT(IN) :: matrix
+      INTEGER :: dbcsr_r_get_nze
+
+      dbcsr_r_get_nze = dbcsr_get_nze(matrix%matrix)
+
+   END FUNCTION
+
+   FUNCTION dbcsr_r_get_nze_total(matrix)
+      TYPE(dbcsr_r_type), INTENT(IN) :: matrix
+      INTEGER :: dbcsr_r_get_nze_total
+      TYPE(dbcsr_r_split_info) :: info
+
+      dbcsr_r_get_nze_total = dbcsr_r_get_nze(matrix)
+      info = dbcsr_r_info(matrix)
+      CALL mp_sum(dbcsr_r_get_nze_total, info%mp_comm)
    END FUNCTION
 
    FUNCTION dbcsr_r_get_data_size(matrix) RESULT(data_size)

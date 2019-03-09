@@ -82,7 +82,7 @@ CONTAINS
       INTEGER(KIND=int_8), DIMENSION(2) :: dims_a, dims_b, dims_c
       INTEGER(KIND=int_8), DIMENSION(3) :: dims
       INTEGER, OPTIONAL, INTENT(IN) :: io_unit
-      INTEGER :: dim_split
+      INTEGER :: max_mm_dim
       CHARACTER(LEN=1) :: tr_case
       INTEGER :: data_type
       INTEGER :: numnodes
@@ -123,9 +123,6 @@ CONTAINS
       dims_b = [dbcsr_r_nblkrows_total(matrix_b), dbcsr_r_nblkcols_total(matrix_b)]
       dims_c = [dbcsr_r_nblkrows_total(matrix_c), dbcsr_r_nblkcols_total(matrix_c)]
 
-      !fdims_a = [dbcsr_r_nfullrows_total(matrix_a), dbcsr_r_nfullcols_total(matrix_a)]
-      !fdims_b = [dbcsr_r_nfullrows_total(matrix_b), dbcsr_r_nfullcols_total(matrix_b)]
-      !fdims_c = [dbcsr_r_nfullrows_total(matrix_c), dbcsr_r_nfullcols_total(matrix_c)]
 
       IF (PRESENT(io_unit)) THEN
          IF (io_unit_prv .GT. 0) THEN
@@ -139,21 +136,6 @@ CONTAINS
          CALL dbcsr_r_write_matrix_info(matrix_a, io_unit_prv, full_info=debug)
          CALL dbcsr_r_write_matrix_info(matrix_b, io_unit_prv, full_info=debug)
          CALL dbcsr_r_write_matrix_info(matrix_c, io_unit_prv, full_info=debug)
-         !WRITE(io_unit_prv, '(A,1X,A)') "Matrix A", TRIM(matrix_a%matrix%name)
-         !WRITE(io_unit_prv, '(A,1X,A)') "Matrix B", TRIM(matrix_b%matrix%name)
-         !WRITE(io_unit_prv, '(A,1X,A)') "Matrix C", TRIM(matrix_c%matrix%name)
-         !WRITE (io_unit_prv, "(A, 1X, I8, 1X, I8, 1X, A, 1X, A)") &
-         !   "block dims 1", dims_a(1), dims_a(2), "trans 1", transa_prv
-         !WRITE (io_unit_prv, "(A, 1X, I8, 1X, I8)") &
-         !   "full dims 1", fdims_a(1), fdims_a(2)
-         !WRITE (io_unit_prv, "(A, 1X, I8, 1X, I8, 1X, A, 1X, A)") &
-         !   "block dims 2", dims_b(1), dims_b(2), "trans 2", transb_prv
-         !WRITE (io_unit_prv, "(A, 1X, I8, 1X, I8)") &
-         !   "full dims 2", fdims_b(1), fdims_b(2)
-         !WRITE (io_unit_prv, "(A, 1X, I8, 1X, I8, 1X, A, 1X, A)") &
-         !   "block dims 3", dims_c(1), dims_c(2), "trans 3", transc_prv
-         !WRITE (io_unit_prv, "(A, 1X, I8, 1X, I8)") &
-         !   "full dims 3", fdims_c(1), fdims_c(2)
       ENDIF
 
       IF (transa_prv .EQ. dbcsr_transpose) THEN
@@ -172,7 +154,7 @@ CONTAINS
 
       dims(:) = [dims_a(1), dims_a(2), dims_b(2)]
 
-      dim_split = MAXLOC(dims, 1)
+      max_mm_dim = MAXLOC(dims, 1)
 
       tr_case = ''
 
@@ -180,7 +162,10 @@ CONTAINS
          WRITE (io_unit_prv, "(T2,A, 1X, I8, 1X, I8, 1X, I8)") "mm dims:", dims(1), dims(2), dims(3)
       ENDIF
 
-      SELECT CASE (dim_split)
+      ! ideally decision which matrix to reshape should be based on occupancy not on size
+      ! but since we don't know occupancy of result matrix, heuristics is based on size
+
+      SELECT CASE (max_mm_dim)
       CASE (1)
 
          CALL reshape_mm_compatible(matrix_a, matrix_c, matrix_a_rs, matrix_c_rs, &
@@ -263,7 +248,7 @@ CONTAINS
       IF(PRESENT(io_unit)) CALL dbcsr_r_print_info(info, " Split info:", io_unit_prv)
 
       zero = dbcsr_scalar_zero(data_type)
-      SELECT CASE (dim_split)
+      SELECT CASE (max_mm_dim)
       CASE (1)
          CALL dbcsr_r_replicate(matrix_b_rs%matrix, dbcsr_r_info(matrix_a_rs), matrix_b_rep, move_data=.TRUE.)
          SELECT CASE (tr_case)
