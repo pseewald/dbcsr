@@ -271,7 +271,7 @@ CONTAINS
          END SELECT
          IF(PRESENT(io_unit)) THEN
             CALL dbcsr_r_write_dist(matrix_a_rs, io_unit)
-            CALL dbcsr_r_write_dist(matrix_b_rep, io_unit, dist=.TRUE.)
+            CALL dbcsr_r_write_dist(matrix_b_rep, io_unit)
             CALL dbcsr_r_write_dist(matrix_c_rs, io_unit)
          ENDIF
          CALL dbcsr_r_distribution_destroy(matrix_b_rep%dist)
@@ -287,7 +287,7 @@ CONTAINS
          IF(PRESENT(io_unit)) THEN
             CALL dbcsr_r_write_dist(matrix_a_rs, io_unit)
             CALL dbcsr_r_write_dist(matrix_b_rs, io_unit)
-            CALL dbcsr_r_write_dist(matrix_c_rep, io_unit, dist=.TRUE.)
+            CALL dbcsr_r_write_dist(matrix_c_rep, io_unit)
          ENDIF
 
          CALL dbcsr_r_merge(matrix_c_rs%matrix, matrix_c_rep, move_data=.TRUE.)
