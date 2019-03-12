@@ -26,7 +26,8 @@ MODULE dbcsr_tensor_api
                                               dbcsr_t_split_copyback,&
                                               dbcsr_t_copy_matrix_to_tensor,&
                                               dbcsr_t_copy,&
-                                              dbcsr_t_copy_tensor_to_matrix
+                                              dbcsr_t_copy_tensor_to_matrix,&
+                                              dbcsr_t_need_contract
    USE dbcsr_tensor_block,              ONLY: dbcsr_t_iterator_blocks_left,&
                                               dbcsr_t_iterator_next_block,&
                                               dbcsr_t_iterator_start,&
@@ -91,5 +92,6 @@ MODULE dbcsr_tensor_api
    PUBLIC :: dbcsr_t_checksum
    PUBLIC :: dbcsr_t_finalize
    PUBLIC :: dbcsr_t_split_copyback
+   PUBLIC :: dbcsr_t_need_contract
 
 END MODULE dbcsr_tensor_api

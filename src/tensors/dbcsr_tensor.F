@@ -78,7 +78,7 @@ MODULE dbcsr_tensor
    USE dbcsr_kinds,                     ONLY: ${uselist(dtype_float_prec)}$,&
                                               default_string_length,&
                                               int_8
-   USE dbcsr_mpiwrap,                   ONLY: mp_environ, mp_max
+   USE dbcsr_mpiwrap,                   ONLY: mp_environ, mp_max, mp_sum
    USE dbcsr_toollib,                   ONLY: sort
    USE dbcsr_tensor_reshape,            ONLY: dbcsr_t_reshape
    USE dbcsr_mpiwrap,                   ONLY: mp_comm_free
@@ -112,7 +112,8 @@ MODULE dbcsr_tensor
       dbcsr_t_split_blocks_generic,&
       dbcsr_t_copy_matrix_to_tensor,&
       dbcsr_t_copy_tensor_to_matrix,&
-      dbcsr_t_split_copyback
+      dbcsr_t_split_copyback, &
+      dbcsr_t_need_contract
 
    INTERFACE dbcsr_t_ndims
       MODULE PROCEDURE ndims_tensor
@@ -1758,6 +1759,64 @@ CONTAINS
       TYPE(dbcsr_scalar_type), INTENT(IN) :: alpha
       CALL dbcsr_scale(tensor%matrix_rep%matrix, alpha)
    END SUBROUTINE
+
+   SUBROUTINE dbcsr_t_get_nonzero_index(tensor, dim, ind)
+      TYPE(dbcsr_t_type), INTENT(IN) :: tensor
+      INTEGER, INTENT(IN) :: dim
+      LOGICAL, ALLOCATABLE, DIMENSION(:), INTENT(OUT) :: ind
+      INTEGER, DIMENSION(dbcsr_t_ndims(tensor)) :: bdims, blk_index
+      INTEGER :: bdim, blk
+      TYPE(dbcsr_t_iterator_type)                     :: iter
+
+      CALL blk_dims_tensor(tensor, bdims)
+      bdim = bdims(dim)
+      ALLOCATE(ind(bdim))
+      ind = .FALSE.
+
+      CALL dbcsr_t_iterator_start(iter, tensor)
+
+      DO WHILE(dbcsr_t_iterator_blocks_left(iter))
+         CALL dbcsr_t_iterator_next_block(iter, blk_index, blk)
+         ind(blk_index(dim)) = .TRUE.
+      ENDDO
+
+      CALL dbcsr_t_iterator_stop(iter)
+   END SUBROUTINE
+
+   FUNCTION dbcsr_t_need_contract(tensor_1, tensor_2, contract_1, contract_2)
+      TYPE(dbcsr_t_type), INTENT(INOUT)  :: tensor_1, tensor_2
+      INTEGER, DIMENSION(:), INTENT(IN)  :: contract_1, contract_2
+      INTEGER :: i
+      LOGICAL, DIMENSION(:), ALLOCATABLE :: ind1, ind2
+      LOGICAL :: dbcsr_t_need_contract
+      CHARACTER(LEN=*), PARAMETER :: routineN = 'dbcsr_t_need_contract', &
+         routineP = moduleN//':'//routineN
+      INTEGER :: handle, mp_comm
+
+      CALL timeset(routineN, handle)
+
+      mp_comm = tensor_1%pgrid%mp_comm_2d
+
+      dbcsr_t_need_contract = .TRUE.
+
+      DO i = 1, SIZE(contract_1)
+         CALL dbcsr_t_get_nonzero_index(tensor_1, contract_1(i), ind1)
+         CALL dbcsr_t_get_nonzero_index(tensor_2, contract_2(i), ind2)
+
+         CALL mp_sum(ind1, mp_comm)
+         CALL mp_sum(ind2, mp_comm)
+
+         IF(.NOT. ANY(ind1 .AND. ind2)) THEN
+            dbcsr_t_need_contract = .FALSE.
+            CALL timestop(handle)
+            RETURN
+         ENDIF
+
+         DEALLOCATE(ind1, ind2)
+      ENDDO
+
+      CALL timestop(handle)
+   END FUNCTION
 
    SUBROUTINE dbcsr_t_print_contraction_index(tensor_1, indchar1, tensor_2, indchar2, tensor_3, indchar3, unit_nr)
       TYPE(dbcsr_t_type), INTENT(IN) :: tensor_1, tensor_2, tensor_3
