@@ -4,9 +4,9 @@
 !--------------------------------------------------------------------------------------------------!
 
 ! **************************************************************************************************
-!> \brief base routines.
+!> \brief Rectangular matrices: base routines similar to DBCSR API, mostly wrappers around existing
+!>        DBCSR routines.
 !>
-!> Mostly wrappers around existing DBCSR routines.
 !> \author Patrick Seewald
 ! **************************************************************************************************
 
@@ -25,7 +25,8 @@ MODULE dbcsr_rectangular_base
                                               dbcsr_scalar_type
    USE dbcsr_dist_methods,              ONLY: dbcsr_distribution_col_dist,&
                                               dbcsr_distribution_new,&
-                                              dbcsr_distribution_row_dist
+                                              dbcsr_distribution_row_dist,&
+                                              dbcsr_distribution_hold
    USE dbcsr_iterator_operations,       ONLY: dbcsr_iterator_blocks_left,&
                                               dbcsr_iterator_next_block,&
                                               dbcsr_iterator_start,&
@@ -56,7 +57,7 @@ MODULE dbcsr_rectangular_base
                                               dbcsr_r_rowcol_data
    USE dbcsr_rectangular_split,         ONLY: &
       block_index_global_to_local, block_index_local_to_global, colsplit, &
-      dbcsr_r_copy_distribution, dbcsr_r_info_hold, dbcsr_r_release_info, dbcsr_r_split, &
+      dbcsr_r_info_hold, dbcsr_r_release_info, dbcsr_r_split, &
       group_to_mrowcol, rowsplit, dbcsr_r_get_split_info
    USE dbcsr_rectangular_util,          ONLY: dbcsr_mp_environ, index_unique
    USE dbcsr_types,                     ONLY: dbcsr_distribution_obj,&
@@ -79,6 +80,7 @@ MODULE dbcsr_rectangular_base
    CHARACTER(len=*), PARAMETER, PRIVATE :: moduleN = 'dbcsr_rectangular_base'
 
    PUBLIC :: &
+             ! DBCSR wrappers / interface routines
              dbcsr_r_create, &
              dbcsr_r_destroy, &
              dbcsr_r_copy, &
@@ -111,8 +113,8 @@ MODULE dbcsr_rectangular_base
              dbcsr_r_write_dist, &
              dbcsr_r_get_nze, &
              dbcsr_r_get_nze_total
-
    PUBLIC :: &
+             ! conversion routines
              dbcsr_r_convert_to_dbcsr, &
              dbcsr_r_convert_to_rectangular
 
@@ -829,7 +831,7 @@ CONTAINS
       TYPE(dbcsr_r_type), INTENT(INOUT)                  :: matrix
       INTEGER(KIND=int_8), DIMENSION(:), INTENT(IN)      :: rows, columns
 
-      CHARACTER(LEN=*), PARAMETER :: routineN = 'dbcsr_r_reserve_blocks', &
+      CHARACTER(LEN=*), PARAMETER :: routineN = 'dbcsr_r_reserve_blocks_index', &
                                      routineP = moduleN//':'//routineN
 
       INTEGER                                            :: handle, icol, irow
@@ -848,7 +850,9 @@ CONTAINS
                                           column_group=rowcols_group(icol, 2))
       ENDDO
 
-      CALL index_unique(rowcols_group, rowcols_group_u) ! todo: is this really needed?
+      CALL index_unique(rowcols_group, rowcols_group_u) ! make sure that index is unique, not sure
+                                                        ! if this is really needed or whether DBCSR
+                                                        ! takes care of duplicate indices
 
       CALL dbcsr_reserve_blocks(matrix%matrix, rowcols_group_u(:,1), rowcols_group_u(:,2))
 
@@ -920,6 +924,34 @@ CONTAINS
       CALL timestop(handle)
 
    END SUBROUTINE
+
+! **************************************************************************************************
+!> \brief ...
+!> \param dist_in ...
+!> \param dist_out ...
+!> \param own_dist ...
+! **************************************************************************************************
+   SUBROUTINE dbcsr_r_copy_distribution(dist_in, dist_out, own_dist)
+      TYPE(dbcsr_r_distribution_type), INTENT(INOUT)     :: dist_in
+      TYPE(dbcsr_r_distribution_type), INTENT(OUT)       :: dist_out
+      LOGICAL, INTENT(IN), OPTIONAL                      :: own_dist
+
+      LOGICAL                                            :: own_dist_prv
+
+      IF (PRESENT(own_dist)) THEN
+         own_dist_prv = own_dist
+      ELSE
+         own_dist_prv = .FALSE.
+      ENDIF
+
+      IF (.NOT. own_dist_prv) THEN
+         CALL dbcsr_distribution_hold(dist_in%dbcsr_dist)
+         CALL dbcsr_r_info_hold(dist_in%info)
+      ENDIF
+
+      dist_out = dist_in
+   END SUBROUTINE
+
 
 ! **************************************************************************************************
 !> \brief ...

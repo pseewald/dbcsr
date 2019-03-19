@@ -7,9 +7,6 @@
 !> \brief methods to split rectangular matrices along longest dimension.
 !>
 !> Basically, we are splitting MPI grid and each subgrid contains its own DBCSR matrix.
-!> todo: may need several split heuristics:
-!> - recursive carma: any split (different group sizes)
-!> - non-recursive carma: decompose into groups of same size
 !> \author Patrick Seewald
 ! **************************************************************************************************
 MODULE dbcsr_rectangular_split
@@ -39,7 +36,7 @@ MODULE dbcsr_rectangular_split
              dbcsr_r_release_info, dbcsr_r_print_info, rowsplit, colsplit, dbcsr_r_get_split_info, &
              world_to_group_proc_map, group_to_world_proc_map, group_to_mrowcol, mrowcol_to_group, &
              block_index_global_to_local, block_index_local_to_global, &
-             dbcsr_r_mp_comm, dbcsr_r_info_hold, dbcsr_r_copY_distribution
+             dbcsr_r_mp_comm, dbcsr_r_info_hold
 
    CHARACTER(len=*), PARAMETER, PRIVATE :: moduleN = 'dbcsr_rectangular_split'
 
@@ -301,32 +298,6 @@ CONTAINS
 
    END SUBROUTINE
 
-! **************************************************************************************************
-!> \brief ...
-!> \param dist_in ...
-!> \param dist_out ...
-!> \param own_dist ...
-! **************************************************************************************************
-   SUBROUTINE dbcsr_r_copy_distribution(dist_in, dist_out, own_dist)
-      TYPE(dbcsr_r_distribution_type), INTENT(INOUT)     :: dist_in
-      TYPE(dbcsr_r_distribution_type), INTENT(OUT)       :: dist_out
-      LOGICAL, INTENT(IN), OPTIONAL                      :: own_dist
-
-      LOGICAL                                            :: own_dist_prv
-
-      IF (PRESENT(own_dist)) THEN
-         own_dist_prv = own_dist
-      ELSE
-         own_dist_prv = .FALSE.
-      ENDIF
-
-      IF (.NOT. own_dist_prv) THEN
-         CALL dbcsr_distribution_hold(dist_in%dbcsr_dist)
-         CALL dbcsr_r_info_hold(dist_in%info)
-      ENDIF
-
-      dist_out = dist_in
-   END SUBROUTINE
 
 ! **************************************************************************************************
 !> \brief ...

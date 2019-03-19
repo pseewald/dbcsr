@@ -6,8 +6,10 @@
 ! **************************************************************************************************
 !> \brief Global data (distribution and block sizes)
 !>
-!> Due to the size of the longest matrix dimension (scaling quadratically with system sizes), these
-!> are not stored as arrays but as function objects.
+!> For very sparse matrices with one very large dimension, storing array data of the same size
+!> as the matrix dimensions may require too much memory. Hence global array data such as distribution
+!> and block sizes are specified as function objects, leaving up to the caller how to efficiently store
+!> or calculate global data.
 !>
 !> \author Patrick Seewald
 ! **************************************************************************************************

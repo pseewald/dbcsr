@@ -54,9 +54,10 @@ MODULE dbcsr_rectangular_mm
 
 CONTAINS
 
-   ! TODO: recursive splitting
 ! **************************************************************************************************
 !> \brief ...
+!> We split only once but with an arbitrary factor in order to use DBCSR mm to efficiently compute
+!> products of submatrices.
 !> \param transa ...
 !> \param transb ...
 !> \param transc ...
@@ -434,7 +435,7 @@ CONTAINS
 !> \param new2 ...
 !> \param trans1 ...
 !> \param trans2 ...
-!> \param optimize_dist ...
+!> \param optimize_dist experimental: optimize matrix splitting and distribution
 !> \param nodata1 ...
 !> \param nodata2 ...
 !> \param move_data ...
@@ -524,7 +525,9 @@ CONTAINS
 
             CALL mp_environ(numnodes, pdims, pcoord, comm_new)
 
-            ! todo: should be input whether new distribution should be cyclic or contiguous
+            ! use a very simple cyclic distribution that may not give good load balance if block
+            ! sizes are not equal
+            ! todo: implement load balanced default distributions
             row_dist_1=dbcsr_r_dist_cyclic(1, pdims(1), dims1(1))
             col_dist_1=dbcsr_r_dist_cyclic(1, pdims(2), dims1(2))
 
@@ -659,7 +662,7 @@ CONTAINS
             ENDIF
 
             same_local_rowcols = MERGE(1, 0, array_eq_i8(mat_a%dist%local_rowcols, mat_b%dist%local_rowcols))
-            CALL mp_sum(same_local_rowcols, info_a%mp_comm) ! todo: if inefficient, this can be done on master ranks only
+            CALL mp_sum(same_local_rowcols, info_a%mp_comm)
 
             IF (same_local_rowcols == numproc) THEN
                IF (io_unit_prv > 0) THEN
