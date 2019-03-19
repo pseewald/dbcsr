@@ -11,6 +11,7 @@
 ! **************************************************************************************************
 
 MODULE dbcsr_rectangular_base
+#:include "dbcsr_rectangular.fypp"
 
    USE dbcsr_block_access,              ONLY: dbcsr_get_block_p,&
                                               dbcsr_put_block,&
@@ -42,12 +43,9 @@ MODULE dbcsr_rectangular_base
                                               dbcsr_get_nze
    USE dbcsr_operations,                ONLY: dbcsr_copy,&
                                               dbcsr_get_info,&
-                                              dbcsr_clear
-   USE dbcsr_rectangular_base_low,      ONLY: dbcsr_r_get_block_p,&
-                                              dbcsr_r_iterator_next_block,&
-                                              dbcsr_r_put_block,&
-                                              dbcsr_r_set,&
-                                              dbcsr_r_filter
+                                              dbcsr_clear,&
+                                              dbcsr_set,&
+                                              dbcsr_filter
    USE dbcsr_rectangular_base_types,    ONLY: dbcsr_r_distribution_type,&
                                               dbcsr_r_iterator,&
                                               dbcsr_r_split_info,&
@@ -68,7 +66,7 @@ MODULE dbcsr_rectangular_base
    USE dbcsr_work_operations,           ONLY: dbcsr_create,&
                                               dbcsr_finalize
    USE dbcsr_kinds,                           ONLY: default_string_length,&
-                                                    int_8, real_8
+                                                    int_8, real_8, real_4
    USE dbcsr_mpiwrap,                 ONLY: mp_cart_rank,&
                                             mp_environ,&
                                             mp_sum, mp_max
@@ -113,6 +111,36 @@ MODULE dbcsr_rectangular_base
    INTERFACE dbcsr_r_reserve_blocks
       MODULE PROCEDURE dbcsr_r_reserve_blocks_template
       MODULE PROCEDURE dbcsr_r_reserve_blocks_index
+   END INTERFACE
+
+   INTERFACE dbcsr_r_iterator_next_block
+#:for dparam, dtype, dsuffix in dtype_float_list
+      MODULE PROCEDURE dbcsr_r_iterator_next_block_${dsuffix}$
+#:endfor
+   END INTERFACE
+
+   INTERFACE dbcsr_r_put_block
+#:for dparam, dtype, dsuffix in dtype_float_list
+      MODULE PROCEDURE dbcsr_r_put_block_${dsuffix}$
+#:endfor
+   END INTERFACE
+
+   INTERFACE dbcsr_r_get_block_p
+#:for dparam, dtype, dsuffix in dtype_float_list
+      MODULE PROCEDURE dbcsr_r_get_block_p_${dsuffix}$
+#:endfor
+   END INTERFACE
+
+   INTERFACE dbcsr_r_set
+#:for dparam, dtype, dsuffix in dtype_float_list
+      MODULE PROCEDURE dbcsr_r_set_${dsuffix}$
+#:endfor
+   END INTERFACE
+
+   INTERFACE dbcsr_r_filter
+#:for dparam, dtype, dsuffix in dtype_float_list
+      MODULE PROCEDURE dbcsr_r_filter_${dsuffix}$
+#:endfor
    END INTERFACE
 
 CONTAINS
@@ -1332,5 +1360,132 @@ CONTAINS
       index_out(:, :) = index_tmp(1:count, :)
 
    END SUBROUTINE
+
+#:for dparam, dtype, dsuffix in dtype_float_list
+! **************************************************************************************************
+!> \brief iterate over group local blocks and get index and block
+!> \param iterator ...
+!> \param row global block row
+!> \param column global block column
+!> \param block matrix block
+!> \param transposed ...
+!> \param block_number ...
+!> \param row_size ...
+!> \param col_size ...
+! **************************************************************************************************
+   SUBROUTINE dbcsr_r_iterator_next_block_${dsuffix}$(iterator, row, column, block, transposed, block_number, &
+                                                      row_size, col_size)
+      TYPE(dbcsr_r_iterator), INTENT(INOUT) :: iterator
+      INTEGER(KIND=int_8), INTENT(OUT)                     :: row, column
+      ${dtype}$, DIMENSION(:, :), &
+         POINTER                                :: block
+      LOGICAL, INTENT(OUT)                     :: transposed
+      INTEGER, INTENT(OUT), OPTIONAL           :: block_number
+      INTEGER, INTENT(OUT), OPTIONAL           :: row_size, col_size
+      INTEGER                                  :: row_group, column_group
+      CHARACTER(LEN=*), PARAMETER :: routineN = 'dbcsr_r_iterator_next_block_${dsuffix}$', &
+                                     routineP = moduleN//':'//routineN
+      INTEGER :: handle
+
+      CALL timeset(routineN, handle)
+      CALL dbcsr_iterator_next_block(iterator%iter, row_group, column_group, block, transposed, block_number, &
+                                     row_size, col_size)
+
+      CALL block_index_local_to_global(iterator%dist%info, iterator%dist, row_group=row_group, column_group=column_group, &
+                                       row=row, column=column)
+
+      CALL timestop(handle)
+   END SUBROUTINE
+#:endfor
+
+! **************************************************************************************************
+!> \brief ...
+!> \param matrix ...
+!> \param row ...
+!> \param col ...
+!> \param block ...
+!> \param transposed ...
+!> \param summation ...
+!> \param scale ...
+! **************************************************************************************************
+
+#:for dparam, dtype, dsuffix in dtype_float_list
+   SUBROUTINE dbcsr_r_put_block_${dsuffix}$(matrix, row, col, block, transposed, summation, &
+                                            scale)
+      TYPE(dbcsr_r_type), INTENT(INOUT) :: matrix
+      ${dtype}$, DIMENSION(:,:), INTENT(IN) :: block
+      LOGICAL, INTENT(IN), OPTIONAL :: transposed, summation
+      INTEGER(KIND=int_8), INTENT(IN) :: row, col
+      ${dtype}$, INTENT(IN), OPTIONAL      :: scale
+      INTEGER :: col_group, row_group
+      CHARACTER(LEN=*), PARAMETER :: routineN = 'dbcsr_r_put_block_${dsuffix}$', &
+                                     routineP = moduleN//':'//routineN
+      INTEGER :: handle
+
+      CALL timeset(routineN, handle)
+      CALL block_index_global_to_local(matrix%dist%info, matrix%dist, row=row, column=col, &
+                                       row_group=row_group, column_group = col_group)
+
+      CALL dbcsr_put_block(matrix%matrix, row_group, col_group, block, transposed=transposed, summation=summation, scale=scale)
+
+      CALL timestop(handle)
+   END SUBROUTINE
+#:endfor
+
+! **************************************************************************************************
+!> \brief ...
+!> \param matrix ...
+!> \param row ...
+!> \param col ...
+!> \param block ...
+!> \param transposed ...
+!> \param found ...
+!> \param row_size ...
+!> \param col_size ...
+! **************************************************************************************************
+
+#:for dparam, dtype, dsuffix in dtype_float_list
+   SUBROUTINE dbcsr_r_get_block_p_${dsuffix}$(matrix, row, col, block, transposed, found, row_size, col_size)
+      TYPE(dbcsr_r_type), INTENT(INOUT)           :: matrix
+      INTEGER(KIND=int_8), INTENT(IN)                      :: row, col
+      ${dtype}$, DIMENSION(:,:), POINTER         :: block
+      LOGICAL, INTENT(OUT)                     :: transposed
+      LOGICAL, INTENT(OUT)                     :: found
+      INTEGER, INTENT(OUT), OPTIONAL           :: row_size, col_size
+      INTEGER :: col_group, row_group
+      CHARACTER(LEN=*), PARAMETER :: routineN = 'dbcsr_r_get_block_p_${dsuffix}$', &
+                                     routineP = moduleN//':'//routineN
+      INTEGER :: handle
+
+      CALL timeset(routineN, handle)
+
+      CALL block_index_global_to_local(matrix%dist%info, matrix%dist, row=row, column=col, &
+                                       row_group=row_group, column_group = col_group)
+
+      CALL dbcsr_get_block_p(matrix%matrix, row_group, col_group, block, transposed, found, row_size=row_size, col_size=col_size)
+
+      CALL timestop(handle)
+   END SUBROUTINE
+#:endfor
+
+#:for dparam, dtype, dsuffix in dtype_float_list
+   SUBROUTINE dbcsr_r_set_${dsuffix}$(matrix, alpha)
+      TYPE(dbcsr_r_type), INTENT(INOUT)    :: matrix
+      ${dtype}$, INTENT(IN)                :: alpha
+      CALL dbcsr_set(matrix%matrix, alpha)
+   END SUBROUTINE
+#:endfor
+
+#:for dparam, dtype, dsuffix in dtype_float_list
+   SUBROUTINE dbcsr_r_filter_${dsuffix}$(matrix, eps, method, use_absolute)
+      TYPE(dbcsr_r_type), INTENT(INOUT)    :: matrix
+      ${dtype}$, INTENT(IN)                :: eps
+      INTEGER, INTENT(IN), OPTIONAL        :: method
+      LOGICAL, INTENT(IN), OPTIONAL        :: use_absolute
+
+      CALL dbcsr_filter(matrix%matrix, eps, method, use_absolute)
+
+   END SUBROUTINE
+#:endfor
 
 END MODULE
