@@ -27,11 +27,21 @@ dbcsr_rectangular_benchmark: BIN_DEPS =
 ifneq ($(NVCC),)
 UNITTESTS += libcusmm_unittest_multiply libcusmm_unittest_transpose libcusmm_timer_multiply
 
+libcusmm_unittest_multiply.cu: $(DBCSRHOME)/tests/generate_libcusmm_unittest_multiply.py $(DBCSRHOME)/tests/libcusmm_unittest_multiply.template
+	$(DBCSRHOME)/tests/generate_libcusmm_unittest_multiply.py --base_folder $(DBCSRHOME) --gpu_version=$(GPUVER)
+
+libcusmm_unittest_multiply: libcusmm_unittest_multiply.cu
+
 SRC_TESTS += libcusmm_unittest_multiply.cu
 libcusmm_unittest_multiply: BIN_DEPS =
 
 SRC_TESTS += libcusmm_unittest_transpose.cu
 libcusmm_unittest_transpose: BIN_DEPS =
+
+libcusmm_timer_multiply.cu: $(DBCSRHOME)/tests/generate_libcusmm_timer_multiply.py $(DBCSRHOME)/tests/libcusmm_timer_multiply.template
+	$(DBCSRHOME)/tests/generate_libcusmm_timer_multiply.py --base_folder $(DBCSRHOME) --gpu_version=$(GPUVER)
+
+libcusmm_timer_multiply: libcusmm_timer_multiply.cu
 
 SRC_TESTS += libcusmm_timer_multiply.cu
 libcusmm_timer_multiply: BIN_DEPS =
