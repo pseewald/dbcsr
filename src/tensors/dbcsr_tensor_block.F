@@ -29,7 +29,7 @@ MODULE dbcsr_tensor_block
                                               dbcsr_scalar_type, &
                                               dbcsr_finalize, &
                                               dbcsr_get_num_blocks
-   USE dbcsr_rectangular_base_types,    ONLY: dbcsr_r_iterator
+   USE dbcsr_rectangular_types,    ONLY: dbcsr_r_iterator
    USE dbcsr_rectangular_base,          ONLY: dbcsr_r_iterator_next_block,&
                                               dbcsr_r_iterator_blocks_left,&
                                               dbcsr_r_iterator_next_block,&

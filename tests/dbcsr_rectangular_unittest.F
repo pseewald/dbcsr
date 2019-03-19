@@ -29,7 +29,7 @@ PROGRAM dbcsr_rectangular_unittest
                                               dbcsr_r_nblkcols_total,&
                                               dbcsr_r_nblkrows_total,&
                                               dbcsr_r_create
-   USE dbcsr_rectangular_base_types,    ONLY: dbcsr_r_type
+   USE dbcsr_rectangular_types,    ONLY: dbcsr_r_type
    USE dbcsr_rectangular_mm,            ONLY: dbcsr_r_multiply
    USE dbcsr_rectangular_split,         ONLY: dbcsr_r_get_split_info,&
                                               dbcsr_r_print_info

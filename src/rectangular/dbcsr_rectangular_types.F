@@ -10,7 +10,7 @@
 !> \author Patrick Seewald
 ! **************************************************************************************************
 
-MODULE dbcsr_rectangular_base_types
+MODULE dbcsr_rectangular_types
 
    USE dbcsr_rectangular_global,        ONLY: dbcsr_r_distribution,&
                                               dbcsr_r_rowcol_data
@@ -23,7 +23,7 @@ MODULE dbcsr_rectangular_base_types
    IMPLICIT NONE
    PRIVATE
 
-   CHARACTER(len=*), PARAMETER, PRIVATE :: moduleN = 'dbcsr_rectangular_base_types'
+   CHARACTER(len=*), PARAMETER, PRIVATE :: moduleN = 'dbcsr_rectangular_types'
 
    PUBLIC :: dbcsr_r_distribution_type, dbcsr_r_type, dbcsr_r_iterator, dbcsr_r_split_info
 

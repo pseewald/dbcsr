@@ -15,6 +15,7 @@ MODULE dbcsr_rectangular_util
    USE dbcsr_kinds,                           ONLY: int_8
    USE dbcsr_mpiwrap,                 ONLY: mp_cart_rank,&
                                             mp_environ
+   USE dbcsr_index_operations, ONLY: dbcsr_sort_indices
 #include "../base/dbcsr_base_uses.f90"
 
    IMPLICIT NONE
@@ -22,7 +23,7 @@ MODULE dbcsr_rectangular_util
 
    CHARACTER(len=*), PARAMETER, PRIVATE :: moduleN = 'dbcsr_rectangular_util'
 
-   PUBLIC :: dbcsr_mp_environ, swap
+   PUBLIC :: dbcsr_mp_environ, swap, index_unique
 
    INTERFACE swap
       MODULE PROCEDURE swap_i8
@@ -84,6 +85,41 @@ CONTAINS
       tmp = arr(1)
       arr(1) = arr(2)
       arr(2) = tmp
+   END SUBROUTINE
+
+! **************************************************************************************************
+!> \brief ...
+!> \param index_in ...
+!> \param index_out ...
+! **************************************************************************************************
+   SUBROUTINE index_unique(index_in, index_out)
+      INTEGER, DIMENSION(:, :), INTENT(IN)   :: index_in
+      INTEGER, ALLOCATABLE, &
+         DIMENSION(:, :), INTENT(OUT)                    :: index_out
+
+      INTEGER                                            :: blk, count, orig_size
+      INTEGER, ALLOCATABLE, DIMENSION(:, :)  :: index_tmp
+      INTEGER, DIMENSION(2)                  :: prev_index
+      INTEGER, DIMENSION(1:SIZE(index_in, 1)&
+                         , 1:SIZE(index_in, 2))                          :: index_sorted
+
+      orig_size = SIZE(index_in, 1)
+      ALLOCATE (index_tmp(orig_size, 2))
+      index_sorted(:, :) = index_in(:, :)
+      CALL dbcsr_sort_indices(orig_size, index_sorted(:, 1), index_sorted(:, 2))
+      count = 0
+      prev_index(:) = [0, 0]
+      DO blk = 1, orig_size
+         IF (ANY(index_sorted(blk, :) .NE. prev_index(:))) THEN
+            count = count+1
+            index_tmp(count, :) = index_sorted(blk, :)
+            prev_index(:) = index_sorted(blk, :)
+         ENDIF
+      ENDDO
+
+      ALLOCATE (index_out(count, 2))
+      index_out(:, :) = index_tmp(1:count, :)
+
    END SUBROUTINE
 
 END MODULE

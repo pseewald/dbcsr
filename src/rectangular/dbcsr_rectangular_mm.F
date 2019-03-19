@@ -17,7 +17,7 @@ MODULE dbcsr_rectangular_mm
       dbcsr_r_create, dbcsr_r_destroy, dbcsr_r_distribution_destroy, dbcsr_r_distribution_new, &
       dbcsr_r_finalize, dbcsr_r_get_data_type, dbcsr_r_info, dbcsr_r_nblkcols_total, &
       dbcsr_r_nblkrows_total, dbcsr_r_write_matrix_info, dbcsr_r_filter, dbcsr_r_write_dist
-   USE dbcsr_rectangular_base_types, ONLY: dbcsr_r_distribution_type, &
+   USE dbcsr_rectangular_types, ONLY: dbcsr_r_distribution_type, &
                                            dbcsr_r_split_info, &
                                            dbcsr_r_type
    USE dbcsr_rectangular_global, ONLY: dbcsr_r_dist_cyclic, dbcsr_r_distribution

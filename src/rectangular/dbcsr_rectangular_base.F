@@ -46,7 +46,7 @@ MODULE dbcsr_rectangular_base
                                               dbcsr_clear,&
                                               dbcsr_set,&
                                               dbcsr_filter
-   USE dbcsr_rectangular_base_types,    ONLY: dbcsr_r_distribution_type,&
+   USE dbcsr_rectangular_types,    ONLY: dbcsr_r_distribution_type,&
                                               dbcsr_r_iterator,&
                                               dbcsr_r_split_info,&
                                               dbcsr_r_type
@@ -58,7 +58,7 @@ MODULE dbcsr_rectangular_base
       block_index_global_to_local, block_index_local_to_global, colsplit, &
       dbcsr_r_copy_distribution, dbcsr_r_info_hold, dbcsr_r_release_info, dbcsr_r_split, &
       group_to_mrowcol, rowsplit, dbcsr_r_get_split_info
-   USE dbcsr_rectangular_util,          ONLY: dbcsr_mp_environ
+   USE dbcsr_rectangular_util,          ONLY: dbcsr_mp_environ, index_unique
    USE dbcsr_types,                     ONLY: dbcsr_distribution_obj,&
                                               dbcsr_iterator,&
                                               dbcsr_mp_obj,&
@@ -78,17 +78,43 @@ MODULE dbcsr_rectangular_base
 
    CHARACTER(len=*), PARAMETER, PRIVATE :: moduleN = 'dbcsr_rectangular_base'
 
-   PUBLIC :: dbcsr_r_create, dbcsr_r_destroy, &
-             dbcsr_r_copy, dbcsr_r_finalize, dbcsr_r_distribution_new, dbcsr_r_distribution_destroy, &
+   PUBLIC :: &
+             dbcsr_r_create, &
+             dbcsr_r_destroy, &
+             dbcsr_r_copy, &
+             dbcsr_r_finalize, &
+             dbcsr_r_distribution_new, &
+             dbcsr_r_distribution_destroy, &
              dbcsr_r_get_stored_coordinates, &
-             dbcsr_repl_get_stored_coordinates, dbcsr_r_convert_to_dbcsr, dbcsr_r_convert_to_rectangular, &
-             dbcsr_r_info, dbcsr_r_nblkrows_total, dbcsr_r_nblkcols_total, &
-             dbcsr_r_put_block, dbcsr_r_get_data_type, dbcsr_r_iterator_next_block, dbcsr_r_get_block_p, &
-             dbcsr_r_nblkcols_local, dbcsr_r_nblkrows_local, dbcsr_r_iterator_blocks_left, &
-             dbcsr_r_blk_sizes, dbcsr_r_iterator_start, dbcsr_r_iterator_stop, dbcsr_r_reserve_blocks, &
-             dbcsr_r_get_info, dbcsr_r_set, dbcsr_r_filter, dbcsr_r_get_num_blocks, dbcsr_r_get_data_size,&
-             dbcsr_r_write_matrix_info, dbcsr_r_clear, dbcsr_r_write_dist, index_unique, dbcsr_r_get_nze, &
+             dbcsr_repl_get_stored_coordinates, &
+             dbcsr_r_info, &
+             dbcsr_r_nblkrows_total, &
+             dbcsr_r_nblkcols_total, &
+             dbcsr_r_put_block, &
+             dbcsr_r_get_data_type, &
+             dbcsr_r_iterator_next_block, &
+             dbcsr_r_get_block_p, &
+             dbcsr_r_nblkcols_local, &
+             dbcsr_r_nblkrows_local, &
+             dbcsr_r_iterator_blocks_left, &
+             dbcsr_r_blk_sizes, &
+             dbcsr_r_iterator_start, &
+             dbcsr_r_iterator_stop, &
+             dbcsr_r_reserve_blocks, &
+             dbcsr_r_get_info, &
+             dbcsr_r_set, &
+             dbcsr_r_filter, &
+             dbcsr_r_get_num_blocks, &
+             dbcsr_r_get_data_size, &
+             dbcsr_r_write_matrix_info, &
+             dbcsr_r_clear, &
+             dbcsr_r_write_dist, &
+             dbcsr_r_get_nze, &
              dbcsr_r_get_nze_total
+
+   PUBLIC :: &
+             dbcsr_r_convert_to_dbcsr, &
+             dbcsr_r_convert_to_rectangular
 
    INTERFACE dbcsr_r_create
       MODULE PROCEDURE dbcsr_r_create_new
@@ -1326,40 +1352,7 @@ CONTAINS
       ENDIF
    END SUBROUTINE
 
-! **************************************************************************************************
-!> \brief ...
-!> \param index_in ...
-!> \param index_out ...
-! **************************************************************************************************
-   SUBROUTINE index_unique(index_in, index_out)
-      INTEGER, DIMENSION(:, :), INTENT(IN)   :: index_in
-      INTEGER, ALLOCATABLE, &
-         DIMENSION(:, :), INTENT(OUT)                    :: index_out
 
-      INTEGER                                            :: blk, count, orig_size
-      INTEGER, ALLOCATABLE, DIMENSION(:, :)  :: index_tmp
-      INTEGER, DIMENSION(2)                  :: prev_index
-      INTEGER, DIMENSION(1:SIZE(index_in, 1)&
-                         , 1:SIZE(index_in, 2))                          :: index_sorted
-
-      orig_size = SIZE(index_in, 1)
-      ALLOCATE (index_tmp(orig_size, 2))
-      index_sorted(:, :) = index_in(:, :)
-      CALL dbcsr_sort_indices(orig_size, index_sorted(:, 1), index_sorted(:, 2))
-      count = 0
-      prev_index(:) = [0, 0]
-      DO blk = 1, orig_size
-         IF (ANY(index_sorted(blk, :) .NE. prev_index(:))) THEN
-            count = count+1
-            index_tmp(count, :) = index_sorted(blk, :)
-            prev_index(:) = index_sorted(blk, :)
-         ENDIF
-      ENDDO
-
-      ALLOCATE (index_out(count, 2))
-      index_out(:, :) = index_tmp(1:count, :)
-
-   END SUBROUTINE
 
 #:for dparam, dtype, dsuffix in dtype_float_list
 ! **************************************************************************************************

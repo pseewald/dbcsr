@@ -18,7 +18,7 @@ MODULE dbcsr_rectangular_test
       dbcsr_r_convert_to_dbcsr, dbcsr_r_create, dbcsr_r_destroy, dbcsr_r_distribution_new, &
       dbcsr_r_finalize, dbcsr_r_get_stored_coordinates, dbcsr_r_nblkcols_total, &
       dbcsr_r_nblkrows_total, dbcsr_r_put_block, dbcsr_r_info
-   USE dbcsr_rectangular_base_types,    ONLY: dbcsr_r_distribution_type,&
+   USE dbcsr_rectangular_types,    ONLY: dbcsr_r_distribution_type,&
                                               dbcsr_r_type
    USE dbcsr_rectangular_global,        ONLY: dbcsr_r_blk_size_arb,&
                                               dbcsr_r_dist_cyclic

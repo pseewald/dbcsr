@@ -15,7 +15,7 @@
 MODULE dbcsr_rectangular_split
 
    USE dbcsr_dist_methods, ONLY: dbcsr_distribution_hold
-   USE dbcsr_rectangular_base_types, ONLY: dbcsr_r_distribution_type, &
+   USE dbcsr_rectangular_types, ONLY: dbcsr_r_distribution_type, &
                                            dbcsr_r_split_info
    USE dbcsr_rectangular_global, ONLY: dbcsr_r_distribution
    USE dbcsr_rectangular_util, ONLY: swap

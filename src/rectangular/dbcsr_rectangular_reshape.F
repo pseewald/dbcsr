@@ -39,8 +39,8 @@ MODULE dbcsr_rectangular_reshape
       dbcsr_r_get_data_type, dbcsr_r_get_stored_coordinates, dbcsr_r_info, &
       dbcsr_r_iterator_blocks_left, dbcsr_r_iterator_next_block, dbcsr_r_iterator_start, &
       dbcsr_r_iterator_stop, dbcsr_r_put_block, dbcsr_r_reserve_blocks, &
-      dbcsr_repl_get_stored_coordinates, index_unique, dbcsr_r_clear
-   USE dbcsr_rectangular_base_types,    ONLY: dbcsr_r_distribution_type,&
+      dbcsr_repl_get_stored_coordinates, dbcsr_r_clear
+   USE dbcsr_rectangular_types,    ONLY: dbcsr_r_distribution_type,&
                                               dbcsr_r_iterator,&
                                               dbcsr_r_split_info,&
                                               dbcsr_r_type
@@ -62,7 +62,7 @@ MODULE dbcsr_rectangular_reshape
                                             mp_environ,&
                                             mp_isend, mp_irecv, mp_waitall
 
-   USE dbcsr_rectangular_util, ONLY: swap
+   USE dbcsr_rectangular_util, ONLY: swap, index_unique
 #include "../base/dbcsr_base_uses.f90"
 
    IMPLICIT NONE

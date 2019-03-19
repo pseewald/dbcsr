@@ -41,7 +41,7 @@ MODULE dbcsr_tensor_types
       dbcsr_r_distribution_destroy, dbcsr_r_finalize, dbcsr_r_get_info, &
       dbcsr_r_destroy, dbcsr_r_get_stored_coordinates, dbcsr_r_set, dbcsr_r_filter, &
       dbcsr_r_get_num_blocks, dbcsr_r_get_data_size, dbcsr_r_get_nze, dbcsr_r_get_nze_total
-   USE dbcsr_rectangular_base_types,    ONLY: dbcsr_r_type, dbcsr_r_distribution_type, dbcsr_r_split_info
+   USE dbcsr_rectangular_types,    ONLY: dbcsr_r_type, dbcsr_r_distribution_type, dbcsr_r_split_info
    USE dbcsr_tensor_index,              ONLY: get_2d_indices,&
                                               get_nd_indices,&
                                               create_nd_to_2d_mapping,&
