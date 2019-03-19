@@ -31,11 +31,11 @@ MODULE dbcsr_rectangular_reshape
                                               dbcsr_blk_row_size
    USE dbcsr_operations,                ONLY: dbcsr_get_info, dbcsr_clear
    USE dbcsr_rectangular_base,          ONLY: &
-        dbcsr_r_blk_sizes, dbcsr_r_create, dbcsr_r_distribution_new, dbcsr_r_finalize, &
-        dbcsr_r_get_data_type, dbcsr_r_get_stored_coordinates, dbcsr_r_info, &
-        dbcsr_r_iterator_blocks_left, dbcsr_r_iterator_next_block, dbcsr_r_iterator_start, &
-        dbcsr_r_iterator_stop, dbcsr_r_put_block, dbcsr_r_reserve_blocks, &
-        dbcsr_repl_get_stored_coordinates, index_unique, dbcsr_r_clear
+      dbcsr_r_blk_sizes, dbcsr_r_create, dbcsr_r_distribution_new, dbcsr_r_finalize, &
+      dbcsr_r_get_data_type, dbcsr_r_get_stored_coordinates, dbcsr_r_info, &
+      dbcsr_r_iterator_blocks_left, dbcsr_r_iterator_next_block, dbcsr_r_iterator_start, &
+      dbcsr_r_iterator_stop, dbcsr_r_put_block, dbcsr_r_reserve_blocks, &
+      dbcsr_repl_get_stored_coordinates, index_unique, dbcsr_r_clear
    USE dbcsr_rectangular_base_types,    ONLY: dbcsr_r_distribution_type,&
                                               dbcsr_r_iterator,&
                                               dbcsr_r_split_info,&
@@ -61,7 +61,7 @@ MODULE dbcsr_rectangular_reshape
    USE dbcsr_work_operations,           ONLY: dbcsr_finalize
    USE dbcsr_kinds,                           ONLY: int_8
    USE dbcsr_mpiwrap,                 ONLY: mp_alltoall,&
-                                              mp_environ
+                                            mp_environ
 #include "../base/dbcsr_base_uses.f90"
 
    IMPLICIT NONE
@@ -85,7 +85,7 @@ CONTAINS
 
       INTEGER, DIMENSION(2)                              :: indx_shape
       CHARACTER(LEN=*), PARAMETER :: routineN = 'block_buffer_get_index', &
-         routineP = moduleN//':'//routineN
+                                     routineP = moduleN//':'//routineN
       INTEGER :: handle
 
       CALL timeset(routineN, handle)
@@ -122,7 +122,9 @@ CONTAINS
 !> \brief copy data (involves reshape)
 !> \param matrix_in ...
 !> \param matrix_out ...
+!> \param summation ...
 !> \param transposed ...
+!> \param move_data ...
 ! **************************************************************************************************
    RECURSIVE SUBROUTINE dbcsr_r_reshape(matrix_in, matrix_out, summation, transposed, move_data)
       TYPE(dbcsr_r_type), INTENT(INOUT)                  :: matrix_in, matrix_out
@@ -131,7 +133,7 @@ CONTAINS
       LOGICAL, INTENT(IN), OPTIONAL                      :: move_data
 
       CHARACTER(LEN=*), PARAMETER :: routineN = 'dbcsr_r_reshape', &
-         routineP = moduleN//':'//routineN
+                                     routineP = moduleN//':'//routineN
 
       INTEGER                                            :: handle, handle2, iproc, mp_comm, mynode, nblock, &
                                                             ndata, numnodes, bcount, nblk
@@ -204,11 +206,9 @@ CONTAINS
       CALL dbcsr_r_iterator_stop(iter)
       CALL timestop(handle2)
 
-
       CALL timeset(routineN//"_alltoall", handle2)
       CALL mp_alltoall(num_send, num_rec, 2, mp_comm)
       CALL timestop(handle2)
-
 
       CALL timeset(routineN//"_buffer_fill", handle2)
       DO iproc = 0, numnodes-1
@@ -301,6 +301,7 @@ CONTAINS
 !> \param info ...
 !> \param matrix_out ...
 !> \param nodata ...
+!> \param move_data ...
 ! **************************************************************************************************
    SUBROUTINE dbcsr_r_replicate(matrix_in, info, matrix_out, nodata, move_data)
       TYPE(dbcsr_type), INTENT(INOUT)                    :: matrix_in
@@ -508,6 +509,7 @@ CONTAINS
 !> \brief ...
 !> \param matrix_out ...
 !> \param matrix_in ...
+!> \param move_data ...
 ! **************************************************************************************************
    SUBROUTINE dbcsr_r_merge(matrix_out, matrix_in, move_data)
       TYPE(dbcsr_type), INTENT(INOUT)                    :: matrix_out

@@ -134,6 +134,7 @@ CONTAINS
 !> \param ndim_nd number of dimensions
 !> \param ndim1_2d number of dimensions that map to first 2d index
 !> \param ndim2_2d number of dimensions that map to first 2d index
+!> \param dims_2d_i8 ...
 !> \param dims_2d 2d dimensions
 !> \param dims_nd nd dimensions
 !> \param dims1_2d dimensions that map to first 2d index

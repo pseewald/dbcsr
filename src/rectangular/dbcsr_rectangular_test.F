@@ -15,9 +15,9 @@ MODULE dbcsr_rectangular_test
                                               dbcsr_get_nze, dbcsr_mp_release, dbcsr_distribution_release
    USE dbcsr_multiply_api,              ONLY: dbcsr_multiply
    USE dbcsr_rectangular_base,          ONLY: &
-        dbcsr_r_convert_to_dbcsr, dbcsr_r_create, dbcsr_r_destroy, dbcsr_r_distribution_new, &
-        dbcsr_r_finalize, dbcsr_r_get_stored_coordinates, dbcsr_r_nblkcols_total, &
-        dbcsr_r_nblkrows_total, dbcsr_r_put_block, dbcsr_r_info
+      dbcsr_r_convert_to_dbcsr, dbcsr_r_create, dbcsr_r_destroy, dbcsr_r_distribution_new, &
+      dbcsr_r_finalize, dbcsr_r_get_stored_coordinates, dbcsr_r_nblkcols_total, &
+      dbcsr_r_nblkrows_total, dbcsr_r_put_block, dbcsr_r_info
    USE dbcsr_rectangular_base_types,    ONLY: dbcsr_r_distribution_type,&
                                               dbcsr_r_type
    USE dbcsr_rectangular_global,        ONLY: dbcsr_r_blk_size_arb,&
@@ -28,7 +28,7 @@ MODULE dbcsr_rectangular_test
    USE dbcsr_types,                     ONLY: dbcsr_type, dbcsr_distribution_obj, dbcsr_mp_obj, &
                                               dbcsr_no_transpose, dbcsr_transpose, dbcsr_type_no_symmetry
    USE dbcsr_kinds,                           ONLY: int_8,&
-                                              real_8
+                                                    real_8
    USE dbcsr_mpiwrap,                 ONLY: mp_environ, mp_cart_create, mp_comm_free
    USE dbcsr_dist_methods,            ONLY: dbcsr_distribution_new
    USE dbcsr_work_operations,         ONLY: dbcsr_create, dbcsr_finalize
@@ -150,8 +150,13 @@ CONTAINS
 !> \brief ...
 !> \param transa ...
 !> \param transb ...
+!> \param transc ...
 !> \param matrix_a ...
 !> \param matrix_b ...
+!> \param matrix_c ...
+!> \param compare_dbcsr ...
+!> \param filter_eps ...
+!> \param io_unit ...
 ! **************************************************************************************************
    SUBROUTINE dbcsr_r_benchmark_mm(transa, transb, transc, matrix_a, matrix_b, matrix_c, compare_dbcsr, filter_eps, io_unit)
       CHARACTER(LEN=1), INTENT(IN)                       :: transa, transb, transc
@@ -178,7 +183,7 @@ CONTAINS
       CALL timeset("benchmark_rectangular_mm", handle1)
       CALL dbcsr_r_multiply(transa, transb, transc, dbcsr_scalar(1.0_real_8), matrix_a, matrix_b, &
                             dbcsr_scalar(0.0_real_8), matrix_c, &
-         filter_eps=filter_eps, io_unit=io_unit)
+                            filter_eps=filter_eps, io_unit=io_unit)
       CALL timestop(handle1)
       IF(PRESENT(io_unit)) THEN
       IF(io_unit > 0) THEN
@@ -258,8 +263,11 @@ CONTAINS
 !> \brief ...
 !> \param transa ...
 !> \param transb ...
+!> \param transc ...
 !> \param matrix_a ...
 !> \param matrix_b ...
+!> \param matrix_c ...
+!> \param filter_eps ...
 !> \param unit_nr ...
 ! **************************************************************************************************
    SUBROUTINE dbcsr_r_test_mm(transa, transb, transc, matrix_a, matrix_b, matrix_c, filter_eps, unit_nr)
@@ -296,7 +304,7 @@ CONTAINS
 
       CALL dbcsr_r_multiply(transa, transb, transc, dbcsr_scalar(1.0_real_8), matrix_a, matrix_b, &
                             dbcsr_scalar(0.0_real_8), matrix_c, &
-         filter_eps=filter_eps, io_unit=io_unit, optimize_dist=.TRUE.)
+                            filter_eps=filter_eps, io_unit=io_unit, optimize_dist=.TRUE.)
 
       cs_c = dbcsr_r_checksum(matrix_c)
 
@@ -398,6 +406,13 @@ CONTAINS
 
    END SUBROUTINE
 
+! **************************************************************************************************
+!> \brief ...
+!> \param matrix ...
+!> \param local ...
+!> \param pos ...
+!> \return ...
+! **************************************************************************************************
    FUNCTION dbcsr_r_checksum(matrix, local, pos)
       TYPE(dbcsr_r_type), INTENT(IN) :: matrix
       LOGICAL, INTENT(IN), OPTIONAL     :: local, pos
@@ -408,7 +423,6 @@ CONTAINS
       dbcsr_r_checksum = dbcsr_checksum(dbcsr_m, local, pos)
       CALL dbcsr_release(dbcsr_m)
    END FUNCTION
-
 
 ! **************************************************************************************************
 !> \brief ...

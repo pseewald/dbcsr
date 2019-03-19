@@ -29,13 +29,13 @@ MODULE dbcsr_tensor_types
                                               get_arrays,&
                                               get_ith_array
    USE dbcsr_api,                       ONLY: &
-        dbcsr_distribution_get, &
-        dbcsr_distribution_type, &
-        dbcsr_get_info, dbcsr_type,&
-        ${uselist(dtype_float_param)}$
+      dbcsr_distribution_get, &
+      dbcsr_distribution_type, &
+      dbcsr_get_info, dbcsr_type,&
+      ${uselist(dtype_float_param)}$
    USE dbcsr_kinds,                     ONLY: &
-        ${uselist(dtype_float_prec)}$,&
-        default_string_length
+      ${uselist(dtype_float_prec)}$,&
+      default_string_length
    USE dbcsr_rectangular_base,          ONLY: &
       dbcsr_r_create, dbcsr_r_distribution_new,&
       dbcsr_r_distribution_destroy, dbcsr_r_finalize, dbcsr_r_get_info, &
@@ -178,7 +178,6 @@ MODULE dbcsr_tensor_types
 #:endfor
    END INTERFACE
 
-
 CONTAINS
 
    FUNCTION new_dbcsr_r_dist_t(nd_dist, map_blks, map_grid, which_dim)
@@ -316,7 +315,7 @@ CONTAINS
       new_dbcsr_r_blk_size_t%nmrowcol = matrix_dims(which_dim)
 
       new_dbcsr_r_blk_size_t%nfullrowcol = PRODUCT(INT(sum_of_arrays(new_dbcsr_r_blk_size_t%blk_size), &
-                                                   KIND=int_8))
+                                                       KIND=int_8))
    END FUNCTION
 
    FUNCTION r_blk_size_t(t, rowcol)
@@ -364,7 +363,7 @@ CONTAINS
       INTEGER, DIMENSION(SIZE(map1_2d) + SIZE(map2_2d)) :: dims_nd_prv
       INTEGER                                           :: handle
       CHARACTER(LEN=*), PARAMETER :: routineN = 'dbcsr_t_nd_mp_comm', &
-         routineP = moduleN//':'//routineN
+                                     routineP = moduleN//':'//routineN
       TYPE(dbcsr_t_pgrid_type)                          :: dbcsr_t_nd_mp_comm
 
       CALL timeset(routineN, handle)
@@ -431,9 +430,9 @@ CONTAINS
 !>
 ! **************************************************************************************************
    SUBROUTINE dbcsr_t_nd_mp_free(mp_comm)
-     INTEGER, INTENT(INOUT)                               :: mp_comm
+      INTEGER, INTENT(INOUT)                               :: mp_comm
 
-     CALL mp_comm_free(mp_comm)
+      CALL mp_comm_free(mp_comm)
    END SUBROUTINE dbcsr_t_nd_mp_free
 
 ! **************************************************************************************************
@@ -479,7 +478,7 @@ CONTAINS
       INTEGER                                         :: igroup, ngroup_prv
       TYPE(dbcsr_r_split_info)                        :: split_info
       CHARACTER(LEN=*), PARAMETER :: routineN = 'dbcsr_t_distribution_new', &
-         routineP = moduleN//':'//routineN
+                                     routineP = moduleN//':'//routineN
 
       CALL timeset(routineN, handle)
       ndims = SIZE(map1_2d) + SIZE(map2_2d)
@@ -563,16 +562,16 @@ CONTAINS
       dist%refcount = 1
       CALL timestop(handle)
 
-      CONTAINS
-         PURE FUNCTION array_eq_i(arr1, arr2)
-            INTEGER, INTENT(IN), DIMENSION(:) :: arr1
-            INTEGER, INTENT(IN), DIMENSION(:) :: arr2
-            LOGICAL                           :: array_eq_i
+   CONTAINS
+      PURE FUNCTION array_eq_i(arr1, arr2)
+         INTEGER, INTENT(IN), DIMENSION(:) :: arr1
+         INTEGER, INTENT(IN), DIMENSION(:) :: arr2
+         LOGICAL                           :: array_eq_i
 
-            array_eq_i = .FALSE.
-            IF (SIZE(arr1) .EQ. SIZE(arr2)) array_eq_i = ALL(arr1 == arr2)
+         array_eq_i = .FALSE.
+         IF (SIZE(arr1) .EQ. SIZE(arr2)) array_eq_i = ALL(arr1 == arr2)
 
-         END FUNCTION
+      END FUNCTION
 
    END SUBROUTINE
 
@@ -584,9 +583,8 @@ CONTAINS
       TYPE(dbcsr_t_distribution_type), INTENT(INOUT) :: dist
       INTEGER                                   :: handle
       CHARACTER(LEN=*), PARAMETER :: routineN = 'dbcsr_t_distribution_destroy', &
-         routineP = moduleN//':'//routineN
+                                     routineP = moduleN//':'//routineN
       LOGICAL :: abort
-
 
       CALL timeset(routineN, handle)
       CALL dbcsr_r_distribution_destroy(dist%dist)
@@ -667,12 +665,11 @@ CONTAINS
       TYPE(nd_to_2d_mapping)                            :: map
       INTEGER                                   :: handle
       CHARACTER(LEN=*), PARAMETER :: routineN = 'dbcsr_t_create_new', &
-         routineP = moduleN//':'//routineN
+                                     routineP = moduleN//':'//routineN
       INTEGER, DIMENSION(:), ALLOCATABLE              :: ${varlist("blks_local")}$
       INTEGER, DIMENSION(:), ALLOCATABLE              :: ${varlist("dist")}$
       INTEGER                                         :: iblk_count, iblk
       INTEGER, DIMENSION(:), ALLOCATABLE              :: nblks_local, nfull_local
-
 
       CALL timeset(routineN, handle)
       ndims = SIZE(map1_2d)+SIZE(map2_2d)
@@ -784,7 +781,7 @@ CONTAINS
       CHARACTER(len=*), INTENT(IN), OPTIONAL :: name
       INTEGER                                   :: handle
       CHARACTER(LEN=*), PARAMETER :: routineN = 'dbcsr_t_create_template', &
-         routineP = moduleN//':'//routineN
+                                     routineP = moduleN//':'//routineN
 
       CALL timeset(routineN, handle)
       ALLOCATE(tensor%matrix_rep)
@@ -845,7 +842,7 @@ CONTAINS
       INTEGER, DIMENSION(:), POINTER              :: col_dist, row_dist
       INTEGER                                   :: handle
       CHARACTER(LEN=*), PARAMETER :: routineN = 'dbcsr_t_create_matrix', &
-         routineP = moduleN//':'//routineN
+                                     routineP = moduleN//':'//routineN
       TYPE(dbcsr_t_pgrid_type)                  :: comm_nd
       INTEGER, DIMENSION(2)                     :: pdims_2d
 
@@ -896,7 +893,7 @@ CONTAINS
       TYPE(dbcsr_t_type), INTENT(INOUT) :: tensor
       INTEGER                                   :: handle
       CHARACTER(LEN=*), PARAMETER :: routineN = 'dbcsr_t_destroy', &
-         routineP = moduleN//':'//routineN
+                                     routineP = moduleN//':'//routineN
       LOGICAL :: abort
 
       CALL timeset(routineN, handle)
@@ -1054,7 +1051,7 @@ CONTAINS
       INTEGER, DIMENSION(:), ALLOCATABLE :: map1_2d_prv, map2_2d_prv
 
       CHARACTER(LEN=*), PARAMETER :: routineN = 'dbcsr_t_pgrid_create', &
-         routineP = moduleN//':'//routineN
+                                     routineP = moduleN//':'//routineN
 
       CALL timeset(routineN, handle)
 
@@ -1149,8 +1146,8 @@ CONTAINS
                                data_type)
       TYPE(dbcsr_t_type), INTENT(IN) :: tensor
       INTEGER, INTENT(OUT), OPTIONAL, DIMENSION(ndims_tensor(tensor)) :: nblks_total, nfull_total, &
-                                                                  nblks_local, nfull_local, &
-                                                                  my_ploc, pdims
+                                                                         nblks_local, nfull_local, &
+                                                                         my_ploc, pdims
       INTEGER, DIMENSION(:), ALLOCATABLE, INTENT(OUT), OPTIONAL :: ${varlist("blks_local")}$
       INTEGER, DIMENSION(:), ALLOCATABLE, INTENT(OUT), OPTIONAL :: ${varlist("proc_dist")}$
       INTEGER, DIMENSION(:), ALLOCATABLE, INTENT(OUT), OPTIONAL :: ${varlist("blk_size")}$

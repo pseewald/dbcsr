@@ -47,13 +47,13 @@ PROGRAM dbcsr_rectangular_unittest
    USE dbcsr_work_operations,           ONLY: dbcsr_create,&
                                               dbcsr_finalize
    USE dbcsr_kinds,                           ONLY: int_8,&
-                                              real_8
+                                                    real_8
    USE dbcsr_machine,                         ONLY: default_output_unit
    USE dbcsr_mpiwrap,                 ONLY: mp_cart_create,&
-                                              mp_comm_free,&
-                                              mp_environ,&
-                                              mp_world_finalize,&
-                                              mp_world_init
+                                            mp_comm_free,&
+                                            mp_environ,&
+                                            mp_world_finalize,&
+                                            mp_world_init
 #include "base/dbcsr_base_uses.f90"
 
    IMPLICIT NONE

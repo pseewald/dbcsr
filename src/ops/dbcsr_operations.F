@@ -33,11 +33,11 @@ MODULE dbcsr_operations
                                               dbcsr_data_clear
    USE dbcsr_config,                    ONLY: default_resize_factor
    USE dbcsr_data_methods,              ONLY: &
-        dbcsr_data_clear_pointer, dbcsr_data_ensure_size, dbcsr_data_get_size, &
-        dbcsr_data_get_size_referenced, dbcsr_data_get_type, dbcsr_data_init, dbcsr_data_new, &
-        dbcsr_data_release, dbcsr_data_set_pointer, dbcsr_get_data, dbcsr_scalar, &
-        dbcsr_scalar_are_equal, dbcsr_scalar_fill_all, dbcsr_scalar_get_type, dbcsr_scalar_one, &
-        dbcsr_scalar_zero, dbcsr_type_1d_to_2d, dbcsr_get_data_p_d, dbcsr_get_data_p_s
+      dbcsr_data_clear_pointer, dbcsr_data_ensure_size, dbcsr_data_get_size, &
+      dbcsr_data_get_size_referenced, dbcsr_data_get_type, dbcsr_data_init, dbcsr_data_new, &
+      dbcsr_data_release, dbcsr_data_set_pointer, dbcsr_get_data, dbcsr_scalar, &
+      dbcsr_scalar_are_equal, dbcsr_scalar_fill_all, dbcsr_scalar_get_type, dbcsr_scalar_one, &
+      dbcsr_scalar_zero, dbcsr_type_1d_to_2d, dbcsr_get_data_p_d, dbcsr_get_data_p_s
    USE dbcsr_data_operations,           ONLY: dbcsr_data_convert,&
                                               dbcsr_data_copyall,&
                                               dbcsr_switch_data_area
@@ -59,12 +59,12 @@ MODULE dbcsr_operations
                                               dbcsr_iterator_start,&
                                               dbcsr_iterator_stop
    USE dbcsr_methods,                   ONLY: &
-        dbcsr_col_block_offsets, dbcsr_distribution, dbcsr_get_data_size, dbcsr_get_data_type, &
-        dbcsr_get_index_memory_type, dbcsr_get_matrix_type, dbcsr_get_num_blocks, &
-        dbcsr_get_replication_type, dbcsr_has_symmetry, dbcsr_max_col_size, dbcsr_max_row_size, &
-        dbcsr_nblkcols_total, dbcsr_nblkrows_total, dbcsr_nfullcols_total, dbcsr_nfullrows_total, &
-        dbcsr_row_block_offsets, dbcsr_valid_index, dbcsr_get_nze, dbcsr_nfullcols_local, &
-        dbcsr_nfullrows_local, dbcsr_get_num_blocks, dbcsr_release
+      dbcsr_col_block_offsets, dbcsr_distribution, dbcsr_get_data_size, dbcsr_get_data_type, &
+      dbcsr_get_index_memory_type, dbcsr_get_matrix_type, dbcsr_get_num_blocks, &
+      dbcsr_get_replication_type, dbcsr_has_symmetry, dbcsr_max_col_size, dbcsr_max_row_size, &
+      dbcsr_nblkcols_total, dbcsr_nblkrows_total, dbcsr_nfullcols_total, dbcsr_nfullrows_total, &
+      dbcsr_row_block_offsets, dbcsr_valid_index, dbcsr_get_nze, dbcsr_nfullcols_local, &
+      dbcsr_nfullrows_local, dbcsr_get_num_blocks, dbcsr_release
    USE dbcsr_mp_methods,                ONLY: dbcsr_mp_group,&
                                               dbcsr_mp_mynode,&
                                               dbcsr_mp_mypcol,&
@@ -75,15 +75,15 @@ MODULE dbcsr_operations
                                               pointer_view
    USE dbcsr_toollib,                   ONLY: swap
    USE dbcsr_types,                     ONLY: &
-        dbcsr_data_obj, dbcsr_distribution_obj, dbcsr_filter_frobenius, dbcsr_func_artanh, &
-        dbcsr_func_asin, dbcsr_func_cos, dbcsr_func_ddsin, dbcsr_func_ddtanh, dbcsr_func_dsin, &
-        dbcsr_func_dtanh, dbcsr_func_inverse, dbcsr_func_inverse_special, dbcsr_func_sin, &
-        dbcsr_func_spread_from_zero, dbcsr_func_tanh, dbcsr_func_truncate, dbcsr_iterator, &
-        dbcsr_mp_obj, dbcsr_norm_column, dbcsr_norm_frobenius, dbcsr_norm_gershgorin, &
-        dbcsr_norm_maxabsnorm, dbcsr_repl_full, dbcsr_repl_none, dbcsr_scalar_type, dbcsr_type, &
-        dbcsr_type_antihermitian, dbcsr_type_antisymmetric, dbcsr_type_complex_4, &
-        dbcsr_type_complex_8, dbcsr_type_hermitian, dbcsr_type_no_symmetry, dbcsr_type_real_4, &
-        dbcsr_type_real_8, dbcsr_type_symmetric
+      dbcsr_data_obj, dbcsr_distribution_obj, dbcsr_filter_frobenius, dbcsr_func_artanh, &
+      dbcsr_func_asin, dbcsr_func_cos, dbcsr_func_ddsin, dbcsr_func_ddtanh, dbcsr_func_dsin, &
+      dbcsr_func_dtanh, dbcsr_func_inverse, dbcsr_func_inverse_special, dbcsr_func_sin, &
+      dbcsr_func_spread_from_zero, dbcsr_func_tanh, dbcsr_func_truncate, dbcsr_iterator, &
+      dbcsr_mp_obj, dbcsr_norm_column, dbcsr_norm_frobenius, dbcsr_norm_gershgorin, &
+      dbcsr_norm_maxabsnorm, dbcsr_repl_full, dbcsr_repl_none, dbcsr_scalar_type, dbcsr_type, &
+      dbcsr_type_antihermitian, dbcsr_type_antisymmetric, dbcsr_type_complex_4, &
+      dbcsr_type_complex_8, dbcsr_type_hermitian, dbcsr_type_no_symmetry, dbcsr_type_real_4, &
+      dbcsr_type_real_8, dbcsr_type_symmetric
    USE dbcsr_dist_util,                 ONLY: find_block_of_element
    USE dbcsr_work_operations,           ONLY: dbcsr_create,&
                                               dbcsr_finalize,&

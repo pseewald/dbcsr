@@ -42,13 +42,13 @@ MODULE dbcsr_index_operations
                                               sort,&
                                               swap
    USE dbcsr_types,                     ONLY: &
-        dbcsr_distribution_obj, dbcsr_meta_size, dbcsr_num_slots, dbcsr_slot_blk_p, &
-        dbcsr_slot_col_i, dbcsr_slot_coo_l, dbcsr_slot_home_prow, dbcsr_slot_home_vprow, &
-        dbcsr_slot_nblkcols_local, dbcsr_slot_nblkcols_total, dbcsr_slot_nblkrows_local, &
-        dbcsr_slot_nblkrows_total, dbcsr_slot_nblks, dbcsr_slot_nfullcols_local, dbcsr_slot_nze, &
-        dbcsr_slot_row_p, dbcsr_slot_size, dbcsr_slot_thr_c, dbcsr_type
+      dbcsr_distribution_obj, dbcsr_meta_size, dbcsr_num_slots, dbcsr_slot_blk_p, &
+      dbcsr_slot_col_i, dbcsr_slot_coo_l, dbcsr_slot_home_prow, dbcsr_slot_home_vprow, &
+      dbcsr_slot_nblkcols_local, dbcsr_slot_nblkcols_total, dbcsr_slot_nblkrows_local, &
+      dbcsr_slot_nblkrows_total, dbcsr_slot_nblks, dbcsr_slot_nfullcols_local, dbcsr_slot_nze, &
+      dbcsr_slot_row_p, dbcsr_slot_size, dbcsr_slot_thr_c, dbcsr_type
    USE dbcsr_kinds,                           ONLY: int_4,&
-                                              int_8
+                                                    int_8
    USE dbcsr_array_types, ONLY: array_data, &
                                 array_size
    USE dbcsr_config, ONLY: default_resize_factor

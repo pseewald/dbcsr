@@ -16,19 +16,19 @@ MODULE dbcsr_rectangular_split
 
    USE dbcsr_dist_methods, ONLY: dbcsr_distribution_hold
    USE dbcsr_rectangular_base_types, ONLY: dbcsr_r_distribution_type, &
-      dbcsr_r_split_info
+                                           dbcsr_r_split_info
    USE dbcsr_rectangular_global, ONLY: dbcsr_r_distribution
    USE dbcsr_rectangular_util, ONLY: swap
    USE dbcsr_toollib, ONLY: sort
    USE dbcsr_kinds, ONLY: int_8
    USE dbcsr_machine, ONLY: default_output_unit
    USE dbcsr_mpiwrap, ONLY: mp_bcast, &
-      mp_cart_create, &
-      mp_comm_dup, &
-      mp_comm_free, &
-      mp_comm_split_direct, &
-      mp_dims_create, &
-      mp_environ
+                            mp_cart_create, &
+                            mp_comm_dup, &
+                            mp_comm_free, &
+                            mp_comm_split_direct, &
+                            mp_dims_create, &
+                            mp_environ
 #include "../base/dbcsr_base_uses.f90"
 
    IMPLICIT NONE
@@ -377,6 +377,8 @@ CONTAINS
 ! **************************************************************************************************
 !> \brief ...
 !> \param info ...
+!> \param name ...
+!> \param io_unit ...
 ! **************************************************************************************************
    SUBROUTINE dbcsr_r_print_info(info, name, io_unit)
       TYPE(dbcsr_r_split_info), INTENT(IN)               :: info
@@ -596,6 +598,14 @@ CONTAINS
       END ASSOCIATE
    END SUBROUTINE
 
+! **************************************************************************************************
+!> \brief ...
+!> \param array ...
+!> \param el ...
+!> \param l_index ...
+!> \param u_index ...
+!> \return ...
+! **************************************************************************************************
    FUNCTION i8_isearch(array, el, l_index, u_index) result(res)
       INTEGER(KIND=int_8), intent(in) :: array(:)
       INTEGER(KIND=int_8), intent(in) :: el
@@ -622,30 +632,38 @@ CONTAINS
       res = INT(lindex)
    END FUNCTION
 
+! **************************************************************************************************
+!> \brief ...
+!> \param array ...
+!> \param el ...
+!> \param l_index ...
+!> \param u_index ...
+!> \return ...
+! **************************************************************************************************
    FUNCTION i8_bsearch(array, el, l_index, u_index)&
-        result(res)
-     INTEGER(KIND=int_8), intent(in) :: array(:)
-     INTEGER(KIND=int_8), intent(in) :: el
-     INTEGER, INTENT(in), OPTIONAL :: l_index, u_index
-     integer :: res
+      result(res)
+      INTEGER(KIND=int_8), intent(in) :: array(:)
+      INTEGER(KIND=int_8), intent(in) :: el
+      INTEGER, INTENT(in), OPTIONAL :: l_index, u_index
+      integer :: res
 
-     character(len=*), parameter :: routineN='i8_bsearch',&
-           routineP=moduleN//':'//routineN
-     INTEGER :: lindex,uindex,aindex
+      character(len=*), parameter :: routineN='i8_bsearch',&
+                                     routineP=moduleN//':'//routineN
+      INTEGER :: lindex,uindex,aindex
 
-     lindex=1
-     uindex=size(array)
-     if (present(l_index)) lindex=l_index
-     if (present(u_index)) uindex=u_index
-     DO WHILE (lindex <= uindex)
-        aindex=(lindex+uindex)/2
-        IF (array(aindex) < el) THEN
-           lindex=aindex+1
-        ELSE
-           uindex=aindex-1
-        END IF
-     END DO
-     res=lindex
+      lindex=1
+      uindex=size(array)
+      if (present(l_index)) lindex=l_index
+      if (present(u_index)) uindex=u_index
+      DO WHILE (lindex <= uindex)
+         aindex=(lindex+uindex)/2
+         IF (array(aindex) < el) THEN
+            lindex=aindex+1
+         ELSE
+            uindex=aindex-1
+         END IF
+      END DO
+      res=lindex
    END FUNCTION
 
 ! **************************************************************************************************

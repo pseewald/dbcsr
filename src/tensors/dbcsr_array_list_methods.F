@@ -166,7 +166,6 @@ CONTAINS
       INTEGER                                            :: i, ndata
       INTEGER, DIMENSION(number_of_arrays(list))         :: o
 
-
       o(:) = 0
       IF (PRESENT(i_selected)) THEN
          ndata = SIZE(i_selected)
@@ -178,9 +177,9 @@ CONTAINS
 
       ASSOCIATE(ptr=>list%ptr, col_data=>list%col_data)
 #:for dim in range(1, maxdim+1)
-      IF (ndata > ${dim-1}$) THEN
-         CALL allocate_any(data_${dim}$, source=col_data(ptr(o(${dim}$)):ptr(o(${dim}$)+1)-1))
-      ENDIF
+         IF (ndata > ${dim-1}$) THEN
+            CALL allocate_any(data_${dim}$, source=col_data(ptr(o(${dim}$)):ptr(o(${dim}$)+1)-1))
+         ENDIF
 #:endfor
       END ASSOCIATE
 
@@ -198,9 +197,9 @@ CONTAINS
       INTEGER, DIMENSION(:), ALLOCATABLE, INTENT(OUT) :: array
 
       ASSOCIATE(ptr=>list%ptr, col_data=>list%col_data)
-      DBCSR_ASSERT(i <= number_of_arrays(list))
+         DBCSR_ASSERT(i <= number_of_arrays(list))
 
-      CALL allocate_any(array, source=col_data(ptr(i):ptr(i+1)-1))
+         CALL allocate_any(array, source=col_data(ptr(i):ptr(i+1)-1))
       END ASSOCIATE
    END SUBROUTINE
 
@@ -304,7 +303,6 @@ CONTAINS
       IF (SIZE(arr1) .EQ. SIZE(arr2)) array_eq_i = ALL(arr1 == arr2)
 
    END FUNCTION
-
 
 END MODULE dbcsr_array_list_methods
 

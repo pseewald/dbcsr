@@ -14,7 +14,6 @@ MODULE dbcsr_rectangular_reshape_low
 #include "../base/dbcsr_base_uses.f90"
 #:include "dbcsr_rectangular.fypp"
 
-
    USE dbcsr_kinds, ONLY: int_8, real_4, real_8
    USE dbcsr_data_types, ONLY: ${uselist(dtype_float_param)}$
    USE dbcsr_data_methods_low, ONLY: ${uselist(["dbcsr_get_data_p_2d_" + s for s in dtype_float_suffix_dbcsr])}$
@@ -151,7 +150,7 @@ CONTAINS
       INTEGER :: handle
 
       CHARACTER(LEN=*), PARAMETER :: routineN = 'block_buffer_get_next_area_block', &
-       routineP = moduleN//':'//routineN
+                                     routineP = moduleN//':'//routineN
 
       CALL timeset(routineN, handle)
       IF (PRESENT(block)) THEN
@@ -159,8 +158,6 @@ CONTAINS
          DBCSR_ASSERT(valid)
          CALL internal_data_deallocate(block%d)
       ENDIF
-
-
 
       SELECT CASE(buffer%data_type)
 #:for dparam, dtype, dsuffix in dtype_float_list
@@ -300,7 +297,7 @@ CONTAINS
                                                 send_counter
       INTEGER                                   :: handle
       CHARACTER(LEN=*), PARAMETER :: routineN = 'dbcsr_r_communicate_buffer', &
-         routineP = moduleN//':'//routineN
+                                     routineP = moduleN//':'//routineN
 
       CALL timeset(routineN, handle)
       CALL mp_environ(numnodes, mynode, mp_comm)

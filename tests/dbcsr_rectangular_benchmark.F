@@ -13,22 +13,22 @@ PROGRAM dbcsr_rectangular_benchmark
                                               dbcsr_r_random_bsizes,&
                                               dbcsr_r_setup_test_matrix
    USE dbcsr_kinds,                           ONLY: int_8,&
-                                              real_8,&
-                                              default_string_length
+                                                    real_8,&
+                                                    default_string_length
    USE dbcsr_machine,                         ONLY: default_output_unit
    USE dbcsr_mpiwrap,                 ONLY: add_mp_perf_env,&
-                                              mp_comm_free,&
-                                              mp_environ,&
-                                              mp_world_finalize,&
-                                              mp_world_init,&
-                                              rm_mp_perf_env
+                                            mp_comm_free,&
+                                            mp_environ,&
+                                            mp_world_finalize,&
+                                            mp_world_init,&
+                                            rm_mp_perf_env
    !USE string_table,                    ONLY: string_table_allocate,&
    !                                           string_table_deallocate
    USE dbcsr_timings,                         ONLY: add_timer_env,&
-                                              rm_timer_env,&
-                                              timings_register_hooks
+                                                    rm_timer_env,&
+                                                    timings_register_hooks
    USE dbcsr_timings_report,                  ONLY: cost_type_time,&
-                                              timings_report_print
+                                                    timings_report_print
    USE dbcsr_rectangular_util,          ONLY: dbcsr_mp_environ
    USE dbcsr_base_hooks,                ONLY: timeset, timestop
 #include "base/dbcsr_base_uses.f90"
@@ -90,9 +90,7 @@ PROGRAM dbcsr_rectangular_benchmark
       WRITE(io_unit, *) "compare with dbcsr?", compare_dbcsr
    ENDIF
 
-
    CALL timeset("dbcsr_rectangular_benchmark", handle)
-
 
    CALL mp_environ(numnodes, pdims, pcoord, mp_comm_cart)
 
@@ -109,7 +107,6 @@ PROGRAM dbcsr_rectangular_benchmark
                                   sparsity, reuse_comm=.TRUE.)
    CALL dbcsr_r_setup_test_matrix(C, mp_comm_cart_, mp_comm_cart, dmin, dmin, bsize_min, bsize_min, [2, 3], "C", &
                                   sparsity, reuse_comm=.TRUE.)
-
 
    CALL dbcsr_r_print_info(dbcsr_r_info(A), "A")
    CALL dbcsr_r_print_info(dbcsr_r_info(B), "B")

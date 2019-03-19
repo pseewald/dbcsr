@@ -29,12 +29,12 @@ MODULE dbcsr_api
                                               dbcsr_print_config,&
                                               dbcsr_set_config
    USE dbcsr_csr_conversions,           ONLY: &
-        convert_csr_to_dbcsr_prv            => convert_csr_to_dbcsr, &
-        convert_dbcsr_to_csr_prv            => convert_dbcsr_to_csr, &
-        csr_create_from_dbcsr_prv           => csr_create_from_dbcsr, csr_create_new, &
-        csr_create_template, csr_dbcsr_blkrow_dist, csr_destroy, csr_eqrow_ceil_dist, &
-        csr_eqrow_floor_dist, csr_p_type, csr_print_sparsity, csr_type, csr_write, &
-        dbcsr_to_csr_filter_prv             => dbcsr_to_csr_filter
+      convert_csr_to_dbcsr_prv            => convert_csr_to_dbcsr, &
+      convert_dbcsr_to_csr_prv            => convert_dbcsr_to_csr, &
+      csr_create_from_dbcsr_prv           => csr_create_from_dbcsr, csr_create_new, &
+      csr_create_template, csr_dbcsr_blkrow_dist, csr_destroy, csr_eqrow_ceil_dist, &
+      csr_eqrow_floor_dist, csr_p_type, csr_print_sparsity, csr_type, csr_write, &
+      dbcsr_to_csr_filter_prv             => dbcsr_to_csr_filter
    USE dbcsr_data_methods,              ONLY: dbcsr_get_data_p_prv => dbcsr_get_data_p,&
                                               dbcsr_scalar,&
                                               dbcsr_scalar_fill_all,&
@@ -59,48 +59,48 @@ MODULE dbcsr_api
                                               dbcsr_finalize_lib,&
                                               dbcsr_init_lib
    USE dbcsr_methods,                   ONLY: &
-        dbcsr_get_data_size_prv             => dbcsr_get_data_size, &
-        dbcsr_get_data_type_prv             => dbcsr_get_data_type, &
-        dbcsr_get_matrix_type_prv           => dbcsr_get_matrix_type, &
-        dbcsr_get_num_blocks_prv            => dbcsr_get_num_blocks, &
-        dbcsr_has_symmetry_prv              => dbcsr_has_symmetry, &
-        dbcsr_nblkcols_total_prv            => dbcsr_nblkcols_total, &
-        dbcsr_nblkrows_total_prv            => dbcsr_nblkrows_total, &
-        dbcsr_nfullcols_total_prv           => dbcsr_nfullcols_total, &
-        dbcsr_nfullrows_total_prv           => dbcsr_nfullrows_total, &
-        dbcsr_release_prv                   => dbcsr_release, &
-        dbcsr_setname_prv                   => dbcsr_setname, &
-        dbcsr_valid_index_prv               => dbcsr_valid_index, dbcsr_wm_use_mutable
+      dbcsr_get_data_size_prv             => dbcsr_get_data_size, &
+      dbcsr_get_data_type_prv             => dbcsr_get_data_type, &
+      dbcsr_get_matrix_type_prv           => dbcsr_get_matrix_type, &
+      dbcsr_get_num_blocks_prv            => dbcsr_get_num_blocks, &
+      dbcsr_has_symmetry_prv              => dbcsr_has_symmetry, &
+      dbcsr_nblkcols_total_prv            => dbcsr_nblkcols_total, &
+      dbcsr_nblkrows_total_prv            => dbcsr_nblkrows_total, &
+      dbcsr_nfullcols_total_prv           => dbcsr_nfullcols_total, &
+      dbcsr_nfullrows_total_prv           => dbcsr_nfullrows_total, &
+      dbcsr_release_prv                   => dbcsr_release, &
+      dbcsr_setname_prv                   => dbcsr_setname, &
+      dbcsr_valid_index_prv               => dbcsr_valid_index, dbcsr_wm_use_mutable
    USE dbcsr_mp_methods,                ONLY: dbcsr_mp_grid_setup_prv => dbcsr_mp_grid_setup,&
                                               dbcsr_mp_group,&
                                               dbcsr_mp_new_prv => dbcsr_mp_new,&
                                               dbcsr_mp_release
    USE dbcsr_multiply_api,              ONLY: dbcsr_multiply_prv => dbcsr_multiply
    USE dbcsr_operations,                ONLY: &
-        dbcsr_add_on_diag_prv               => dbcsr_add_on_diag, &
-        dbcsr_add_prv                       => dbcsr_add, &
-        dbcsr_copy_into_existing_prv        => dbcsr_copy_into_existing, &
-        dbcsr_copy_prv                      => dbcsr_copy, &
-        dbcsr_filter_prv                    => dbcsr_filter, &
-        dbcsr_frobenius_norm_prv            => dbcsr_frobenius_norm, &
-        dbcsr_function_of_elements_prv      => dbcsr_function_of_elements, &
-        dbcsr_gershgorin_norm_prv           => dbcsr_gershgorin_norm, &
-        dbcsr_get_block_diag_prv            => dbcsr_get_block_diag, &
-        dbcsr_get_diag_prv                  => dbcsr_get_diag, &
-        dbcsr_get_info_prv                  => dbcsr_get_info, &
-        dbcsr_get_occupation_prv            => dbcsr_get_occupation, &
-        dbcsr_hadamard_product_prv          => dbcsr_hadamard_product, &
-        dbcsr_init_random_prv               => dbcsr_init_random, &
-        dbcsr_maxabs_prv                    => dbcsr_maxabs, &
-        dbcsr_norm_prv                      => dbcsr_norm, &
-        dbcsr_scale_by_vector_prv           => dbcsr_scale_by_vector, &
-        dbcsr_scale_prv                     => dbcsr_scale, &
-        dbcsr_set_diag_prv                  => dbcsr_set_diag, &
-        dbcsr_set_prv                       => dbcsr_set, &
-        dbcsr_sum_replicated_prv            => dbcsr_sum_replicated, &
-        dbcsr_trace_prv                     => dbcsr_trace, &
-        dbcsr_triu_prv                      => dbcsr_triu, &
-        dbcsr_clear_prv                     => dbcsr_clear
+      dbcsr_add_on_diag_prv               => dbcsr_add_on_diag, &
+      dbcsr_add_prv                       => dbcsr_add, &
+      dbcsr_copy_into_existing_prv        => dbcsr_copy_into_existing, &
+      dbcsr_copy_prv                      => dbcsr_copy, &
+      dbcsr_filter_prv                    => dbcsr_filter, &
+      dbcsr_frobenius_norm_prv            => dbcsr_frobenius_norm, &
+      dbcsr_function_of_elements_prv      => dbcsr_function_of_elements, &
+      dbcsr_gershgorin_norm_prv           => dbcsr_gershgorin_norm, &
+      dbcsr_get_block_diag_prv            => dbcsr_get_block_diag, &
+      dbcsr_get_diag_prv                  => dbcsr_get_diag, &
+      dbcsr_get_info_prv                  => dbcsr_get_info, &
+      dbcsr_get_occupation_prv            => dbcsr_get_occupation, &
+      dbcsr_hadamard_product_prv          => dbcsr_hadamard_product, &
+      dbcsr_init_random_prv               => dbcsr_init_random, &
+      dbcsr_maxabs_prv                    => dbcsr_maxabs, &
+      dbcsr_norm_prv                      => dbcsr_norm, &
+      dbcsr_scale_by_vector_prv           => dbcsr_scale_by_vector, &
+      dbcsr_scale_prv                     => dbcsr_scale, &
+      dbcsr_set_diag_prv                  => dbcsr_set_diag, &
+      dbcsr_set_prv                       => dbcsr_set, &
+      dbcsr_sum_replicated_prv            => dbcsr_sum_replicated, &
+      dbcsr_trace_prv                     => dbcsr_trace, &
+      dbcsr_triu_prv                      => dbcsr_triu, &
+      dbcsr_clear_prv                     => dbcsr_clear
    USE dbcsr_test_methods,              ONLY: dbcsr_reset_randmat_seed
    USE dbcsr_tests,                     ONLY: dbcsr_run_tests,&
                                               dbcsr_test_binary_io,&
@@ -112,13 +112,13 @@ MODULE dbcsr_api
                                               dbcsr_new_transposed_prv        => dbcsr_new_transposed,&
                                               dbcsr_replicate_all_prv         => dbcsr_replicate_all
    USE dbcsr_types,                     ONLY: &
-        dbcsr_dist_prv_obj => dbcsr_distribution_obj, dbcsr_func_artanh, dbcsr_func_dtanh, &
-        dbcsr_func_inverse, dbcsr_func_tanh, dbcsr_iterator_prv => dbcsr_iterator, dbcsr_mp_obj, &
-        dbcsr_no_transpose, dbcsr_norm_column, dbcsr_norm_frobenius, dbcsr_norm_maxabsnorm, &
-        dbcsr_prv_type => dbcsr_type, dbcsr_scalar_type, dbcsr_transpose, &
-        dbcsr_type_antisymmetric, dbcsr_type_complex_4, dbcsr_type_complex_8, &
-        dbcsr_type_complex_default, dbcsr_type_no_symmetry, dbcsr_type_real_4, dbcsr_type_real_8, &
-        dbcsr_type_real_default, dbcsr_type_symmetric
+      dbcsr_dist_prv_obj => dbcsr_distribution_obj, dbcsr_func_artanh, dbcsr_func_dtanh, &
+      dbcsr_func_inverse, dbcsr_func_tanh, dbcsr_iterator_prv => dbcsr_iterator, dbcsr_mp_obj, &
+      dbcsr_no_transpose, dbcsr_norm_column, dbcsr_norm_frobenius, dbcsr_norm_maxabsnorm, &
+      dbcsr_prv_type => dbcsr_type, dbcsr_scalar_type, dbcsr_transpose, &
+      dbcsr_type_antisymmetric, dbcsr_type_complex_4, dbcsr_type_complex_8, &
+      dbcsr_type_complex_default, dbcsr_type_no_symmetry, dbcsr_type_real_4, dbcsr_type_real_8, &
+      dbcsr_type_real_default, dbcsr_type_symmetric
    USE dbcsr_dist_util,                 ONLY: convert_offsets_to_sizes,&
                                               convert_sizes_to_offsets,&
                                               dbcsr_checksum_prv      => dbcsr_checksum,&

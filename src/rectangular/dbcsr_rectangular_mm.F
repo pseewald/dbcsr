@@ -18,29 +18,29 @@ MODULE dbcsr_rectangular_mm
       dbcsr_r_finalize, dbcsr_r_get_data_type, dbcsr_r_info, dbcsr_r_nblkcols_total, &
       dbcsr_r_nblkrows_total, dbcsr_r_write_matrix_info, dbcsr_r_filter, dbcsr_r_write_dist
    USE dbcsr_rectangular_base_types, ONLY: dbcsr_r_distribution_type, &
-      dbcsr_r_split_info, &
-      dbcsr_r_type
+                                           dbcsr_r_split_info, &
+                                           dbcsr_r_type
    USE dbcsr_rectangular_global, ONLY: dbcsr_r_dist_cyclic, dbcsr_r_distribution
    USE dbcsr_rectangular_reshape, ONLY: dbcsr_r_merge, &
-      dbcsr_r_replicate, &
-      dbcsr_r_reshape
+                                        dbcsr_r_replicate, &
+                                        dbcsr_r_reshape
    USE dbcsr_rectangular_split, ONLY: colsplit, &
-      dbcsr_r_get_split_info, &
-      dbcsr_r_split, &
-      dbcsr_r_split_rows_or_cols, &
-      rowsplit, &
-      world_to_group_proc_map, &
-      dbcsr_r_mp_comm, &
-      dbcsr_r_release_info, &
-      dbcsr_r_print_info
+                                      dbcsr_r_get_split_info, &
+                                      dbcsr_r_split, &
+                                      dbcsr_r_split_rows_or_cols, &
+                                      rowsplit, &
+                                      world_to_group_proc_map, &
+                                      dbcsr_r_mp_comm, &
+                                      dbcsr_r_release_info, &
+                                      dbcsr_r_print_info
    USE dbcsr_rectangular_util, ONLY: swap
    USE dbcsr_types, ONLY: dbcsr_no_transpose, &
-      dbcsr_transpose
+                          dbcsr_transpose
    USE dbcsr_kinds, ONLY: default_string_length, &
-      int_8, &
-      real_8
+                          int_8, &
+                          real_8
    USE dbcsr_mpiwrap, ONLY: mp_comm_compare, &
-      mp_environ, mp_sum, mp_comm_free
+                            mp_environ, mp_sum, mp_comm_free
    USE dbcsr_io, ONLY: dbcsr_print
    USE dbcsr_operations, ONLY: dbcsr_scale
 #include "../base/dbcsr_base_uses.f90"
@@ -63,7 +63,13 @@ CONTAINS
 !> \param alpha ...
 !> \param matrix_a ...
 !> \param matrix_b ...
+!> \param beta ...
 !> \param matrix_c ...
+!> \param optimize_dist ...
+!> \param filter_eps ...
+!> \param flop ...
+!> \param move_data ...
+!> \param io_unit ...
 ! **************************************************************************************************
    SUBROUTINE dbcsr_r_multiply(transa, transb, transc, alpha, matrix_a, matrix_b, beta, matrix_c, &
                                optimize_dist, filter_eps, flop, move_data, io_unit)
@@ -123,7 +129,6 @@ CONTAINS
       dims_b = [dbcsr_r_nblkrows_total(matrix_b), dbcsr_r_nblkcols_total(matrix_b)]
       dims_c = [dbcsr_r_nblkrows_total(matrix_c), dbcsr_r_nblkcols_total(matrix_c)]
 
-
       IF (PRESENT(io_unit)) THEN
          IF (io_unit_prv .GT. 0) THEN
             WRITE (io_unit_prv, '(A)') repeat("-", 80)
@@ -131,7 +136,6 @@ CONTAINS
                TRIM(matrix_a%matrix%name), 'x', TRIM(matrix_b%matrix%name), '=', TRIM(matrix_c%matrix%name)
             WRITE (io_unit_prv, '(A)') repeat("-", 80)
          ENDIF
-
 
          CALL dbcsr_r_write_matrix_info(matrix_a, io_unit_prv, full_info=debug)
          CALL dbcsr_r_write_matrix_info(matrix_b, io_unit_prv, full_info=debug)
@@ -169,8 +173,8 @@ CONTAINS
       CASE (1)
 
          CALL reshape_mm_compatible(matrix_a, matrix_c, matrix_a_rs, matrix_c_rs, &
-            new_a, new_c, transa_prv, transc_prv, optimize_dist=optimize_dist, nodata2 = .TRUE., comm_new=comm_tmp, &
-            move_data=move_data, unit_nr=io_unit)
+                           new_a, new_c, transa_prv, transc_prv, optimize_dist=optimize_dist, nodata2 = .TRUE., comm_new=comm_tmp, &
+                                    move_data=move_data, unit_nr=io_unit)
 
          CALL dbcsr_r_get_split_info(dbcsr_r_info(matrix_a_rs), mp_comm=mp_comm)
 
@@ -265,8 +269,6 @@ CONTAINS
                                 matrix_a=matrix_b_rep%matrix, matrix_b=matrix_a_rs%matrix, beta=beta, matrix_c=matrix_c_rs%matrix, &
                                 filter_eps=filter_eps_prv, flop=flop)
 
-
-
             CALL timestop(handle2)
          END SELECT
          IF(PRESENT(io_unit)) THEN
@@ -330,7 +332,7 @@ CONTAINS
       IF (new_c) THEN
          CALL dbcsr_scale(matrix_c%matrix, beta)
          CALL dbcsr_r_reshape(matrix_c_rs, matrix_c, summation=.TRUE., transposed=transc_prv/=transc, &
-                             move_data=.TRUE.)
+                              move_data=.TRUE.)
          IF(PRESENT(filter_eps)) CALL dbcsr_r_filter(matrix_c, filter_eps)
          CALL dbcsr_r_destroy(matrix_c_rs)
          DEALLOCATE(matrix_c_rs)
@@ -354,6 +356,16 @@ CONTAINS
 
    END SUBROUTINE
 
+! **************************************************************************************************
+!> \brief ...
+!> \param mp_comm ...
+!> \param matrix_in ...
+!> \param matrix_out ...
+!> \param transposed ...
+!> \param trans ...
+!> \param nodata ...
+!> \param move_data ...
+! **************************************************************************************************
    SUBROUTINE reshape_mm_small(mp_comm, matrix_in, matrix_out, transposed, trans, nodata, move_data)
       INTEGER, INTENT(IN) :: mp_comm
       TYPE(dbcsr_r_type), INTENT(INOUT) :: matrix_in
@@ -412,7 +424,23 @@ CONTAINS
 
    END SUBROUTINE
 
-
+! **************************************************************************************************
+!> \brief ...
+!> \param matrix1_in ...
+!> \param matrix2_in ...
+!> \param matrix1_out ...
+!> \param matrix2_out ...
+!> \param new1 ...
+!> \param new2 ...
+!> \param trans1 ...
+!> \param trans2 ...
+!> \param optimize_dist ...
+!> \param nodata1 ...
+!> \param nodata2 ...
+!> \param move_data ...
+!> \param comm_new ...
+!> \param unit_nr ...
+! **************************************************************************************************
    SUBROUTINE reshape_mm_compatible(matrix1_in, matrix2_in, matrix1_out, matrix2_out, new1, new2, trans1, trans2, &
                                     optimize_dist, nodata1, nodata2, move_data, comm_new, unit_nr)
       TYPE(dbcsr_r_type), TARGET, INTENT(INOUT) :: matrix1_in, matrix2_in
@@ -461,7 +489,6 @@ CONTAINS
                "and", TRIM(matrix2_in%matrix%name)
          ENDIF
       ELSE
-
 
          dims1 = [dbcsr_r_nblkrows_total(matrix1_in), dbcsr_r_nblkcols_total(matrix1_in)]
          dims2 = [dbcsr_r_nblkrows_total(matrix2_in), dbcsr_r_nblkcols_total(matrix2_in)]
@@ -558,6 +585,10 @@ CONTAINS
 
    CONTAINS
 
+! **************************************************************************************************
+!> \brief ...
+!> \param trans_flag ...
+! **************************************************************************************************
       SUBROUTINE invert_transpose_flag(trans_flag)
          CHARACTER(LEN=1), INTENT(INOUT)                    :: trans_flag
 
@@ -567,7 +598,6 @@ CONTAINS
             trans_flag = dbcsr_transpose
          ENDIF
       END SUBROUTINE
-
 
 ! **************************************************************************************************
 !> \brief ...
@@ -588,6 +618,7 @@ CONTAINS
 !> \brief ...
 !> \param mat_a ...
 !> \param mat_b ...
+!> \param io_unit ...
 !> \return ...
 ! **************************************************************************************************
       FUNCTION dist_compatible(mat_a, mat_b, io_unit)
@@ -649,6 +680,15 @@ CONTAINS
 
       END FUNCTION
 
+! **************************************************************************************************
+!> \brief ...
+!> \param template ...
+!> \param matrix_in ...
+!> \param matrix_out ...
+!> \param trans ...
+!> \param nodata ...
+!> \param move_data ...
+! **************************************************************************************************
       SUBROUTINE reshape_mm_template(template, matrix_in, matrix_out, trans, nodata, move_data)
          TYPE(dbcsr_r_type), INTENT(IN) :: template
          TYPE(dbcsr_r_type), INTENT(INOUT) :: matrix_in

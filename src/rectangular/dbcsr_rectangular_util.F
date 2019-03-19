@@ -14,7 +14,7 @@ MODULE dbcsr_rectangular_util
    USE dbcsr_types,                     ONLY: dbcsr_mp_obj
    USE dbcsr_kinds,                           ONLY: int_8
    USE dbcsr_mpiwrap,                 ONLY: mp_cart_rank,&
-                                              mp_environ
+                                            mp_environ
 #include "../base/dbcsr_base_uses.f90"
 
    IMPLICIT NONE

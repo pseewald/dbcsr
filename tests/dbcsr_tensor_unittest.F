@@ -97,7 +97,6 @@ PROGRAM dbcsr_tensor_unittest
       blk_ind_1(:) = [1, 1,  1,  2, 4,  4,  7,  10, 10, 10, 10, 13] !&
       blk_ind_2(:) = [1, 3, 11, 15, 4, 17, 21,   6,  9, 13, 19,  7] !&
 
-
       ! Test tensor formats
       CALL dbcsr_t_test_formats(ndims, mp_comm, default_output_unit, verbose, &
                                 blk_size_1=size_1, blk_size_2=size_2, &
@@ -223,7 +222,6 @@ PROGRAM dbcsr_tensor_unittest
       blk_ind_4_2(:) = [2, 3, 2, 4, 5, 3, 5, 1, 3, 3, & !&
                       1, 4] !&
 
-
       nblks_alloc_3 = 5
       ALLOCATE (blk_ind_1_3(nblks_alloc_3), blk_ind_2_3(nblks_alloc_3), blk_ind_4_3(nblks_alloc_3))
 
@@ -247,7 +245,6 @@ PROGRAM dbcsr_tensor_unittest
       CALL dbcsr_t_random_dist(dist3_1, nblks_1, pdims_3d(1), mp_comm)
       CALL dbcsr_t_random_dist(dist3_2, nblks_2, pdims_3d(2), mp_comm)
       CALL dbcsr_t_random_dist(dist3_3, nblks_4, pdims_3d(3), mp_comm)
-
 
 !--------------------------------------------------------------------------------------------------!
 ! Test 4: Testing tensor contraction (12|3)x(3|4)=(12|4)                                           !
@@ -347,7 +344,6 @@ PROGRAM dbcsr_tensor_unittest
       map31(:) = [2, 3]
       map32(:) = [1]
 
-
       CALL dbcsr_t_distribution_new(dist1, pgrid_3d, map11, map12, dist1_1, dist1_2, dist1_3)
       CALL dbcsr_t_distribution_new(dist2, pgrid_2d, map21, map22, dist2_1, dist2_2)
       CALL dbcsr_t_distribution_new(dist3, pgrid_3d, map31, map32, dist3_1, dist3_2, dist3_3)
@@ -396,7 +392,6 @@ PROGRAM dbcsr_tensor_unittest
 !--------------------------------------------------------------------------------------------------!
 ! End tests                                                                                        !
 !--------------------------------------------------------------------------------------------------!
-
 
    ! finalize libdbcsr
    CALL dbcsr_finalize_lib(mp_comm, io_unit)

@@ -20,10 +20,10 @@ MODULE dbcsr_tensor_test
    USE dbcsr_api,                       ONLY: ${uselist(dtype_float_param)}$
    USE dbcsr_rectangular_base,          ONLY: dbcsr_r_info
    USE dbcsr_tensor,                    ONLY: &
-        dbcsr_t_copy, dbcsr_t_get_block, dbcsr_t_iterator_type, dbcsr_t_iterator_blocks_left, &
-        dbcsr_t_iterator_next_block, dbcsr_t_iterator_start, dbcsr_t_iterator_stop, dbcsr_t_ndims, &
-        dbcsr_t_reserve_blocks, dbcsr_t_get_stored_coordinates, dbcsr_t_put_block, &
-        dbcsr_t_contract, dbcsr_t_inverse_order, dbcsr_t_dims
+      dbcsr_t_copy, dbcsr_t_get_block, dbcsr_t_iterator_type, dbcsr_t_iterator_blocks_left, &
+      dbcsr_t_iterator_next_block, dbcsr_t_iterator_start, dbcsr_t_iterator_stop, dbcsr_t_ndims, &
+      dbcsr_t_reserve_blocks, dbcsr_t_get_stored_coordinates, dbcsr_t_put_block, &
+      dbcsr_t_contract, dbcsr_t_inverse_order, dbcsr_t_dims
    USE dbcsr_tensor_block,              ONLY: block_nd
    USE dbcsr_tensor_types,              ONLY: dbcsr_t_create,&
                                               dbcsr_t_destroy,&
@@ -208,8 +208,8 @@ CONTAINS
 !> \param blk_ind_1 index along dimension 1 of non-zero blocks
 ! **************************************************************************************************
    SUBROUTINE dbcsr_t_test_formats(ndims, mp_comm, unit_nr, verbose, &
-                                  ${varlist("blk_size")}$, &
-                                  ${varlist("blk_ind")}$)
+                                   ${varlist("blk_size")}$, &
+                                   ${varlist("blk_ind")}$)
       INTEGER, DIMENSION(:), INTENT(IN), OPTIONAL :: ${varlist("blk_size")}$
       INTEGER, DIMENSION(:), INTENT(IN), OPTIONAL :: ${varlist("blk_ind")}$
       INTEGER, INTENT(IN)                         :: ndims
@@ -243,7 +243,6 @@ CONTAINS
       CALL permute(ndims, perm)
       CALL allocate_any(map1_ref, source=perm(1:ndims/2, 1))
       CALL allocate_any(map2_ref, source=perm(ndims/2+1:ndims, 1))
-
 
       IF(io_unit > 0) THEN
          WRITE(io_unit, *)
@@ -366,7 +365,6 @@ CONTAINS
             IF(verbose) CALL write_tensor_blocks(tensor1, io_unit, unit_nr)
 
             eql = dbcsr_t_equal(tensor1, tensor2)
-
 
             IF (.NOT. eql) THEN
                IF (io_unit > 0) WRITE(io_unit,'(A,1X,A)') TRIM(tensor_name), 'Test failed!'
@@ -524,13 +522,13 @@ CONTAINS
 #:for ndim in ndims
       IF (ndim == ${ndim}$) THEN
 #:for idim in range(ndim,0,-1)
-            DO i_${idim}$ = 1, blk_size(${idim}$)
+         DO i_${idim}$ = 1, blk_size(${idim}$)
 #:endfor
-               arr_ind(:) = [${varlist("i", nmax=ndim)}$]
-               tens_ind(:) = arr_ind(:) + blk_offset(:) - 1
-               blk_${ndim}$(${arrlist("arr_ind", nmax=ndim)}$) = combine_index(tens_ind, tensor_size)
+            arr_ind(:) = [${varlist("i", nmax=ndim)}$]
+            tens_ind(:) = arr_ind(:) + blk_offset(:) - 1
+            blk_${ndim}$(${arrlist("arr_ind", nmax=ndim)}$) = combine_index(tens_ind, tensor_size)
 #:for idim in range(ndim,0,-1)
-            ENDDO
+         ENDDO
 #:endfor
       ENDIF
 #:endfor
@@ -683,7 +681,6 @@ CONTAINS
       INTEGER, DIMENSION(dbcsr_t_ndims(tensor))                  :: blk_start, blk_end
       LOGICAL                                                    :: found
 
-
       DBCSR_ASSERT(dbcsr_t_ndims(tensor) .EQ. ${ndim}$)
       CALL get_mapping_info(tensor%nd_index, dims_nd=dims_nd)
       CALL allocate_any(array, shape_spec=dims_nd)
@@ -727,7 +724,6 @@ CONTAINS
       TYPE(dbcsr_t_iterator_type)                                     :: iterator
       INTEGER                                                    :: blk, idim
       INTEGER, DIMENSION(dbcsr_t_ndims(tensor))                  :: blk_start, blk_end
-
 
       DBCSR_ASSERT(dbcsr_t_ndims(tensor) .EQ. ${ndim}$)
       CALL get_mapping_info(tensor%nd_index, dims_nd=dims_nd)
@@ -876,34 +872,33 @@ CONTAINS
       ALLOCATE(order_t${i}$(dbcsr_t_ndims(tensor_${i}$)))
 #:endfor
 
-
       ASSOCIATE(map_t1_1=>notcontract_1, map_t1_2=>contract_1, &
                 map_t2_1=>notcontract_2, map_t2_2=>contract_2, &
                 map_t3_1=>map_1, map_t3_2=>map_2)
 
 #:for i in range(1,4)
-      order_t${i}$(:) = dbcsr_t_inverse_order([map_t${i}$_1, map_t${i}$_2])
+         order_t${i}$(:) = dbcsr_t_inverse_order([map_t${i}$_1, map_t${i}$_2])
 
-      SELECT CASE(dbcsr_t_ndims(tensor_${i}$))
+         SELECT CASE(dbcsr_t_ndims(tensor_${i}$))
 #:for ndim in ndims
-      CASE(${ndim}$)
-         CALL allocate_any(array_${i}$_rs${ndim}$d, source=array_${i}$_${ndim}$d, order=order_t${i}$)
-         CALL allocate_any(array_${i}$_mm, sizes_2d(size_${i}$, map_t${i}$_1, map_t${i}$_2))
-         array_${i}$_mm(:,:) = RESHAPE(array_${i}$_rs${ndim}$d, SHAPE(array_${i}$_mm))
+         CASE(${ndim}$)
+            CALL allocate_any(array_${i}$_rs${ndim}$d, source=array_${i}$_${ndim}$d, order=order_t${i}$)
+            CALL allocate_any(array_${i}$_mm, sizes_2d(size_${i}$, map_t${i}$_1, map_t${i}$_2))
+            array_${i}$_mm(:,:) = RESHAPE(array_${i}$_rs${ndim}$d, SHAPE(array_${i}$_mm))
 #:endfor
-      END SELECT
+         END SELECT
 #:endfor
 
-      SELECT CASE(dbcsr_t_ndims(tensor_3))
+         SELECT CASE(dbcsr_t_ndims(tensor_3))
 #:for ndim in ndims
-      CASE(${ndim}$)
-         CALL allocate_any(array_3_0_rs${ndim}$d, source=array_3_0_${ndim}$d, order=order_t3)
-         CALL allocate_any(array_3_test_mm, sizes_2d(size_3, map_t3_1, map_t3_2))
-         array_3_test_mm(:,:) = RESHAPE(array_3_0_rs${ndim}$d, SHAPE(array_3_mm))
+         CASE(${ndim}$)
+            CALL allocate_any(array_3_0_rs${ndim}$d, source=array_3_0_${ndim}$d, order=order_t3)
+            CALL allocate_any(array_3_test_mm, sizes_2d(size_3, map_t3_1, map_t3_2))
+            array_3_test_mm(:,:) = RESHAPE(array_3_0_rs${ndim}$d, SHAPE(array_3_mm))
 #:endfor
-      END SELECT
+         END SELECT
 
-      array_3_test_mm(:,:) = beta%r_dp*array_3_test_mm(:,:) + alpha%r_dp*MATMUL(array_1_mm, transpose(array_2_mm))
+         array_3_test_mm(:,:) = beta%r_dp*array_3_test_mm(:,:) + alpha%r_dp*MATMUL(array_1_mm, transpose(array_2_mm))
 
       END ASSOCIATE
 
@@ -938,7 +933,7 @@ CONTAINS
 #:endfor
          IF(INT(array(${varlist("i", nmax=ndim)}$), KIND=int_8) .GT. 0) THEN
             WRITE(unit_nr, '(${ndim+1}$I20)', advance='no') ${varlist("i", nmax=ndim)}$, INT(array(${varlist("i", nmax=ndim)}$), &
-               KIND=int_8)
+                                                                                             KIND=int_8)
             IF(PRESENT(array_compare)) THEN
                WRITE(unit_nr, '(I20)', advance='no') INT(array_compare(${varlist("i", nmax=ndim)}$), KIND=int_8)
             ENDIF

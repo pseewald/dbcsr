@@ -74,17 +74,17 @@ CONTAINS
 !> \param col_size ...
 ! **************************************************************************************************
    SUBROUTINE dbcsr_r_iterator_next_block_${dsuffix}$(iterator, row, column, block, transposed, block_number, &
-                                                         row_size, col_size)
+                                                      row_size, col_size)
       TYPE(dbcsr_r_iterator), INTENT(INOUT) :: iterator
       INTEGER(KIND=int_8), INTENT(OUT)                     :: row, column
       ${dtype}$, DIMENSION(:, :), &
-        POINTER                                :: block
+         POINTER                                :: block
       LOGICAL, INTENT(OUT)                     :: transposed
       INTEGER, INTENT(OUT), OPTIONAL           :: block_number
       INTEGER, INTENT(OUT), OPTIONAL           :: row_size, col_size
       INTEGER                                  :: row_group, column_group
       CHARACTER(LEN=*), PARAMETER :: routineN = 'dbcsr_r_iterator_next_block_${dsuffix}$', &
-         routineP = moduleN//':'//routineN
+                                     routineP = moduleN//':'//routineN
       INTEGER :: handle
 
       CALL timeset(routineN, handle)
@@ -92,7 +92,7 @@ CONTAINS
                                      row_size, col_size)
 
       CALL block_index_local_to_global(iterator%dist%info, iterator%dist, row_group=row_group, column_group=column_group, &
-         row=row, column=column)
+                                       row=row, column=column)
 
       CALL timestop(handle)
    END SUBROUTINE
@@ -111,7 +111,7 @@ CONTAINS
 
 #:for dparam, dtype, dsuffix in dtype_float_list
    SUBROUTINE dbcsr_r_put_block_${dsuffix}$(matrix, row, col, block, transposed, summation, &
-                                               scale)
+                                            scale)
       TYPE(dbcsr_r_type), INTENT(INOUT) :: matrix
       ${dtype}$, DIMENSION(:,:), INTENT(IN) :: block
       LOGICAL, INTENT(IN), OPTIONAL :: transposed, summation
@@ -119,7 +119,7 @@ CONTAINS
       ${dtype}$, INTENT(IN), OPTIONAL      :: scale
       INTEGER :: col_group, row_group
       CHARACTER(LEN=*), PARAMETER :: routineN = 'dbcsr_r_put_block_${dsuffix}$', &
-         routineP = moduleN//':'//routineN
+                                     routineP = moduleN//':'//routineN
       INTEGER :: handle
 
       CALL timeset(routineN, handle)
@@ -154,7 +154,7 @@ CONTAINS
       INTEGER, INTENT(OUT), OPTIONAL           :: row_size, col_size
       INTEGER :: col_group, row_group
       CHARACTER(LEN=*), PARAMETER :: routineN = 'dbcsr_r_get_block_p_${dsuffix}$', &
-         routineP = moduleN//':'//routineN
+                                     routineP = moduleN//':'//routineN
       INTEGER :: handle
 
       CALL timeset(routineN, handle)

@@ -20,9 +20,9 @@ MODULE dbcsr_tensor_reshape
    USE dbcsr_allocate_wrap,             ONLY: allocate_any
    USE dbcsr_rectangular_base,          ONLY: dbcsr_r_copy, dbcsr_r_get_info, dbcsr_r_info
    USE dbcsr_tensor_block,              ONLY: &
-        block_nd, create_block, destroy_block, dbcsr_t_iterator_type, dbcsr_t_iterator_next_block, &
-        dbcsr_t_iterator_blocks_left, dbcsr_t_iterator_start, dbcsr_t_iterator_stop, dbcsr_t_get_block, &
-        dbcsr_t_reserve_blocks, dbcsr_t_put_block, reshape_2d_to_nd_block
+      block_nd, create_block, destroy_block, dbcsr_t_iterator_type, dbcsr_t_iterator_next_block, &
+      dbcsr_t_iterator_blocks_left, dbcsr_t_iterator_start, dbcsr_t_iterator_stop, dbcsr_t_get_block, &
+      dbcsr_t_reserve_blocks, dbcsr_t_put_block, reshape_2d_to_nd_block
    USE dbcsr_tensor_types,              ONLY: dbcsr_t_blk_sizes,&
                                               dbcsr_t_create,&
                                               dbcsr_t_get_data_type,&
@@ -38,7 +38,6 @@ MODULE dbcsr_tensor_reshape
                                               mp_irecv,&
                                               mp_isend,&
                                               mp_waitall
-
 
 #include "base/dbcsr_base_uses.f90"
 
@@ -341,7 +340,7 @@ CONTAINS
                                                 send_counter
       INTEGER                                   :: handle
       CHARACTER(LEN=*), PARAMETER :: routineN = 'communicate_buffer', &
-         routineP = moduleN//':'//routineN
+                                     routineP = moduleN//':'//routineN
 
       CALL timeset(routineN, handle)
       CALL mp_environ(numnodes, mynode, mp_comm)
