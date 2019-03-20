@@ -20,7 +20,7 @@ MODULE dbcsr_rectangular_mm
    USE dbcsr_rectangular_types, ONLY: dbcsr_r_distribution_type, &
                                            dbcsr_r_split_info, &
                                            dbcsr_r_type
-   USE dbcsr_rectangular_global, ONLY: dbcsr_r_dist_cyclic, dbcsr_r_distribution
+   USE dbcsr_rectangular_global, ONLY: dbcsr_r_dist_cyclic, dbcsr_r_dist_arb, dbcsr_r_distribution, dbcsr_r_dist_arb_default
    USE dbcsr_rectangular_reshape, ONLY: dbcsr_r_merge, &
                                         dbcsr_r_replicate, &
                                         dbcsr_r_reshape
@@ -377,7 +377,7 @@ CONTAINS
       INTEGER :: numnodes
       INTEGER(KIND=int_8), DIMENSION(2) :: dims
       INTEGER, DIMENSION(2) :: pdims, pcoord
-      TYPE(dbcsr_r_dist_cyclic) :: new_row_dist, new_col_dist
+      TYPE(dbcsr_r_dist_arb) :: new_row_dist, new_col_dist
       TYPE(dbcsr_r_distribution_type) :: dist
       LOGICAL :: nodata_prv
       CHARACTER(LEN=*), PARAMETER :: routineN = 'reshape_mm_small', &
@@ -407,14 +407,16 @@ CONTAINS
 
       IF (transposed) CALL swap(dims)
 
-      new_row_dist = dbcsr_r_dist_cyclic(1, pdims(1), dims(1))
-      new_col_dist = dbcsr_r_dist_cyclic(1, pdims(2), dims(2))
-
-      CALL dbcsr_r_distribution_new(dist, mp_comm, new_row_dist, new_col_dist, nosplit=.TRUE.)
       IF (.NOT. transposed) THEN
+         new_row_dist = dbcsr_r_dist_arb_default(pdims(1), dims(1), matrix_in%row_blk_size)
+         new_col_dist = dbcsr_r_dist_arb_default(pdims(2), dims(2), matrix_in%col_blk_size)
+         CALL dbcsr_r_distribution_new(dist, mp_comm, new_row_dist, new_col_dist, nosplit=.TRUE.)
          CALL dbcsr_r_create(matrix_out, matrix_in%matrix%name, dist, dbcsr_r_get_data_type(matrix_in), &
                              matrix_in%row_blk_size, matrix_in%col_blk_size, own_dist=.TRUE.)
       ELSE
+         new_row_dist = dbcsr_r_dist_arb_default(pdims(1), dims(1), matrix_in%col_blk_size)
+         new_col_dist = dbcsr_r_dist_arb_default(pdims(2), dims(2), matrix_in%row_blk_size)
+         CALL dbcsr_r_distribution_new(dist, mp_comm, new_row_dist, new_col_dist, nosplit=.TRUE.)
          CALL dbcsr_r_create(matrix_out, matrix_in%matrix%name, dist, dbcsr_r_get_data_type(matrix_in), &
                              matrix_in%col_blk_size, matrix_in%row_blk_size, own_dist=.TRUE.)
 
@@ -525,9 +527,10 @@ CONTAINS
 
             CALL mp_environ(numnodes, pdims, pcoord, comm_new)
 
-            ! use a very simple cyclic distribution that may not give good load balance if block
-            ! sizes are not equal
-            ! todo: implement load balanced default distributions
+            ! use a very simple cyclic distribution that may not be load balanced if block
+            ! sizes are not equal. However we can not use arbitrary distributions
+            ! for large dimensions since this would require storing distribution vectors as arrays
+            ! which can not be stored for large dimensions.
             row_dist_1=dbcsr_r_dist_cyclic(1, pdims(1), dims1(1))
             col_dist_1=dbcsr_r_dist_cyclic(1, pdims(2), dims1(2))
 
@@ -741,17 +744,17 @@ CONTAINS
          CASE (1)
             IF(.NOT. transposed) THEN
                ALLOCATE (row_dist, source=template%dist%row_dist)
-               ALLOCATE (col_dist, source=dbcsr_r_dist_cyclic(1, pdims(2), matrix_in%nblkcols))
+               ALLOCATE (col_dist, source=dbcsr_r_dist_arb_default(pdims(2), matrix_in%nblkcols, matrix_in%col_blk_size))
             ELSE
                ALLOCATE (row_dist, source=template%dist%row_dist)
-               ALLOCATE (col_dist, source=dbcsr_r_dist_cyclic(1, pdims(2), matrix_in%nblkrows))
+               ALLOCATE (col_dist, source=dbcsr_r_dist_arb_default(pdims(2), matrix_in%nblkrows, matrix_in%row_blk_size))
             ENDIF
          CASE (2)
             IF(.NOT. transposed) THEN
-               ALLOCATE (row_dist, source=dbcsr_r_dist_cyclic(1, pdims(1), matrix_in%nblkrows))
+               ALLOCATE (row_dist, source=dbcsr_r_dist_arb_default(pdims(1), matrix_in%nblkrows, matrix_in%row_blk_size))
                ALLOCATE (col_dist, source=template%dist%col_dist)
             ELSE
-               ALLOCATE (row_dist, source=dbcsr_r_dist_cyclic(1, pdims(1), matrix_in%nblkcols))
+               ALLOCATE (row_dist, source=dbcsr_r_dist_arb_default(pdims(1), matrix_in%nblkcols, matrix_in%col_blk_size))
                ALLOCATE (col_dist, source=template%dist%col_dist)
             ENDIF
          END SELECT

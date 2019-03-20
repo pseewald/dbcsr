@@ -25,7 +25,7 @@ MODULE dbcsr_rectangular_global
    CHARACTER(len=*), PARAMETER, PRIVATE :: moduleN = 'dbcsr_rectangular_global'
 
    PUBLIC :: dbcsr_r_distribution, dbcsr_r_dist_cyclic, dbcsr_r_dist_arb, dbcsr_r_dist_repl, &
-             dbcsr_r_rowcol_data, dbcsr_r_blk_size_arb, dbcsr_r_blk_size_repl
+             dbcsr_r_rowcol_data, dbcsr_r_blk_size_arb, dbcsr_r_blk_size_repl, dbcsr_r_dist_arb_default
 
    TYPE, ABSTRACT :: dbcsr_r_distribution
       INTEGER :: nprowcol
@@ -74,7 +74,7 @@ MODULE dbcsr_rectangular_global
       INTEGER, DIMENSION(:), ALLOCATABLE :: blk_size_vec
    CONTAINS
       PROCEDURE :: DATA => blk_size_arb
-      FINAL :: dbcsr_r_release_blk_size_arb
+      FINAL :: dbcsr_r_release_blk_size_arb ! todo: final routines needed?
    END TYPE
 
    TYPE, EXTENDS(dbcsr_r_rowcol_data) :: dbcsr_r_blk_size_repl
@@ -352,6 +352,53 @@ CONTAINS
       new_dbcsr_r_dist_arb%dist_vec(:) = dist_vec(:)
       new_dbcsr_r_dist_arb%nprowcol = nprowcol
       new_dbcsr_r_dist_arb%nmrowcol = nmrowcol
+   END FUNCTION
+
+! **************************************************************************************************
+!> \brief Distribution that is more or less cyclic and load balanced with different weights for each element.
+!>        This is used for creating adhoc distributions whenever matrices are mapped to new grids.
+!>        Only for small dimensions since distribution is created as an array
+! **************************************************************************************************
+   FUNCTION dbcsr_r_dist_arb_default(nprowcol, nmrowcol, block_sizes)
+      INTEGER                           :: nprowcol
+      INTEGER(KIND=int_8), INTENT(IN)   :: nmrowcol
+      CLASS(dbcsr_r_rowcol_data), INTENT(IN) :: block_sizes
+      TYPE(dbcsr_r_dist_arb)            :: dbcsr_r_dist_arb_default
+      INTEGER, DIMENSION(nmrowcol) :: dist_vec, bsize_vec
+      INTEGER(KIND=int_8) :: ind
+
+      DO ind=1, nmrowcol
+         bsize_vec(ind) = block_sizes%data(ind)
+      ENDDO
+
+      CALL cyclic_weighted_dist(INT(nmrowcol), nprowcol, bsize_vec, dist_vec)
+      dbcsr_r_dist_arb_default = dbcsr_r_dist_arb(dist_vec, nprowcol, nmrowcol)
+   CONTAINS
+      SUBROUTINE cyclic_weighted_dist(nel, nbin, weights, dist)
+         INTEGER, INTENT(IN) :: nel
+         INTEGER, INTENT(IN) :: nbin
+         INTEGER, DIMENSION(nel), INTENT(IN)            :: weights
+         INTEGER, DIMENSION(nel), INTENT(OUT)            :: dist
+         INTEGER, DIMENSION(nbin)                        :: occup
+         INTEGER                :: iel, ibin
+         INTEGER                :: niter
+
+         occup(:) = 0
+         ibin = 0
+         DO iel = 1, nel
+            niter = 0
+            ibin = MOD(ibin + 1, nbin)
+            DO WHILE (occup(ibin + 1) + weights(iel) .GE. MAXVAL(occup))
+               IF (MINLOC(occup, DIM=1) == ibin + 1) EXIT
+               ibin = MOD(ibin + 1, nbin)
+               niter = niter + 1
+            ENDDO
+            dist(iel) = ibin
+            occup(ibin + 1) = occup(ibin + 1) + weights(iel)
+         ENDDO
+
+      END SUBROUTINE
+
    END FUNCTION
 
 ! **************************************************************************************************
