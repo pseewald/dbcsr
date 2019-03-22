@@ -34,8 +34,7 @@ MODULE dbcsr_rectangular_base
    USE dbcsr_methods,                   ONLY: &
       dbcsr_distribution_release, dbcsr_get_data_type, dbcsr_mp_release, dbcsr_nblkcols_total, &
       dbcsr_nblkrows_total, dbcsr_nfullrows_total, dbcsr_nfullcols_total, dbcsr_release, &
-      dbcsr_get_data_size, dbcsr_get_num_blocks
-                                              dbcsr_get_nze
+      dbcsr_get_data_size, dbcsr_get_num_blocks, dbcsr_get_nze
    USE dbcsr_operations,                ONLY: dbcsr_copy,&
                                               dbcsr_get_info,&
                                               dbcsr_clear,&
