@@ -47,7 +47,6 @@ MODULE dbcsr_rectangular_global
    CONTAINS
       PROCEDURE :: dist => arb_dist
       PROCEDURE :: rowcols => arb_rowcols
-      FINAL :: dbcsr_r_release_dist_arb
    END TYPE
 
    TYPE, EXTENDS(dbcsr_r_distribution) :: dbcsr_r_dist_repl
@@ -60,7 +59,6 @@ MODULE dbcsr_rectangular_global
    CONTAINS
       PROCEDURE :: dist => repl_dist
       PROCEDURE :: rowcols => repl_rowcols
-      FINAL :: dbcsr_r_release_dist_repl
    END TYPE
 
    TYPE, ABSTRACT :: dbcsr_r_rowcol_data
@@ -74,7 +72,6 @@ MODULE dbcsr_rectangular_global
       INTEGER, DIMENSION(:), ALLOCATABLE :: blk_size_vec
    CONTAINS
       PROCEDURE :: DATA => blk_size_arb
-      FINAL :: dbcsr_r_release_blk_size_arb ! todo: final routines needed?
    END TYPE
 
    TYPE, EXTENDS(dbcsr_r_rowcol_data) :: dbcsr_r_blk_size_repl
@@ -82,7 +79,6 @@ MODULE dbcsr_rectangular_global
       INTEGER :: nmrowcol_local
    CONTAINS
       PROCEDURE :: DATA => blk_size_repl
-      FINAL :: dbcsr_r_release_blk_size_repl
    END TYPE
 
    ABSTRACT INTERFACE
@@ -478,46 +474,5 @@ CONTAINS
       ALLOCATE (cyclic_rowcols(count))
       cyclic_rowcols(:) = rowcols_tmp(1:count)
    END FUNCTION
-
-! **************************************************************************************************
-!> \brief ...
-!> \param t ...
-! **************************************************************************************************
-   SUBROUTINE dbcsr_r_release_blk_size_arb(t)
-      TYPE(dbcsr_r_blk_size_arb)                         :: t
-
-      DEALLOCATE (t%blk_size_vec)
-   END SUBROUTINE
-
-! **************************************************************************************************
-!> \brief ...
-!> \param t ...
-! **************************************************************************************************
-   SUBROUTINE dbcsr_r_release_blk_size_repl(t)
-      TYPE(dbcsr_r_blk_size_repl)                        :: t
-
-      DEALLOCATE (t%blk_size_vec)
-   END SUBROUTINE
-
-! **************************************************************************************************
-!> \brief ...
-!> \param t ...
-! **************************************************************************************************
-   SUBROUTINE dbcsr_r_release_dist_arb(t)
-      TYPE(dbcsr_r_dist_arb)                             :: t
-
-      DEALLOCATE (t%dist_vec)
-   END SUBROUTINE
-
-! **************************************************************************************************
-!> \brief ...
-!> \param t ...
-! **************************************************************************************************
-   SUBROUTINE dbcsr_r_release_dist_repl(t)
-      TYPE(dbcsr_r_dist_repl)                            :: t
-
-      DEALLOCATE (t%dist_vec)
-      DEALLOCATE (t%dist_vec_last)
-   END SUBROUTINE
 
 END MODULE
