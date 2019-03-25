@@ -4,7 +4,7 @@
 !--------------------------------------------------------------------------------------------------!
 
 ! **************************************************************************************************
-!> \brief routines to reshape/replicate/merge rectangular matrices.
+!> \brief communication routines to reshape / replicate / merge rectangular matrices.
 !> \author Patrick Seewald
 ! **************************************************************************************************
 MODULE dbcsr_rectangular_reshape
@@ -17,30 +17,31 @@ MODULE dbcsr_rectangular_reshape
                                               dbcsr_data_new,&
                                               dbcsr_data_release,&
                                               dbcsr_type_1d_to_2d,&
-                                              dbcsr_data_get_sizes, dbcsr_data_set_pointer
+                                              dbcsr_data_get_sizes,&
+                                              dbcsr_data_set_pointer
    USE dbcsr_data_methods_low,          ONLY: internal_data_allocate,&
                                               internal_data_deallocate,&
                                               ${uselist(["dbcsr_get_data_p_2d_" + s for s in dtype_float_suffix_dbcsr])}$
-   USE dbcsr_data_types,                ONLY: dbcsr_data_obj, dbcsr_scalar_type, &
+   USE dbcsr_data_types,                ONLY: dbcsr_data_obj,&
                                               ${uselist(dtype_float_param)}$
    USE dbcsr_dist_methods,              ONLY: dbcsr_distribution_col_dist,&
                                               dbcsr_distribution_row_dist
    USE dbcsr_dist_operations,           ONLY: dbcsr_get_stored_coordinates
-   USE dbcsr_index_operations,          ONLY: dbcsr_sort_indices
    USE dbcsr_iterator_operations,       ONLY: dbcsr_iterator_blocks_left,&
                                               dbcsr_iterator_next_block,&
                                               dbcsr_iterator_start,&
                                               dbcsr_iterator_stop
    USE dbcsr_methods,                   ONLY: dbcsr_blk_column_size,&
                                               dbcsr_blk_row_size
-   USE dbcsr_operations,                ONLY: dbcsr_get_info, dbcsr_clear
+   USE dbcsr_operations,                ONLY: dbcsr_get_info, &
+                                              dbcsr_clear
    USE dbcsr_rectangular_base,          ONLY: &
       dbcsr_r_blk_sizes, dbcsr_r_create, dbcsr_r_distribution_new, dbcsr_r_finalize, &
       dbcsr_r_get_data_type, dbcsr_r_get_stored_coordinates, dbcsr_r_info, &
       dbcsr_r_iterator_blocks_left, dbcsr_r_iterator_next_block, dbcsr_r_iterator_start, &
       dbcsr_r_iterator_stop, dbcsr_r_put_block, dbcsr_r_reserve_blocks, &
       dbcsr_repl_get_stored_coordinates, dbcsr_r_clear
-   USE dbcsr_rectangular_types,    ONLY: dbcsr_r_distribution_type,&
+   USE dbcsr_rectangular_types,         ONLY: dbcsr_r_distribution_type,&
                                               dbcsr_r_iterator,&
                                               dbcsr_r_split_info,&
                                               dbcsr_r_type
@@ -57,10 +58,14 @@ MODULE dbcsr_rectangular_reshape
                                               dbcsr_iterator,&
                                               dbcsr_type
    USE dbcsr_work_operations,           ONLY: dbcsr_finalize
-   USE dbcsr_kinds,                           ONLY: int_8, real_8, real_4
-   USE dbcsr_mpiwrap,                 ONLY: mp_alltoall,&
-                                            mp_environ,&
-                                            mp_isend, mp_irecv, mp_waitall
+   USE dbcsr_kinds,                     ONLY: int_8,&
+                                              real_8,&
+                                              real_4
+   USE dbcsr_mpiwrap,                   ONLY: mp_alltoall,&
+                                              mp_environ,&
+                                              mp_isend,&
+                                              mp_irecv,&
+                                              mp_waitall
 
    USE dbcsr_rectangular_util, ONLY: swap, index_unique
 #include "../base/dbcsr_base_uses.f90"
@@ -70,13 +75,16 @@ MODULE dbcsr_rectangular_reshape
 
    CHARACTER(len=*), PARAMETER, PRIVATE :: moduleN = 'dbcsr_rectangular_reshape'
 
-   PUBLIC :: dbcsr_r_reshape, dbcsr_r_merge, dbcsr_r_replicate
+   PUBLIC :: &
+      dbcsr_r_merge, &
+      dbcsr_r_replicate, &
+      dbcsr_r_reshape
 
    TYPE block_buffer_type
       INTEGER :: nblock=-1
       INTEGER(KIND=int_8), DIMENSION(:, :), ALLOCATABLE :: indx
 #:for dparam, dtype, dsuffix in dtype_float_list
-      ${dtype}$, DIMENSION(:), ALLOCATABLE       :: msg_${dsuffix}$
+      ${dtype}$, DIMENSION(:), ALLOCATABLE :: msg_${dsuffix}$
 #:endfor
       INTEGER :: data_type = -1
       INTEGER :: endpos = -1
@@ -85,9 +93,8 @@ MODULE dbcsr_rectangular_reshape
    INTERFACE block_buffer_get_next_block
       MODULE PROCEDURE block_buffer_get_next_area_block
 #!for dparam, dtype, dsuffix in dtype_float_list
-      !MODULE PROCEDURE block_buffer_get_next_block_${dsuffix}$ ! issue:ambigous interface
+      !MODULE PROCEDURE block_buffer_get_next_block_${dsuffix}$ ! issue: ambiguous interface
 #!endfor
-
    END INTERFACE
 
    INTERFACE block_buffer_add_block
@@ -149,9 +156,9 @@ CONTAINS
 !> \brief copy data (involves reshape)
 !> \param matrix_in ...
 !> \param matrix_out ...
-!> \param summation ...
+!> \param summation whether matrix_out = matrix_out + matrix_in
 !> \param transposed ...
-!> \param move_data ...
+!> \param move_data memory optimization: move data to matrix_out such that matrix_in is empty on return
 ! **************************************************************************************************
    RECURSIVE SUBROUTINE dbcsr_r_reshape(matrix_in, matrix_out, summation, transposed, move_data)
       TYPE(dbcsr_r_type), INTENT(INOUT)                  :: matrix_in, matrix_out
@@ -323,12 +330,12 @@ CONTAINS
    END SUBROUTINE
 
 ! **************************************************************************************************
-!> \brief ...
+!> \brief Replicate matrix_in such that each submatrix of matrix_out is an exact copy of matrix_in
 !> \param matrix_in ...
 !> \param info ...
 !> \param matrix_out ...
-!> \param nodata ...
-!> \param move_data ...
+!> \param nodata Don't copy data but create matrix_out
+!> \param move_data memory optimization: move data to matrix_out such that matrix_in is empty on return
 ! **************************************************************************************************
    SUBROUTINE dbcsr_r_replicate(matrix_in, info, matrix_out, nodata, move_data)
       TYPE(dbcsr_type), INTENT(INOUT)                    :: matrix_in
@@ -533,10 +540,10 @@ CONTAINS
    END SUBROUTINE
 
 ! **************************************************************************************************
-!> \brief ...
+!> \brief Merge submatrices of matrix_in to matrix_out by sum
 !> \param matrix_out ...
 !> \param matrix_in ...
-!> \param move_data ...
+!> \param move_data memory optimization: move data to matrix_out such that matrix_in is empty on return
 ! **************************************************************************************************
    SUBROUTINE dbcsr_r_merge(matrix_out, matrix_in, move_data)
       TYPE(dbcsr_type), INTENT(INOUT)                    :: matrix_out
@@ -972,6 +979,5 @@ CONTAINS
       ENDIF
       CALL timestop(handle)
    END SUBROUTINE
-
 
 END MODULE

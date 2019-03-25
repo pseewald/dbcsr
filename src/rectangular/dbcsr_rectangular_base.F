@@ -35,12 +35,10 @@ MODULE dbcsr_rectangular_base
       dbcsr_distribution_release, dbcsr_get_data_type, dbcsr_mp_release, dbcsr_nblkcols_total, &
       dbcsr_nblkrows_total, dbcsr_nfullrows_total, dbcsr_nfullcols_total, dbcsr_release, &
       dbcsr_get_data_size, dbcsr_get_num_blocks, dbcsr_get_nze
-   USE dbcsr_operations,                ONLY: dbcsr_copy,&
-                                              dbcsr_get_info,&
-                                              dbcsr_clear,&
+   USE dbcsr_operations,                ONLY: dbcsr_get_info,&
                                               dbcsr_set,&
                                               dbcsr_filter
-   USE dbcsr_rectangular_types,    ONLY: dbcsr_r_distribution_type,&
+   USE dbcsr_rectangular_types,         ONLY: dbcsr_r_distribution_type,&
                                               dbcsr_r_iterator,&
                                               dbcsr_r_split_info,&
                                               dbcsr_r_type
@@ -52,19 +50,22 @@ MODULE dbcsr_rectangular_base
       block_index_global_to_local, block_index_local_to_global, colsplit, &
       dbcsr_r_info_hold, dbcsr_r_release_info, dbcsr_r_split, &
       group_to_mrowcol, rowsplit, dbcsr_r_get_split_info
-   USE dbcsr_rectangular_util,          ONLY: dbcsr_mp_environ, index_unique
+   USE dbcsr_rectangular_util,          ONLY: dbcsr_mp_environ,&
+                                              index_unique
    USE dbcsr_types,                     ONLY: dbcsr_distribution_obj,&
                                               dbcsr_iterator,&
                                               dbcsr_mp_obj,&
                                               dbcsr_type
    USE dbcsr_work_operations,           ONLY: dbcsr_create,&
                                               dbcsr_finalize
-   USE dbcsr_kinds,                           ONLY: default_string_length,&
-                                                    int_8, real_8, real_4
-   USE dbcsr_mpiwrap,                 ONLY: mp_cart_rank,&
-                                            mp_environ,&
-                                            mp_sum, mp_max
-   USE dbcsr_index_operations,        ONLY: dbcsr_sort_indices
+   USE dbcsr_kinds,                     ONLY: default_string_length,&
+                                              int_8,&
+                                              real_8,&
+                                              real_4
+   USE dbcsr_mpiwrap,                   ONLY: mp_cart_rank, &
+                                              mp_environ, &
+                                              mp_sum, &
+                                              mp_max
 #include "../base/dbcsr_base_uses.f90"
 
    IMPLICIT NONE

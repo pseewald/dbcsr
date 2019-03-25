@@ -32,7 +32,7 @@ MODULE dbcsr_rectangular_mm
                                       world_to_group_proc_map, &
                                       dbcsr_r_mp_comm, &
                                       dbcsr_r_release_info, &
-                                      dbcsr_r_print_info
+                                      dbcsr_r_print_split_info
    USE dbcsr_rectangular_util, ONLY: swap
    USE dbcsr_types, ONLY: dbcsr_no_transpose, &
                           dbcsr_transpose
@@ -250,7 +250,7 @@ CONTAINS
          filter_eps_prv = 0.0_real_8
       ENDIF
 
-      IF(PRESENT(io_unit)) CALL dbcsr_r_print_info(info, " Split info:", io_unit_prv)
+      IF(PRESENT(io_unit)) CALL dbcsr_r_print_split_info(info, " Split info:", io_unit_prv)
 
       zero = dbcsr_scalar_zero(data_type)
       SELECT CASE (max_mm_dim)

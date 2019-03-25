@@ -6,37 +6,45 @@
 ! **************************************************************************************************
 !> \brief methods to split rectangular matrices along longest dimension.
 !>
-!> Basically, we are splitting MPI grid and each subgrid contains its own DBCSR matrix.
+!> Basically, we are splitting process grid and each subgrid holds its own DBCSR matrix.
 !> \author Patrick Seewald
 ! **************************************************************************************************
 MODULE dbcsr_rectangular_split
 
-   USE dbcsr_dist_methods, ONLY: dbcsr_distribution_hold
-   USE dbcsr_rectangular_types, ONLY: dbcsr_r_distribution_type, &
-                                           dbcsr_r_split_info
-   USE dbcsr_rectangular_global, ONLY: dbcsr_r_distribution
-   USE dbcsr_rectangular_util, ONLY: swap
-   USE dbcsr_toollib, ONLY: sort
-   USE dbcsr_kinds, ONLY: int_8
-   USE dbcsr_machine, ONLY: default_output_unit
-   USE dbcsr_mpiwrap, ONLY: mp_bcast, &
-                            mp_cart_create, &
-                            mp_comm_dup, &
-                            mp_comm_free, &
-                            mp_comm_split_direct, &
-                            mp_dims_create, &
-                            mp_environ
+   USE dbcsr_rectangular_types,               ONLY: dbcsr_r_distribution_type, &
+                                                    dbcsr_r_split_info
+   USE dbcsr_rectangular_global,              ONLY: dbcsr_r_distribution
+   USE dbcsr_rectangular_util,                ONLY: swap
+   USE dbcsr_toollib,                         ONLY: sort
+   USE dbcsr_kinds,                           ONLY: int_8
+   USE dbcsr_mpiwrap,                         ONLY: mp_bcast, &
+                                                    mp_cart_create, &
+                                                    mp_comm_dup, &
+                                                    mp_comm_free, &
+                                                    mp_comm_split_direct, &
+                                                    mp_dims_create, &
+                                                    mp_environ
 #include "../base/dbcsr_base_uses.f90"
 
    IMPLICIT NONE
    PRIVATE
 
-   PUBLIC :: dbcsr_r_split, &
+   PUBLIC :: &
+             block_index_global_to_local, &
+             block_index_local_to_global, &
+             colsplit, &
+             dbcsr_r_get_split_info, &
+             dbcsr_r_info_hold, &
+             dbcsr_r_mp_comm, &
+             dbcsr_r_print_split_info, &
+             dbcsr_r_release_info, &
+             dbcsr_r_split, &
              dbcsr_r_split_rows_or_cols, &
-             dbcsr_r_release_info, dbcsr_r_print_info, rowsplit, colsplit, dbcsr_r_get_split_info, &
-             world_to_group_proc_map, group_to_world_proc_map, group_to_mrowcol, mrowcol_to_group, &
-             block_index_global_to_local, block_index_local_to_global, &
-             dbcsr_r_mp_comm, dbcsr_r_info_hold
+             group_to_mrowcol, &
+             group_to_world_proc_map, &
+             mrowcol_to_group, &
+             rowsplit, &
+             world_to_group_proc_map
 
    CHARACTER(len=*), PARAMETER, PRIVATE :: moduleN = 'dbcsr_rectangular_split'
 
@@ -45,11 +53,84 @@ MODULE dbcsr_rectangular_split
 CONTAINS
 
 ! **************************************************************************************************
-!> \brief ...
+!> \brief split mpi grid by rows or columns
+!> \param split_info ...
+!> \param mp_comm global mpi communicator with a 2d cartesian grid
+!> \param ngroup number of groups. Note: this number may be diminished on out in order to have a
+!>        distribution where all groups have the same number of processes
+!> \param igroup my group ID
+!> \param split_rowcol split rows or columns
+! **************************************************************************************************
+   SUBROUTINE dbcsr_r_split_rows_or_cols(split_info, mp_comm, ngroup, igroup, split_rowcol)
+      TYPE(dbcsr_r_split_info), INTENT(OUT)              :: split_info
+      INTEGER, INTENT(IN)                                :: mp_comm
+      INTEGER, INTENT(INOUT)                             :: ngroup
+      INTEGER, INTENT(IN)                                :: igroup, split_rowcol
+
+      INTEGER :: &
+         igroup_check, iproc, iproc_group, iproc_group_check, mp_comm_group, numproc, &
+         numproc_group, numproc_group_check, handle
+      INTEGER, DIMENSION(2)                              :: pcoord, pcoord_group, pdims, pdims_group
+      LOGICAL                                            :: to_assert
+      CHARACTER(LEN=*), PARAMETER :: routineN = 'dbcsr_r_split_rows_or_cols', &
+                                     routineP = moduleN//':'//routineN
+
+      CALL timeset(routineN, handle)
+
+      CALL mp_comm_dup(mp_comm, split_info%mp_comm)
+      split_info%igroup = igroup
+      split_info%split_rowcol = split_rowcol
+
+      CALL mp_comm_split_direct(mp_comm, mp_comm_group, igroup)
+
+      CALL mp_environ(numproc, iproc, mp_comm)
+      CALL mp_environ(numproc, pdims, pcoord, mp_comm)
+
+      CALL mp_environ(numproc_group, iproc_group, mp_comm_group)
+
+      IF (iproc == 0) THEN
+         to_assert = MOD(numproc_group, pdims(MOD(split_rowcol, 2) + 1)) == 0
+         DBCSR_ASSERT(to_assert)
+         split_info%pgrid_split_size = numproc_group/pdims(MOD(split_rowcol, 2) + 1)
+      ENDIF
+      CALL mp_bcast(split_info%pgrid_split_size, 0, split_info%mp_comm)
+
+      ngroup = (pdims(split_rowcol) + split_info%pgrid_split_size - 1)/split_info%pgrid_split_size
+      split_info%ngroup = ngroup
+      split_info%group_size = split_info%pgrid_split_size*pdims(MOD(split_rowcol, 2) + 1)
+
+      split_info%pgrid_split_size_local = split_info%pgrid_split_size
+      split_info%group_size_local = split_info%group_size
+
+      CALL world_to_group_proc_map(iproc, pdims, split_rowcol, split_info%pgrid_split_size, igroup_check, &
+                                   split_info%pgrid_split_size_local, pdims_group, iproc_group)
+
+      IF (igroup_check .NE. split_info%igroup) THEN
+         DBCSR_ABORT('inconsistent subgroups')
+      ENDIF
+
+      CALL mp_cart_create(mp_comm_group, 2, pdims_group, pcoord_group, split_info%mp_comm_group)
+
+      CALL mp_environ(numproc_group_check, iproc_group_check, split_info%mp_comm_group)
+
+      DBCSR_ASSERT(iproc_group_check .EQ. iproc_group)
+
+      CALL mp_comm_free(mp_comm_group)
+
+      ALLOCATE (split_info%refcount)
+      split_info%refcount = 1
+
+      CALL timestop(handle)
+
+   END SUBROUTINE
+
+! **************************************************************************************************
+!> \brief Create default cartesian grid that is consistent with default split heuristic of dbcsr_r_split
+!>        This is experimental and should be used for testing purposes only!
 !> \param mp_comm ...
 !> \param nblkrows_total ...
 !> \param nblkcols_total ...
-!> \return ...
+!> \return new communicator
 ! **************************************************************************************************
    FUNCTION dbcsr_r_mp_comm(mp_comm, nblkrows_total, nblkcols_total)
       INTEGER, INTENT(IN)                                :: mp_comm
@@ -114,12 +195,13 @@ CONTAINS
    END FUNCTION
 
 ! **************************************************************************************************
-!> \brief ...
-!> \param split_info ...
+!> \brief Split Cartesian process grid using a default split heuristic. The split factor may not be
+!>        ideal.
+!> \param split_info object storing all data corresponding to split, submatrices and parallelization
 !> \param mp_comm ...
 !> \param nblkrows_total ...
 !> \param nblkcols_total ...
-!> \param nosplit ...
+!> \param nosplit Matrix should not be split
 ! **************************************************************************************************
    SUBROUTINE dbcsr_r_split(split_info, mp_comm, nblkrows_total, nblkcols_total, nosplit)
       TYPE(dbcsr_r_split_info), INTENT(OUT)              :: split_info
@@ -185,14 +267,14 @@ CONTAINS
    END SUBROUTINE
 
 ! **************************************************************************************************
-!> \brief ...
+!> \brief Get info on split
 !> \param info ...
-!> \param mp_comm ...
-!> \param nsplit ...
-!> \param igroup ...
-!> \param mp_comm_group ...
-!> \param split_rowcol ...
-!> \param pgrid_offset ...
+!> \param mp_comm communicator (global process grid)
+!> \param nsplit split factor
+!> \param igroup which group do I belong to
+!> \param mp_comm_group subgroup communicator (group-local process grid)
+!> \param split_rowcol split rows or columns
+!> \param pgrid_offset group-local offset in process grid
 ! **************************************************************************************************
    SUBROUTINE dbcsr_r_get_split_info(info, mp_comm, nsplit, igroup, mp_comm_group, split_rowcol, pgrid_offset)
       TYPE(dbcsr_r_split_info), INTENT(IN)               :: info
@@ -218,84 +300,11 @@ CONTAINS
    END SUBROUTINE
 
 ! **************************************************************************************************
-!> \brief split mpi grid by rows or columns
-!> \param split_info ...
-!> \param mp_comm global mpi communicator with a 2d cartesian grid
-!> \param ngroup number of groups. Note: this number may be diminished on out in order to have a
-!>        distribution where all groups have the same number of processes
-!> \param igroup my group ID
-!> \param split_rowcol split rows or columns
-! **************************************************************************************************
-   SUBROUTINE dbcsr_r_split_rows_or_cols(split_info, mp_comm, ngroup, igroup, split_rowcol)
-      TYPE(dbcsr_r_split_info), INTENT(OUT)              :: split_info
-      INTEGER, INTENT(IN)                                :: mp_comm
-      INTEGER, INTENT(INOUT)                             :: ngroup
-      INTEGER, INTENT(IN)                                :: igroup, split_rowcol
-
-      INTEGER :: igroup_check, iproc, iproc_group, iproc_group_check, mp_comm_group, numproc, &
-                 numproc_group, numproc_group_check, handle
-      INTEGER, DIMENSION(2)                              :: pcoord, pcoord_group, pdims, pdims_group
-      LOGICAL                                            :: to_assert
-      CHARACTER(LEN=*), PARAMETER :: routineN = 'dbcsr_r_split_rows_or_cols', &
-                                     routineP = moduleN//':'//routineN
-
-      CALL timeset(routineN, handle)
-
-      CALL mp_comm_dup(mp_comm, split_info%mp_comm)
-      split_info%igroup = igroup
-      split_info%split_rowcol = split_rowcol
-
-      CALL mp_comm_split_direct(mp_comm, mp_comm_group, igroup)
-
-      CALL mp_environ(numproc, iproc, mp_comm)
-      CALL mp_environ(numproc, pdims, pcoord, mp_comm)
-
-      CALL mp_environ(numproc_group, iproc_group, mp_comm_group)
-
-      IF (iproc == 0) THEN
-         to_assert = MOD(numproc_group, pdims(MOD(split_rowcol, 2) + 1)) == 0
-         DBCSR_ASSERT(to_assert)
-         split_info%pgrid_split_size = numproc_group/pdims(MOD(split_rowcol, 2) + 1)
-      ENDIF
-      CALL mp_bcast(split_info%pgrid_split_size, 0, split_info%mp_comm)
-
-      ngroup = (pdims(split_rowcol) + split_info%pgrid_split_size - 1)/split_info%pgrid_split_size
-      split_info%ngroup = ngroup
-      split_info%group_size = split_info%pgrid_split_size*pdims(MOD(split_rowcol, 2) + 1)
-
-      split_info%pgrid_split_size_local = split_info%pgrid_split_size
-      split_info%group_size_local = split_info%group_size
-
-      CALL world_to_group_proc_map(iproc, pdims, split_rowcol, split_info%pgrid_split_size, igroup_check, &
-                                   split_info%pgrid_split_size_local, pdims_group, iproc_group)
-
-      IF (igroup_check .NE. split_info%igroup) THEN
-         DBCSR_ABORT('inconsistent subgroups')
-      ENDIF
-
-      CALL mp_cart_create(mp_comm_group, 2, pdims_group, pcoord_group, split_info%mp_comm_group)
-
-      CALL mp_environ(numproc_group_check, iproc_group_check, split_info%mp_comm_group)
-
-      DBCSR_ASSERT(iproc_group_check .EQ. iproc_group)
-
-      CALL mp_comm_free(mp_comm_group)
-
-      ALLOCATE (split_info%refcount)
-      split_info%refcount = 1
-
-      CALL timestop(handle)
-
-   END SUBROUTINE
-
-
-! **************************************************************************************************
 !> \brief ...
 !> \param split_info ...
 ! **************************************************************************************************
    SUBROUTINE dbcsr_r_release_info(split_info)
       TYPE(dbcsr_r_split_info), INTENT(INOUT)            :: split_info
-
       LOGICAL                                            :: abort
 
       abort = .FALSE.
@@ -341,11 +350,10 @@ CONTAINS
 !> \param name ...
 !> \param io_unit ...
 ! **************************************************************************************************
-   SUBROUTINE dbcsr_r_print_info(info, name, io_unit)
+   SUBROUTINE dbcsr_r_print_split_info(info, name, io_unit)
       TYPE(dbcsr_r_split_info), INTENT(IN)               :: info
       CHARACTER(len=*), INTENT(IN)                       :: name
       INTEGER, INTENT(IN) :: io_unit
-
       INTEGER                                            :: groupsize, igroup, mp_comm, &
                                                             mp_comm_group, mynode, nsplit, &
                                                             numnodes, split_rowcol
@@ -497,7 +505,7 @@ CONTAINS
    END SUBROUTINE
 
 ! **************************************************************************************************
-!> \brief ...
+!> \brief map global block index to group local index
 !> \param info ...
 !> \param dist ...
 !> \param row ...
@@ -532,19 +540,18 @@ CONTAINS
    END SUBROUTINE
 
 ! **************************************************************************************************
-!> \brief map matrix rows/columns to group local rows/columns
+!> \brief map matrix rows/column to group local rows/column
 !> \param dist ...
 !> \param rowcol global row/column to map
 !> \param rowcol_group group local row/column
 ! **************************************************************************************************
-
    SUBROUTINE mrowcol_to_group(dist, rowcol, rowcol_group)
 
       CLASS(dbcsr_r_distribution_type), INTENT(IN) :: dist
-      INTEGER(KIND=int_8), INTENT(IN) :: rowcol
-      INTEGER, INTENT(OUT) :: rowcol_group
-      CHARACTER(LEN=*), PARAMETER :: routineN = 'mrowcol_to_group', &
-                                     routineP = moduleN//':'//routineN
+      INTEGER(KIND=int_8), INTENT(IN)              :: rowcol
+      INTEGER, INTENT(OUT)                         :: rowcol_group
+      CHARACTER(LEN=*), PARAMETER                  :: routineN = 'mrowcol_to_group', &
+                                                      routineP = moduleN//':'//routineN
 
       ASSOCIATE (rowcols=>dist%local_rowcols)
          rowcol_group = i8_bsearch(rowcols, rowcol)
@@ -552,57 +559,21 @@ CONTAINS
    END SUBROUTINE
 
 ! **************************************************************************************************
-!> \brief ...
+!> \brief binary search for 8-byte integers
 !> \param array ...
 !> \param el ...
 !> \param l_index ...
 !> \param u_index ...
 !> \return ...
 ! **************************************************************************************************
-   FUNCTION i8_isearch(array, el, l_index, u_index) result(res)
+   FUNCTION i8_bsearch(array, el, l_index, u_index) result(res)
       INTEGER(KIND=int_8), intent(in) :: array(:)
       INTEGER(KIND=int_8), intent(in) :: el
-      INTEGER, INTENT(in), OPTIONAL :: l_index, u_index
-      integer :: res
-      INTEGER(KIND=int_8) :: lindex, uindex, aindex
-
-      lindex = 1_int_8
-      uindex = INT(size(array), KIND=int_8)
-      if (present(l_index)) lindex = INT(l_index, KIND=int_8)
-      if (present(u_index)) uindex = INT(u_index, KIND=int_8)
-
-      DO WHILE (lindex <= uindex)
-         aindex = lindex + ((el - array(lindex))*(uindex - lindex)/(array(uindex) - array(lindex)))
-         IF (array(aindex) < el) THEN
-            lindex = aindex + 1
-         ELSEIF (el < array(aindex)) THEN
-            uindex = aindex - 1
-         ELSE
-            res = INT(aindex)
-            RETURN
-         END IF
-      ENDDO
-      res = INT(lindex)
-   END FUNCTION
-
-! **************************************************************************************************
-!> \brief ...
-!> \param array ...
-!> \param el ...
-!> \param l_index ...
-!> \param u_index ...
-!> \return ...
-! **************************************************************************************************
-   FUNCTION i8_bsearch(array, el, l_index, u_index)&
-      result(res)
-      INTEGER(KIND=int_8), intent(in) :: array(:)
-      INTEGER(KIND=int_8), intent(in) :: el
-      INTEGER, INTENT(in), OPTIONAL :: l_index, u_index
-      integer :: res
+      INTEGER, INTENT(in), OPTIONAL   :: l_index, u_index
+      INTEGER                         :: res, lindex, uindex, aindex
 
       character(len=*), parameter :: routineN='i8_bsearch',&
                                      routineP=moduleN//':'//routineN
-      INTEGER :: lindex,uindex,aindex
 
       lindex=1
       uindex=size(array)
@@ -620,21 +591,20 @@ CONTAINS
    END FUNCTION
 
 ! **************************************************************************************************
-!> \brief maps a group to matrix row/columns
+!> \brief maps a process subgroup to matrix rows/columns
 !> \param info ...
 !> \param rowcol_dist ...
 !> \param igroup group ID
 !> \param rowcols rows/ columns on this group
 ! **************************************************************************************************
    SUBROUTINE group_to_mrowcol(info, rowcol_dist, igroup, rowcols)
-      TYPE(dbcsr_r_split_info), INTENT(IN)               :: info
-
-      CLASS(dbcsr_r_distribution), INTENT(IN) :: rowcol_dist
-      INTEGER, INTENT(IN) :: igroup
+      TYPE(dbcsr_r_split_info), INTENT(IN)                        :: info
+      CLASS(dbcsr_r_distribution), INTENT(IN)                     :: rowcol_dist
+      INTEGER, INTENT(IN)                                         :: igroup
       INTEGER(KIND=int_8), DIMENSION(:), ALLOCATABLE, INTENT(OUT) :: rowcols
-      INTEGER, DIMENSION(0:info%pgrid_split_size - 1) :: nrowcols_group
-      INTEGER :: pcoord, nrowcols, count, pcoord_group
-      INTEGER, DIMENSION(:), ALLOCATABLE :: sort_indices
+      INTEGER, DIMENSION(0:info%pgrid_split_size - 1)             :: nrowcols_group
+      INTEGER                                                     :: pcoord, nrowcols, count, pcoord_group
+      INTEGER, DIMENSION(:), ALLOCATABLE                          :: sort_indices
 
       nrowcols_group(:) = 0
       DO pcoord = igroup*info%pgrid_split_size, (igroup + 1)*info%pgrid_split_size - 1

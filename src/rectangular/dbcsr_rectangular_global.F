@@ -7,9 +7,9 @@
 !> \brief Global data (distribution and block sizes)
 !>
 !> For very sparse matrices with one very large dimension, storing array data of the same size
-!> as the matrix dimensions may require too much memory. Hence global array data such as distribution
-!> and block sizes are specified as function objects, leaving up to the caller how to efficiently store
-!> or calculate global data.
+!> as the matrix dimensions may require too much memory and we need to compute them on the fly for a
+!> given row or column. Hence global array data such as distribution and block sizes are specified as
+!> function objects, leaving up to the caller how to efficiently store global data.
 !>
 !> \author Patrick Seewald
 ! **************************************************************************************************
@@ -24,8 +24,15 @@ MODULE dbcsr_rectangular_global
 
    CHARACTER(len=*), PARAMETER, PRIVATE :: moduleN = 'dbcsr_rectangular_global'
 
-   PUBLIC :: dbcsr_r_distribution, dbcsr_r_dist_cyclic, dbcsr_r_dist_arb, dbcsr_r_dist_repl, &
-             dbcsr_r_rowcol_data, dbcsr_r_blk_size_arb, dbcsr_r_blk_size_repl, dbcsr_r_dist_arb_default
+   PUBLIC :: &
+      dbcsr_r_blk_size_arb, &
+      dbcsr_r_blk_size_repl, &
+      dbcsr_r_dist_arb, &
+      dbcsr_r_dist_arb_default, &
+      dbcsr_r_dist_cyclic, &
+      dbcsr_r_dist_repl, &
+      dbcsr_r_distribution, &
+      dbcsr_r_rowcol_data
 
    ! abstract type for distribution vectors along one dimension
    TYPE, ABSTRACT :: dbcsr_r_distribution

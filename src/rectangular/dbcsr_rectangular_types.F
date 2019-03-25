@@ -27,8 +27,8 @@ MODULE dbcsr_rectangular_types
 
    PUBLIC :: dbcsr_r_distribution_type, dbcsr_r_type, dbcsr_r_iterator, dbcsr_r_split_info
 
-   ! info on MPI Cartesian grid that is splitted between MPI subgroups.
-   ! Info on distribution of matrix rows / columns to different subgroups
+   ! info on MPI Cartesian grid that is split on MPI subgroups.
+   ! info on distribution of matrix rows / columns to different subgroups.
    TYPE dbcsr_r_split_info
       INTEGER :: mp_comm ! global communicator
       INTEGER :: igroup ! which subgroup do I belong to
