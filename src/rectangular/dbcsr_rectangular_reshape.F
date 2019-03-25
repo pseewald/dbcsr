@@ -400,7 +400,7 @@ CONTAINS
 
       SELECT CASE (info%split_rowcol)
       CASE (rowsplit)
-         repl_dist = dbcsr_r_dist_repl(row_dist, pdims(1), nblkrows, info%ngroup, info%pgrid_split_size, info%pgrid_split_size_last)
+         repl_dist = dbcsr_r_dist_repl(row_dist, pdims(1), nblkrows, info%ngroup, info%pgrid_split_size)
          dir_dist = dbcsr_r_dist_arb(col_dist, pdims(2), INT(nblkcols, KIND=int_8))
          repl_blksize = dbcsr_r_blk_size_repl(row_blk_size, info%ngroup)
          dir_blksize = dbcsr_r_blk_size_arb(col_blk_size)
@@ -410,7 +410,7 @@ CONTAINS
          ALLOCATE (col_bsize_obj, source=dir_blksize)
       CASE (colsplit)
          dir_dist = dbcsr_r_dist_arb(row_dist, pdims(1), INT(nblkrows, KIND=int_8))
-         repl_dist = dbcsr_r_dist_repl(col_dist, pdims(2), nblkcols, info%ngroup, info%pgrid_split_size, info%pgrid_split_size_last)
+         repl_dist = dbcsr_r_dist_repl(col_dist, pdims(2), nblkcols, info%ngroup, info%pgrid_split_size)
          dir_blksize = dbcsr_r_blk_size_arb(row_blk_size)
          repl_blksize = dbcsr_r_blk_size_repl(col_blk_size, info%ngroup)
          ALLOCATE (row_dist_obj, source=dir_dist)

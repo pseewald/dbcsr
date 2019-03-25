@@ -36,10 +36,8 @@ MODULE dbcsr_rectangular_types
       INTEGER :: split_rowcol ! split row or column?
       INTEGER :: pgrid_split_size ! how many process rows/cols in all groups with igroup < ngroup-1
       ! igroup = ngroup-1 contains less (all remaining) processes
-      INTEGER :: pgrid_split_size_last ! how many process rows/cols in igroup == ngroup-1
       INTEGER :: pgrid_split_size_local ! how many process rows/cols actually in this group
       INTEGER :: group_size ! group size (how many cores) of all groups with igroup < ngroup-1
-      INTEGER :: group_size_last ! group size (how many cores) of igroup == ngroup-1
       INTEGER :: group_size_local ! actual size of this group
       INTEGER :: mp_comm_group ! sub communicator
       INTEGER, POINTER :: refcount => NULL() ! lightweight reference counting for communicators

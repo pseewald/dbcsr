@@ -222,8 +222,7 @@ CONTAINS
 !> \param split_info ...
 !> \param mp_comm global mpi communicator with a 2d cartesian grid
 !> \param ngroup number of groups. Note: this number may be diminished on out in order to have a
-!>        distribution where all groups except the last group have the same number of processes, and
-!>        the last group has less processes than all other groups.
+!>        distribution where all groups have the same number of processes
 !> \param igroup my group ID
 !> \param split_rowcol split rows or columns
 ! **************************************************************************************************
@@ -263,18 +262,9 @@ CONTAINS
       ngroup = (pdims(split_rowcol) + split_info%pgrid_split_size - 1)/split_info%pgrid_split_size
       split_info%ngroup = ngroup
       split_info%group_size = split_info%pgrid_split_size*pdims(MOD(split_rowcol, 2) + 1)
-      split_info%pgrid_split_size_last = pdims(split_rowcol) - (split_info%ngroup - 1)*split_info%pgrid_split_size
-      split_info%group_size_last = split_info%pgrid_split_size_last*pdims(MOD(split_rowcol, 2) + 1)
 
-      IF (split_info%igroup < split_info%ngroup - 1) THEN
-         split_info%pgrid_split_size_local = split_info%pgrid_split_size
-         split_info%group_size_local = split_info%group_size
-      ELSEIF (split_info%igroup == split_info%ngroup - 1) THEN
-         split_info%pgrid_split_size_local = split_info%pgrid_split_size_last
-         split_info%group_size_local = split_info%group_size_last
-      ELSE
-         DBCSR_ABORT("inconsistent number of MPI subgroups")
-      ENDIF
+      split_info%pgrid_split_size_local = split_info%pgrid_split_size
+      split_info%group_size_local = split_info%group_size
 
       CALL world_to_group_proc_map(iproc, pdims, split_rowcol, split_info%pgrid_split_size, igroup_check, &
                                    split_info%pgrid_split_size_local, pdims_group, iproc_group)
@@ -378,17 +368,9 @@ CONTAINS
       ENDIF
 
       IF (io_unit > 0) THEN
-         WRITE (io_unit, "(A,I4,A1,I4,A1,I4)") &
-            TRIM(name)//" grid sizes on groups 0, ...,", MAX(0, nsplit - 2), ":", &
+         WRITE (io_unit, "(A,I4,A1,I4)") &
+            TRIM(name)//" grid sizes on subgroups:", &
             groupdims(1), "x", groupdims(2)
-         SELECT CASE (split_rowcol)
-         CASE (rowsplit)
-            WRITE (io_unit, "(A,I4,A1,I4,A1,I4)") TRIM(name)//" grid sizes on group", nsplit - 1, ":", &
-               dims(1) - groupdims(1)*(nsplit - 1), "x", dims(2)
-         CASE (colsplit)
-            WRITE (io_unit, "(A,I4,A1,I4,A1,I4)") TRIM(name)//" grid sizes on group", nsplit - 1, ":", &
-               dims(1), "x", dims(2) - groupdims(2)*(nsplit - 1)
-         END SELECT
       ENDIF
 
    END SUBROUTINE
@@ -398,7 +380,7 @@ CONTAINS
 !> \param iproc global process ID
 !> \param pdims global process dimensions
 !> \param split_rowcol split rows or column
-!> \param pgrid_split_size how many process rows/cols per group (except last group)
+!> \param pgrid_split_size how many process rows/cols per group
 !> \param igroup group ID
 !> \param pgrid_split_size_local how many process rows/cols in this group
 !> \param pdims_group local process grid dimensions
@@ -444,7 +426,7 @@ CONTAINS
 !> \param iproc global process id
 !> \param pdims global process grid dimensions
 !> \param split_rowcol split rows or column
-!> \param pgrid_split_size how many process rows/cols per group (except last group)
+!> \param pgrid_split_size how many process rows/cols per group
 !> \param pgrid_split_size_local how many process rows/cols in this group
 !> \param igroup group ID
 !> \param iproc_group local process ID
