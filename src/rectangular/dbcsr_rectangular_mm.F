@@ -603,64 +603,64 @@ CONTAINS
 !> \param io_unit ...
 !> \return ...
 ! **************************************************************************************************
-      FUNCTION dist_compatible(mat_a, mat_b, io_unit)
-         TYPE(dbcsr_r_type), INTENT(IN)                     :: mat_a, mat_b
-         INTEGER, INTENT(IN), OPTIONAL :: io_unit
-         LOGICAL                                            :: dist_compatible
+   FUNCTION dist_compatible(mat_a, mat_b, io_unit)
+      TYPE(dbcsr_r_type), INTENT(IN)                     :: mat_a, mat_b
+      INTEGER, INTENT(IN), OPTIONAL :: io_unit
+      LOGICAL                                            :: dist_compatible
 
-         INTEGER                                            :: res, same_local_rowcols
-         TYPE(dbcsr_r_split_info)                           :: info_a, info_b
-         INTEGER :: io_unit_prv, numproc, iproc
+      INTEGER                                            :: res, same_local_rowcols
+      TYPE(dbcsr_r_split_info)                           :: info_a, info_b
+      INTEGER :: io_unit_prv, numproc, iproc
 
-         IF (PRESENT(io_unit)) THEN
-            io_unit_prv = io_unit
-         ELSE
-            io_unit_prv = 0
-         ENDIF
+      IF (PRESENT(io_unit)) THEN
+         io_unit_prv = io_unit
+      ELSE
+         io_unit_prv = 0
+      ENDIF
 
-         dist_compatible = .FALSE.
+      dist_compatible = .FALSE.
 
-         info_a = dbcsr_r_info(mat_a)
-         info_b = dbcsr_r_info(mat_b)
+      info_a = dbcsr_r_info(mat_a)
+      info_b = dbcsr_r_info(mat_b)
 
-         CALL mp_environ(numproc, iproc, info_a%mp_comm)
+      CALL mp_environ(numproc, iproc, info_a%mp_comm)
 
-         CALL mp_comm_compare(info_a%mp_comm_group, info_b%mp_comm_group, res)
-         IF (res .GT. 1) THEN
-            RETURN
-         ENDIF
+      CALL mp_comm_compare(info_a%mp_comm_group, info_b%mp_comm_group, res)
+      IF (res .GT. 1) THEN
+         RETURN
+      ENDIF
+
+      IF (io_unit_prv > 0) THEN
+         WRITE (io_unit_prv, *) "mp comm compatible"
+      ENDIF
+
+      IF (mat_a%dist%info%split_rowcol == mat_b%dist%info%split_rowcol) THEN
 
          IF (io_unit_prv > 0) THEN
-            WRITE (io_unit_prv, *) "mp comm compatible"
+            WRITE (io_unit_prv, *) "split compatible"
          ENDIF
 
-         IF (mat_a%dist%info%split_rowcol == mat_b%dist%info%split_rowcol) THEN
+         same_local_rowcols = MERGE(1, 0, array_eq_i8(mat_a%dist%local_rowcols, mat_b%dist%local_rowcols))
+         CALL mp_sum(same_local_rowcols, info_a%mp_comm)
 
+         IF (same_local_rowcols == numproc) THEN
             IF (io_unit_prv > 0) THEN
-               WRITE (io_unit_prv, *) "split compatible"
+               WRITE (io_unit_prv, *) "local rowcols compatible"
             ENDIF
-
-            same_local_rowcols = MERGE(1, 0, array_eq_i8(mat_a%dist%local_rowcols, mat_b%dist%local_rowcols))
-            CALL mp_sum(same_local_rowcols, info_a%mp_comm)
-
-            IF (same_local_rowcols == numproc) THEN
-               IF (io_unit_prv > 0) THEN
-                  WRITE (io_unit_prv, *) "local rowcols compatible"
-               ENDIF
-               dist_compatible = .TRUE.
-            ELSE
-               IF (io_unit_prv > 0) THEN
-                  WRITE (io_unit_prv, *) "local rowcols A", mat_a%dist%local_rowcols
-                  WRITE (io_unit_prv, *) "local rowcols B", mat_b%dist%local_rowcols
-               ENDIF
+            dist_compatible = .TRUE.
+         ELSE
+            IF (io_unit_prv > 0) THEN
+               WRITE (io_unit_prv, *) "local rowcols A", mat_a%dist%local_rowcols
+               WRITE (io_unit_prv, *) "local rowcols B", mat_b%dist%local_rowcols
             ENDIF
          ENDIF
+      ENDIF
 
-         IF (io_unit_prv > 0) THEN
-            WRITE (io_unit_prv, *) "is compatible?", dist_compatible
-         ENDIF
+      IF (io_unit_prv > 0) THEN
+         WRITE (io_unit_prv, *) "is compatible?", dist_compatible
+      ENDIF
 
-      END FUNCTION
+   END FUNCTION
 
 ! **************************************************************************************************
 !> \brief Reshape matrix_in s.t. it has same process grid, distribution and split as matrix_in
@@ -671,84 +671,84 @@ CONTAINS
 !> \param nodata ...
 !> \param move_data ...
 ! **************************************************************************************************
-      SUBROUTINE reshape_mm_template(template, matrix_in, matrix_out, trans, nodata, move_data)
-         TYPE(dbcsr_r_type), INTENT(IN) :: template
-         TYPE(dbcsr_r_type), INTENT(INOUT) :: matrix_in
-         TYPE(dbcsr_r_type), INTENT(OUT) :: matrix_out
-         CHARACTER(LEN=1), INTENT(INOUT) :: trans
-         LOGICAL, INTENT(IN), OPTIONAL :: nodata, move_data
-         CLASS(dbcsr_r_distribution), ALLOCATABLE :: row_dist, col_dist
+   SUBROUTINE reshape_mm_template(template, matrix_in, matrix_out, trans, nodata, move_data)
+      TYPE(dbcsr_r_type), INTENT(IN) :: template
+      TYPE(dbcsr_r_type), INTENT(INOUT) :: matrix_in
+      TYPE(dbcsr_r_type), INTENT(OUT) :: matrix_out
+      CHARACTER(LEN=1), INTENT(INOUT) :: trans
+      LOGICAL, INTENT(IN), OPTIONAL :: nodata, move_data
+      CLASS(dbcsr_r_distribution), ALLOCATABLE :: row_dist, col_dist
 
-         TYPE(dbcsr_r_distribution_type) :: dist_new
-         TYPE(dbcsr_r_split_info) :: info_template, info_matrix
-         INTEGER :: mp_comm, dim_split_template, dim_split_matrix
-         LOGICAL :: nodata_prv
-         INTEGER, DIMENSION(2)                              :: pcoord, pdims
-         INTEGER :: numnodes, handle
-         LOGICAL :: transposed
+      TYPE(dbcsr_r_distribution_type) :: dist_new
+      TYPE(dbcsr_r_split_info) :: info_template, info_matrix
+      INTEGER :: mp_comm, dim_split_template, dim_split_matrix
+      LOGICAL :: nodata_prv
+      INTEGER, DIMENSION(2)                              :: pcoord, pdims
+      INTEGER :: numnodes, handle
+      LOGICAL :: transposed
 
-         CHARACTER(LEN=*), PARAMETER :: routineN = 'reshape_mm_template', &
-                                        routineP = moduleN//':'//routineN
+      CHARACTER(LEN=*), PARAMETER :: routineN = 'reshape_mm_template', &
+                                     routineP = moduleN//':'//routineN
 
-         CALL timeset(routineN, handle)
+      CALL timeset(routineN, handle)
 
-         IF (PRESENT(nodata)) THEN
-            nodata_prv = nodata
-         ELSE
-            nodata_prv = .FALSE.
-         ENDIF
+      IF (PRESENT(nodata)) THEN
+         nodata_prv = nodata
+      ELSE
+         nodata_prv = .FALSE.
+      ENDIF
 
-         info_template = dbcsr_r_info(template)
-         info_matrix = dbcsr_r_info(matrix_in)
+      info_template = dbcsr_r_info(template)
+      info_matrix = dbcsr_r_info(matrix_in)
 
-         dim_split_template = info_template%split_rowcol
-         dim_split_matrix = info_matrix%split_rowcol
+      dim_split_template = info_template%split_rowcol
+      dim_split_matrix = info_matrix%split_rowcol
 
-         transposed = dim_split_template .NE. dim_split_matrix
-         IF(transposed) THEN
-            SELECT CASE(trans)
-            CASE(dbcsr_transpose)
-               trans = dbcsr_no_transpose
-            CASE(dbcsr_no_transpose)
-               trans = dbcsr_transpose
-            END SELECT
-         ENDIF
-
-         CALL mp_environ(numnodes, pdims, pcoord, info_template%mp_comm)
-
-         SELECT CASE (dim_split_template)
-         CASE (1)
-            IF(.NOT. transposed) THEN
-               ALLOCATE (row_dist, source=template%dist%row_dist)
-               ALLOCATE (col_dist, source=dbcsr_r_dist_arb_default(pdims(2), matrix_in%nblkcols, matrix_in%col_blk_size))
-            ELSE
-               ALLOCATE (row_dist, source=template%dist%row_dist)
-               ALLOCATE (col_dist, source=dbcsr_r_dist_arb_default(pdims(2), matrix_in%nblkrows, matrix_in%row_blk_size))
-            ENDIF
-         CASE (2)
-            IF(.NOT. transposed) THEN
-               ALLOCATE (row_dist, source=dbcsr_r_dist_arb_default(pdims(1), matrix_in%nblkrows, matrix_in%row_blk_size))
-               ALLOCATE (col_dist, source=template%dist%col_dist)
-            ELSE
-               ALLOCATE (row_dist, source=dbcsr_r_dist_arb_default(pdims(1), matrix_in%nblkcols, matrix_in%col_blk_size))
-               ALLOCATE (col_dist, source=template%dist%col_dist)
-            ENDIF
+      transposed = dim_split_template .NE. dim_split_matrix
+      IF(transposed) THEN
+         SELECT CASE(trans)
+         CASE(dbcsr_transpose)
+            trans = dbcsr_no_transpose
+         CASE(dbcsr_no_transpose)
+            trans = dbcsr_transpose
          END SELECT
+      ENDIF
 
-         CALL dbcsr_r_get_split_info(info_template, mp_comm=mp_comm)
-         CALL dbcsr_r_distribution_new(dist_new, mp_comm, row_dist, col_dist, split_info=info_template)
+      CALL mp_environ(numnodes, pdims, pcoord, info_template%mp_comm)
+
+      SELECT CASE (dim_split_template)
+      CASE (1)
          IF(.NOT. transposed) THEN
-            CALL dbcsr_r_create(matrix_out, matrix_in%matrix%name, dist_new, dbcsr_r_get_data_type(matrix_in), &
-                                matrix_in%row_blk_size, matrix_in%col_blk_size, own_dist=.TRUE.)
+            ALLOCATE (row_dist, source=template%dist%row_dist)
+            ALLOCATE (col_dist, source=dbcsr_r_dist_arb_default(pdims(2), matrix_in%nblkcols, matrix_in%col_blk_size))
          ELSE
-            CALL dbcsr_r_create(matrix_out, matrix_in%matrix%name, dist_new, dbcsr_r_get_data_type(matrix_in), &
-                                matrix_in%col_blk_size, matrix_in%row_blk_size, own_dist=.TRUE.)
+            ALLOCATE (row_dist, source=template%dist%row_dist)
+            ALLOCATE (col_dist, source=dbcsr_r_dist_arb_default(pdims(2), matrix_in%nblkrows, matrix_in%row_blk_size))
          ENDIF
+      CASE (2)
+         IF(.NOT. transposed) THEN
+            ALLOCATE (row_dist, source=dbcsr_r_dist_arb_default(pdims(1), matrix_in%nblkrows, matrix_in%row_blk_size))
+            ALLOCATE (col_dist, source=template%dist%col_dist)
+         ELSE
+            ALLOCATE (row_dist, source=dbcsr_r_dist_arb_default(pdims(1), matrix_in%nblkcols, matrix_in%col_blk_size))
+            ALLOCATE (col_dist, source=template%dist%col_dist)
+         ENDIF
+      END SELECT
 
-         IF (.NOT. nodata_prv) CALL dbcsr_r_reshape(matrix_in, matrix_out, transposed=transposed, move_data=move_data)
+      CALL dbcsr_r_get_split_info(info_template, mp_comm=mp_comm)
+      CALL dbcsr_r_distribution_new(dist_new, mp_comm, row_dist, col_dist, split_info=info_template)
+      IF(.NOT. transposed) THEN
+         CALL dbcsr_r_create(matrix_out, matrix_in%matrix%name, dist_new, dbcsr_r_get_data_type(matrix_in), &
+                             matrix_in%row_blk_size, matrix_in%col_blk_size, own_dist=.TRUE.)
+      ELSE
+         CALL dbcsr_r_create(matrix_out, matrix_in%matrix%name, dist_new, dbcsr_r_get_data_type(matrix_in), &
+                             matrix_in%col_blk_size, matrix_in%row_blk_size, own_dist=.TRUE.)
+      ENDIF
 
-         CALL timestop(handle)
+      IF (.NOT. nodata_prv) CALL dbcsr_r_reshape(matrix_in, matrix_out, transposed=transposed, move_data=move_data)
 
-      END SUBROUTINE
+      CALL timestop(handle)
+
+   END SUBROUTINE
 
 END MODULE

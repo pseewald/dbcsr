@@ -104,7 +104,6 @@ MODULE dbcsr_rectangular_reshape
 #:endfor
    END INTERFACE
 
-
 CONTAINS
 
 ! **************************************************************************************************

@@ -30,21 +30,21 @@ MODULE dbcsr_rectangular_split
    PRIVATE
 
    PUBLIC :: &
-             block_index_global_to_local, &
-             block_index_local_to_global, &
-             colsplit, &
-             dbcsr_r_get_split_info, &
-             dbcsr_r_info_hold, &
-             dbcsr_r_mp_comm, &
-             dbcsr_r_print_split_info, &
-             dbcsr_r_release_info, &
-             dbcsr_r_split, &
-             dbcsr_r_split_rows_or_cols, &
-             group_to_mrowcol, &
-             group_to_world_proc_map, &
-             mrowcol_to_group, &
-             rowsplit, &
-             world_to_group_proc_map
+      block_index_global_to_local, &
+      block_index_local_to_global, &
+      colsplit, &
+      dbcsr_r_get_split_info, &
+      dbcsr_r_info_hold, &
+      dbcsr_r_mp_comm, &
+      dbcsr_r_print_split_info, &
+      dbcsr_r_release_info, &
+      dbcsr_r_split, &
+      dbcsr_r_split_rows_or_cols, &
+      group_to_mrowcol, &
+      group_to_world_proc_map, &
+      mrowcol_to_group, &
+      rowsplit, &
+      world_to_group_proc_map
 
    CHARACTER(len=*), PARAMETER, PRIVATE :: moduleN = 'dbcsr_rectangular_split'
 

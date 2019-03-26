@@ -25,7 +25,11 @@ MODULE dbcsr_rectangular_types
 
    CHARACTER(len=*), PARAMETER, PRIVATE :: moduleN = 'dbcsr_rectangular_types'
 
-   PUBLIC :: dbcsr_r_distribution_type, dbcsr_r_type, dbcsr_r_iterator, dbcsr_r_split_info
+   PUBLIC :: &
+      dbcsr_r_distribution_type, &
+      dbcsr_r_iterator, &
+      dbcsr_r_split_info, &
+      dbcsr_r_type
 
    ! info on MPI Cartesian grid that is split on MPI subgroups.
    ! info on distribution of matrix rows / columns to different subgroups.

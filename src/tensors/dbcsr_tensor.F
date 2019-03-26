@@ -32,12 +32,12 @@ MODULE dbcsr_tensor
                                               array_sublist, &
                                               check_equal
    USE dbcsr_api,                       ONLY: &
-        dbcsr_type, dbcsr_iterator_type, dbcsr_iterator_blocks_left, &
-        dbcsr_iterator_next_block, dbcsr_iterator_start, dbcsr_iterator_stop, &
-        dbcsr_transpose, dbcsr_no_transpose, dbcsr_scalar, dbcsr_put_block, &
-        ${uselist(dtype_float_param)}$, dbcsr_clear
+      dbcsr_type, dbcsr_iterator_type, dbcsr_iterator_blocks_left, &
+      dbcsr_iterator_next_block, dbcsr_iterator_start, dbcsr_iterator_stop, &
+      dbcsr_transpose, dbcsr_no_transpose, dbcsr_scalar, dbcsr_put_block, &
+      ${uselist(dtype_float_param)}$, dbcsr_clear
    USE dbcsr_rectangular_base, ONLY:&
-        dbcsr_r_copy, dbcsr_r_finalize, dbcsr_r_get_data_type, dbcsr_r_get_info, dbcsr_r_info
+      dbcsr_r_copy, dbcsr_r_finalize, dbcsr_r_get_data_type, dbcsr_r_get_info, dbcsr_r_info
    USE dbcsr_rectangular_mm, ONLY: dbcsr_r_multiply
    USE dbcsr_tensor_block,              ONLY: dbcsr_t_iterator_type, &
                                               dbcsr_t_get_block, &
@@ -91,7 +91,6 @@ MODULE dbcsr_tensor
    IMPLICIT NONE
    PRIVATE
    CHARACTER(len=*), PARAMETER, PRIVATE :: moduleN = 'dbcsr_tensor'
-
 
    PUBLIC :: &
       dbcsr_t_contract, &
@@ -152,7 +151,7 @@ CONTAINS
       INTEGER, DIMENSION(:), ALLOCATABLE             :: map1_in_1, map1_in_2, map2_in_1, map2_in_2
 
       CHARACTER(LEN=*), PARAMETER :: routineN = 'dbcsr_t_copy', &
-         routineP = moduleN//':'//routineN
+                                     routineP = moduleN//':'//routineN
       LOGICAL                                        :: dist_compatible, summation_prv, new_in_1, &
                                                         new_in_2, new_out_1, block_compatible, &
                                                         move_prv
@@ -277,7 +276,7 @@ CONTAINS
 
       INTEGER                                            :: handle
       CHARACTER(LEN=*), PARAMETER :: routineN = 'dbcsr_t_copy_matrix_to_tensor', &
-         routineP = moduleN//':'//routineN
+                                     routineP = moduleN//':'//routineN
 
       CALL timeset(routineN, handle)
       DBCSR_ASSERT(tensor_out%valid)
@@ -312,7 +311,7 @@ CONTAINS
       INTEGER, DIMENSION(2)                  :: ind_2d
       REAL(KIND=real_8), DIMENSION(:, :), ALLOCATABLE :: block
       CHARACTER(LEN=*), PARAMETER :: routineN = 'dbcsr_t_copy_tensor_to_matrix', &
-         routineP = moduleN//':'//routineN
+                                     routineP = moduleN//':'//routineN
       LOGICAL :: found
 
       CALL timeset(routineN, handle)
@@ -588,7 +587,6 @@ CONTAINS
 
       END SELECT
 
-
       IF (PRESENT(unit_nr)) CALL dbcsr_t_print_contraction_index(tensor_contr_1, indchar1_mod, &
                                                                  tensor_contr_2, indchar2_mod, &
                                                                  tensor_contr_3, indchar3_mod, unit_nr)
@@ -605,7 +603,6 @@ CONTAINS
                             beta, &
                             tensor_contr_3%matrix_rep, filter_eps=filter_eps, flop=flop, &
                             io_unit=unit_nr)
-
 
       IF (PRESENT(unit_nr)) THEN
          CALL dbcsr_t_write_tensor_info(tensor_contr_3, unit_nr, full_info=debug)
@@ -1073,7 +1070,7 @@ CONTAINS
       INTEGER                                :: comm_2d_prv, handle, i
       INTEGER, DIMENSION(dbcsr_t_ndims(tensor_in)) :: pdims, myploc
       CHARACTER(LEN=*), PARAMETER :: routineN = 'dbcsr_t_remap', &
-         routineP = moduleN//':'//routineN
+                                     routineP = moduleN//':'//routineN
       LOGICAL                               :: nodata_prv
       TYPE(dbcsr_t_pgrid_type)              :: comm_nd
 
@@ -1168,7 +1165,7 @@ CONTAINS
          INTENT(OUT), OPTIONAL                        :: order
       INTEGER, DIMENSION(ndims_tensor(tensor_in))     :: order_prv
       CHARACTER(LEN=*), PARAMETER :: routineN = 'dbcsr_t_align_index', &
-         routineP = moduleN//':'//routineN
+                                     routineP = moduleN//':'//routineN
       INTEGER                                         :: handle
 
       CALL timeset(routineN, handle)
@@ -1197,7 +1194,7 @@ CONTAINS
 
       TYPE(nd_to_2d_mapping)                          :: nd_index_blk_rs, nd_index_rs
       CHARACTER(LEN=*), PARAMETER :: routineN = 'dbcsr_t_permute_index', &
-         routineP = moduleN//':'//routineN
+                                     routineP = moduleN//':'//routineN
       INTEGER                                         :: handle
       INTEGER                                         :: ndims
 
@@ -1211,7 +1208,6 @@ CONTAINS
 
       tensor_out%matrix_rep => tensor_in%matrix_rep
       tensor_out%owns_matrix = .FALSE.
-
 
       tensor_out%nd_index = nd_index_rs
       tensor_out%nd_index_blk = nd_index_blk_rs
@@ -1260,9 +1256,9 @@ CONTAINS
       INTEGER :: idim, i, isplit_sum, blk, nsplit, handle, splitsum, bcount
       INTEGER, DIMENSION(:, :), ALLOCATABLE           :: blks_to_allocate
       INTEGER, DIMENSION(:), ALLOCATABLE :: dist_d, blk_size_d, blk_size_split_d, dist_split_d, &
-         map1_2d, map2_2d
+                                            map1_2d, map2_2d
       INTEGER, DIMENSION(dbcsr_t_ndims(tensor_in)) :: blk_index, blk_size, blk_offset, &
-         blk_shape
+                                                      blk_shape
       INTEGER, DIMENSION(${maxdim}$) :: bi_split, inblock_offset
       LOGICAL :: found
 
@@ -1272,7 +1268,7 @@ CONTAINS
 #:endfor
 #:endfor
       CHARACTER(LEN=*), PARAMETER :: routineN = 'dbcsr_t_split_blocks_generic', &
-         routineP = moduleN//':'//routineN
+                                     routineP = moduleN//':'//routineN
 
       CALL timeset(routineN, handle)
 
@@ -1454,7 +1450,6 @@ CONTAINS
 
    END SUBROUTINE
 
-
 ! **************************************************************************************************
 !> \brief Split tensor blocks into smaller blocks of maximum size PRODUCT(block_sizes).
 !> \param tensor_in Input tensor
@@ -1473,7 +1468,7 @@ CONTAINS
       INTEGER, DIMENSION(:), ALLOCATABLE :: blk_size_d, blk_size_split_d
 
       CHARACTER(LEN=*), PARAMETER :: routineN = 'dbcsr_t_split_blocks', &
-         routineP = moduleN//':'//routineN
+                                     routineP = moduleN//':'//routineN
 
       DO idim = 1, ndims_tensor(tensor_in)
          CALL get_ith_array(tensor_in%blk_sizes, idim, blk_size_d)
@@ -1508,7 +1503,7 @@ CONTAINS
 
 #:for ndim in ndims
       IF (ndims_tensor(tensor_in) == ${ndim}$) CALL dbcsr_t_split_blocks_generic(tensor_in, tensor_out, ${varlist("nd_blk_size_split", nmax=ndim)}$, &
-         nodata=nodata)
+                                                                                 nodata=nodata)
 #:endfor
 
    END SUBROUTINE
@@ -1533,7 +1528,7 @@ CONTAINS
       INTEGER, DIMENSION(${maxdim}$)                  :: inblock_offset
       INTEGER                                            :: handle
       CHARACTER(LEN=*), PARAMETER :: routineN = 'dbcsr_t_split_copyback', &
-         routineP = moduleN//':'//routineN
+                                     routineP = moduleN//':'//routineN
 #:for dparam, dtype, dsuffix in dtype_float_list
 #:for ndim in ndims
       ${dtype}$, DIMENSION(${shape_colon(n=ndim)}$), ALLOCATABLE :: block_${dsuffix}$_${ndim}$d
@@ -1617,8 +1612,6 @@ CONTAINS
          CALL dbcsr_t_iterator_next_block(iter, blk_index, blk, blk_size=blk_size, blk_offset=blk_offset)
 #:for dparam, dtype, dsuffix in dtype_float_list
          IF (dbcsr_t_get_data_type(tensor_out) == ${dparam}$) THEN
-
-
 
 #:for ndim in ndims
             IF (dbcsr_t_ndims(tensor_out) == ${ndim}$) THEN
@@ -1790,7 +1783,7 @@ CONTAINS
       LOGICAL, DIMENSION(:), ALLOCATABLE :: ind1, ind2
       LOGICAL :: dbcsr_t_need_contract
       CHARACTER(LEN=*), PARAMETER :: routineN = 'dbcsr_t_need_contract', &
-         routineP = moduleN//':'//routineN
+                                     routineP = moduleN//':'//routineN
       INTEGER :: handle, mp_comm
 
       CALL timeset(routineN, handle)

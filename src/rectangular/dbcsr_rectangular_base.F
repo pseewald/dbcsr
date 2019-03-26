@@ -74,43 +74,43 @@ MODULE dbcsr_rectangular_base
    CHARACTER(len=*), PARAMETER, PRIVATE :: moduleN = 'dbcsr_rectangular_base'
 
    PUBLIC :: &
-             ! DBCSR wrappers / interface routines
-             dbcsr_r_blk_sizes, &
-             dbcsr_r_clear, &
-             dbcsr_r_copy, &
-             dbcsr_r_create, &
-             dbcsr_r_destroy, &
-             dbcsr_r_distribution_destroy, &
-             dbcsr_r_distribution_new, &
-             dbcsr_r_filter, &
-             dbcsr_r_finalize, &
-             dbcsr_r_get_block_p, &
-             dbcsr_r_get_data_size, &
-             dbcsr_r_get_data_type, &
-             dbcsr_r_get_info, &
-             dbcsr_r_get_num_blocks, &
-             dbcsr_r_get_nze, &
-             dbcsr_r_get_nze_total, &
-             dbcsr_r_get_stored_coordinates, &
-             dbcsr_r_info, &
-             dbcsr_r_iterator_blocks_left, &
-             dbcsr_r_iterator_next_block, &
-             dbcsr_r_iterator_start, &
-             dbcsr_r_iterator_stop, &
-             dbcsr_r_nblkcols_local, &
-             dbcsr_r_nblkcols_total, &
-             dbcsr_r_nblkrows_local, &
-             dbcsr_r_nblkrows_total, &
-             dbcsr_r_put_block, &
-             dbcsr_r_reserve_blocks, &
-             dbcsr_r_set, &
-             dbcsr_r_write_dist, &
-             dbcsr_r_write_matrix_info, &
-             dbcsr_repl_get_stored_coordinates
+      ! DBCSR wrappers / interface routines
+      dbcsr_r_blk_sizes, &
+      dbcsr_r_clear, &
+      dbcsr_r_copy, &
+      dbcsr_r_create, &
+      dbcsr_r_destroy, &
+      dbcsr_r_distribution_destroy, &
+      dbcsr_r_distribution_new, &
+      dbcsr_r_filter, &
+      dbcsr_r_finalize, &
+      dbcsr_r_get_block_p, &
+      dbcsr_r_get_data_size, &
+      dbcsr_r_get_data_type, &
+      dbcsr_r_get_info, &
+      dbcsr_r_get_num_blocks, &
+      dbcsr_r_get_nze, &
+      dbcsr_r_get_nze_total, &
+      dbcsr_r_get_stored_coordinates, &
+      dbcsr_r_info, &
+      dbcsr_r_iterator_blocks_left, &
+      dbcsr_r_iterator_next_block, &
+      dbcsr_r_iterator_start, &
+      dbcsr_r_iterator_stop, &
+      dbcsr_r_nblkcols_local, &
+      dbcsr_r_nblkcols_total, &
+      dbcsr_r_nblkrows_local, &
+      dbcsr_r_nblkrows_total, &
+      dbcsr_r_put_block, &
+      dbcsr_r_reserve_blocks, &
+      dbcsr_r_set, &
+      dbcsr_r_write_dist, &
+      dbcsr_r_write_matrix_info, &
+      dbcsr_repl_get_stored_coordinates
    PUBLIC :: &
-             ! conversion routines
-             dbcsr_r_convert_to_dbcsr, &
-             dbcsr_r_convert_to_rectangular
+      ! conversion routines
+      dbcsr_r_convert_to_dbcsr, &
+      dbcsr_r_convert_to_rectangular
 
    INTERFACE dbcsr_r_create
       MODULE PROCEDURE dbcsr_r_create_new
@@ -190,7 +190,6 @@ CONTAINS
       LOGICAL, INTENT(IN), OPTIONAL                  :: own_dist
 
       TYPE(dbcsr_r_split_info)                       :: info
-
 
       INTEGER, DIMENSION(:), POINTER                 :: row_blk_size_vec, col_blk_size_vec
       INTEGER                                        :: nrows, ncols, irow, col, icol, row
@@ -841,8 +840,8 @@ CONTAINS
       ENDDO
 
       CALL index_unique(rowcols_group, rowcols_group_u) ! make sure that index is unique, not sure
-                                                        ! if this is really needed or whether DBCSR
-                                                        ! takes care of duplicate indices
+      ! if this is really needed or whether DBCSR
+      ! takes care of duplicate indices
 
       CALL dbcsr_reserve_blocks(matrix%matrix, rowcols_group_u(:,1), rowcols_group_u(:,2))
 
@@ -941,7 +940,6 @@ CONTAINS
 
       dist_out = dist_in
    END SUBROUTINE
-
 
 ! **************************************************************************************************
 !> \brief Get block size for a given row & column
