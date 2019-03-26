@@ -993,19 +993,39 @@ CONTAINS
    END SUBROUTINE
 
 ! **************************************************************************************************
-!> \brief set up cyclic distribution. This is used for all internally created temporary tensors.
-!> \param dist_array ...
-!> \param dist_size ...
-!> \param nbins ...
+!> \brief Default distribution that is more or less cyclic (round robin) and load balanced with different
+!> weights for each element.
+!> This is used for creating adhoc distributions whenever tensors are mapped to new grids.
+!> \param nel ...
+!> \param nbin ...
+!> \param weights ...
+!> \param dist ...
 ! **************************************************************************************************
-   SUBROUTINE cyclic_dist(dist_array, dist_size, nbins)
-      INTEGER, DIMENSION(:), ALLOCATABLE, INTENT(OUT) :: dist_array
-      INTEGER, INTENT(in)                             :: dist_size, nbins
-      INTEGER                                         :: i
+   SUBROUTINE new_default_dist(nel, nbin, weights, dist)
+      INTEGER, INTENT(IN) :: nel
+      INTEGER, INTENT(IN) :: nbin
+      INTEGER, DIMENSION(nel), INTENT(IN)            :: weights
+      INTEGER, DIMENSION(:), ALLOCATABLE, INTENT(OUT)            :: dist
+      INTEGER, DIMENSION(nbin)                        :: occup
+      INTEGER                :: iel, ibin
+      INTEGER                :: niter
 
-      CALL allocate_any(dist_array, source=(/(MODULO(nbins - i, nbins), i=1, dist_size)/))
+      ALLOCATE(dist(nel))
+      occup(:) = 0
+      ibin = 0
+      DO iel = 1, nel
+         niter = 0
+         ibin = MOD(ibin + 1, nbin)
+         DO WHILE (occup(ibin + 1) + weights(iel) .GE. MAXVAL(occup))
+            IF (MINLOC(occup, DIM=1) == ibin + 1) EXIT
+            ibin = MOD(ibin + 1, nbin)
+            niter = niter + 1
+         ENDDO
+         dist(iel) = ibin
+         occup(ibin + 1) = occup(ibin + 1) + weights(iel)
+      ENDDO
 
-   END SUBROUTINE cyclic_dist
+   END SUBROUTINE
 
 ! **************************************************************************************************
 !> \brief Copy tensor to tensor with modified index mapping
@@ -1085,7 +1105,7 @@ CONTAINS
          ENDIF
 
          IF (.NOT. ALLOCATED(nd_dist_${idim}$)) THEN
-            CALL cyclic_dist(nd_dist_${idim}$, SIZE(blk_sizes_${idim}$), pdims(${idim}$))
+            CALL new_default_dist(SIZE(blk_sizes_${idim}$), pdims(${idim}$), blk_sizes_${idim}$, nd_dist_${idim}$)
          ENDIF
 #:endfor
          CALL dbcsr_t_distribution_new(dist, comm_nd, map1_2d, map2_2d, &
