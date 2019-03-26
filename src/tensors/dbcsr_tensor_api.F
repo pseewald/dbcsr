@@ -22,8 +22,6 @@ MODULE dbcsr_tensor_api
                            dbcsr_t_get_stored_coordinates, &
                            dbcsr_t_put_block, &
                            dbcsr_t_reserve_blocks, &
-                           dbcsr_t_split_blocks, &
-                           dbcsr_t_split_copyback, &
                            dbcsr_t_copy_matrix_to_tensor, &
                            dbcsr_t_copy, &
                            dbcsr_t_copy_tensor_to_matrix, &
@@ -53,6 +51,7 @@ MODULE dbcsr_tensor_api
                                  dbcsr_t_scale
    USE dbcsr_tensor_test, ONLY: dbcsr_t_contract_test, &
                                 dbcsr_t_checksum
+   USE dbcsr_tensor_split, ONLY: dbcsr_t_split_blocks
 
    IMPLICIT NONE
 
@@ -92,7 +91,6 @@ MODULE dbcsr_tensor_api
    PUBLIC :: dbcsr_t_get_info
    PUBLIC :: dbcsr_t_checksum
    PUBLIC :: dbcsr_t_finalize
-   PUBLIC :: dbcsr_t_split_copyback
    PUBLIC :: dbcsr_t_need_contract
    PUBLIC :: dbcsr_t_scale
 
