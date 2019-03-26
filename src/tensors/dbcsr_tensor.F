@@ -15,7 +15,6 @@
 !> Support for arbitrary tensor contractions
 !> DBCSR routines are generalized to n dimensions by light-weight wrapper routines.
 !> \todo implement checks and error messages
-!> \todo avoid implicit creation of tensors at various places, always use dbcsr_t_create
 !> \author Patrick Seewald
 ! **************************************************************************************************
 MODULE dbcsr_tensor
@@ -30,7 +29,8 @@ MODULE dbcsr_tensor
                                        get_ith_array, &
                                        array_list, &
                                        array_sublist, &
-                                       check_equal
+                                       check_equal,&
+                                       array_eq_i
    USE dbcsr_api, ONLY: &
       dbcsr_type, dbcsr_iterator_type, dbcsr_iterator_blocks_left, &
       dbcsr_iterator_next_block, dbcsr_iterator_start, dbcsr_iterator_stop, &
@@ -192,28 +192,6 @@ CONTAINS
          new_in_2 = .TRUE.; new_out_1 = .TRUE.
          IF (.NOT. summation_prv) THEN
             CALL dbcsr_t_make_compatible_blocks(in_tmp_1, tensor_out, in_tmp_2, out_tmp_1, nodata2=.TRUE., move_data=move_data)
-         ENDIF
-
-         IF (PRESENT(unit_nr)) THEN
-            ! only left for debugging, todo: remove
-            IF (unit_nr > 0) THEN
-               WRITE (unit_nr, '(A)') repeat("-", 80)
-               WRITE (unit_nr, '(A,1X,A,1X,A,1X,A,1X,A,1X,A)') "DBCSR TENSOR COPY in:", &
-                  TRIM(in_tmp_2%name), 'x', TRIM(in_tmp_1%name)
-               WRITE (unit_nr, '(A)') repeat("-", 80)
-            ENDIF
-            CALL dbcsr_t_write_tensor_info(in_tmp_1, unit_nr, full_info=.TRUE.)
-            CALL dbcsr_t_write_tensor_dist(in_tmp_1, unit_nr)
-            IF (unit_nr > 0) THEN
-               WRITE (unit_nr, '(A)') repeat("-", 80)
-               WRITE (unit_nr, '(A,1X,A,1X,A,1X,A,1X,A,1X,A)') "DBCSR TENSOR COPY split:", &
-                  TRIM(in_tmp_2%name), 'x', TRIM(out_tmp_1%name)
-               WRITE (unit_nr, '(A)') repeat("-", 80)
-            ENDIF
-            CALL dbcsr_t_write_tensor_info(in_tmp_2, unit_nr, full_info=.TRUE.)
-            CALL dbcsr_t_write_tensor_dist(in_tmp_2, unit_nr)
-            CALL dbcsr_t_write_tensor_info(out_tmp_1, unit_nr, full_info=.TRUE.)
-            CALL dbcsr_t_write_tensor_dist(out_tmp_1, unit_nr)
          ENDIF
       ELSE
          in_tmp_2 => in_tmp_1
@@ -1015,21 +993,6 @@ CONTAINS
    END SUBROUTINE
 
 ! **************************************************************************************************
-!> \brief Check if 2 arrays are equal
-!> \param arr1 ...
-!> \param arr2
-! **************************************************************************************************
-   PURE FUNCTION array_eq_i(arr1, arr2)
-      INTEGER, INTENT(IN), DIMENSION(:) :: arr1
-      INTEGER, INTENT(IN), DIMENSION(:) :: arr2
-      LOGICAL                           :: array_eq_i
-
-      array_eq_i = .FALSE.
-      IF (SIZE(arr1) .EQ. SIZE(arr2)) array_eq_i = ALL(arr1 == arr2)
-
-   END FUNCTION
-
-! **************************************************************************************************
 !> \brief set up cyclic distribution. This is used for all internally created temporary tensors.
 !> \param dist_array ...
 !> \param dist_size ...
@@ -1104,7 +1067,6 @@ CONTAINS
       ENDIF
 #:endfor
 
-! todo: first loop may be redundant
 #:for ndim in ndims
       IF (ndims_tensor(tensor_in) == ${ndim}$) THEN
 #:for idim in range(1, ndim+1)
@@ -1184,7 +1146,6 @@ CONTAINS
 !> \param tensor_in ...
 !> \param tensor_out ...
 !> \param order ...
-!> todo: use dbcsr_t_create for safety instead of manual copying
 ! **************************************************************************************************
    SUBROUTINE dbcsr_t_permute_index(tensor_in, tensor_out, order)
       TYPE(dbcsr_t_type), INTENT(INOUT)                  :: tensor_in

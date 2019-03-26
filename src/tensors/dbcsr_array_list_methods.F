@@ -28,6 +28,7 @@ MODULE dbcsr_array_list_methods
    CHARACTER(len=*), PARAMETER, PRIVATE :: moduleN = 'dbcsr_array_list_methods'
 
    PUBLIC  :: &
+      array_eq_i, &
       array_list, &
       array_offsets, &
       array_sublist, &
@@ -293,7 +294,6 @@ CONTAINS
       check_equal = array_eq_i(list1%col_data, list2%col_data) .AND. array_eq_i(list1%ptr, list2%ptr)
    END FUNCTION
 
-   ! todo: make utility module
    PURE FUNCTION array_eq_i(arr1, arr2)
       INTEGER, INTENT(IN), DIMENSION(:) :: arr1
       INTEGER, INTENT(IN), DIMENSION(:) :: arr2

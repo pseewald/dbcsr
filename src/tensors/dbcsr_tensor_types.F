@@ -1040,7 +1040,27 @@ CONTAINS
       CALL dbcsr_r_get_stored_coordinates(tensor%matrix_rep, ind_2d(1), ind_2d(2), processor)
    END SUBROUTINE
 
-   ! todo: should map1_2d and map2_2d be optional? It is not said that it is consistent with nd grid
+! **************************************************************************************************
+!> \brief Create an n-dimensional process grid.
+!>
+!> We can not use a n-dimensional MPI cartesian grid for tensors since the mapping between
+!> n-dim. and 2-dim. index allows for an arbitrary reordering of tensor index. Therefore we can not
+!> use n-dim. MPI Cartesian grid because it may not be consistent with the respective 2d grid.
+!> The 2d Cartesian MPI grid is the reference grid (since tensor data is stored as DBCSR matrix)
+!> and this routine creates an object that is a n-dim. interface to this grid.
+!>
+!> map1_2d and map2_2d don't need to be specified (correctly), grid may be redefined in dbcsr_t_distribution_new
+!>
+!> Note that pgrid is equivalent to a MPI cartesian grid only if map1_2d and map2_2d don't reorder indices
+!> (which is the case if [map1_2d, map2_2d] == [1, 2, ..., ndims]). Otherwise the mapping of grid
+!> coordinates to processes depends on the ordering of the indices and is not equivalent to a MPI
+!> cartesian grid.
+!> \param mp_comm simple MPI Communicator
+!> \param dims grid dimensions
+!> \param pgrid n-dimensional grid object
+!> \param map1_2d which nd-indices map to first matrix index and in which order
+!> \param map2_2d which nd-indices map to first matrix index and in which order
+! **************************************************************************************************
    SUBROUTINE dbcsr_t_pgrid_create(mp_comm, dims, pgrid, map1_2d, map2_2d)
       INTEGER, INTENT(IN) :: mp_comm
       INTEGER, DIMENSION(:), INTENT(INOUT) :: dims
