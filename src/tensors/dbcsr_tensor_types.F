@@ -18,50 +18,50 @@ MODULE dbcsr_tensor_types
 #:set maxdim = maxrank
 #:set ndims = range(2,maxdim+1)
 
-   USE dbcsr_array_list_methods,        ONLY: array_list,&
-                                              array_offsets,&
-                                              create_array_list,&
-                                              destroy_array_list,&
-                                              get_array_elements,&
-                                              sizes_of_arrays,&
-                                              sum_of_arrays,&
-                                              array_sublist,&
-                                              get_arrays,&
-                                              get_ith_array
-   USE dbcsr_api,                       ONLY: &
+   USE dbcsr_array_list_methods, ONLY: array_list, &
+                                       array_offsets, &
+                                       create_array_list, &
+                                       destroy_array_list, &
+                                       get_array_elements, &
+                                       sizes_of_arrays, &
+                                       sum_of_arrays, &
+                                       array_sublist, &
+                                       get_arrays, &
+                                       get_ith_array
+   USE dbcsr_api, ONLY: &
       dbcsr_distribution_get, &
       dbcsr_distribution_type, &
-      dbcsr_get_info, dbcsr_type,&
+      dbcsr_get_info, dbcsr_type, &
       ${uselist(dtype_float_param)}$
-   USE dbcsr_kinds,                     ONLY: &
-      ${uselist(dtype_float_prec)}$,&
+   USE dbcsr_kinds, ONLY: &
+      ${uselist(dtype_float_prec)}$, &
       default_string_length
-   USE dbcsr_rectangular_base,          ONLY: &
-      dbcsr_r_create, dbcsr_r_distribution_new,&
+   USE dbcsr_rectangular_base, ONLY: &
+      dbcsr_r_create, dbcsr_r_distribution_new, &
       dbcsr_r_distribution_destroy, dbcsr_r_finalize, dbcsr_r_get_info, &
       dbcsr_r_destroy, dbcsr_r_get_stored_coordinates, dbcsr_r_set, dbcsr_r_filter, &
       dbcsr_r_get_num_blocks, dbcsr_r_get_data_size, dbcsr_r_get_nze, dbcsr_r_get_nze_total
-   USE dbcsr_rectangular_types,    ONLY: dbcsr_r_type, dbcsr_r_distribution_type, dbcsr_r_split_info
-   USE dbcsr_tensor_index,              ONLY: get_2d_indices,&
-                                              get_nd_indices,&
-                                              create_nd_to_2d_mapping,&
-                                              destroy_nd_to_2d_mapping,&
-                                              get_mapping_info,&
-                                              nd_to_2d_mapping,&
-                                              split_index,&
-                                              combine_index,&
-                                              ndims_mapping
-   USE dbcsr_rectangular_split,         ONLY: dbcsr_r_split_rows_or_cols, &
-                                              dbcsr_r_release_info
-   USE dbcsr_kinds,                     ONLY: default_string_length, int_8
-   USE dbcsr_mpiwrap,                   ONLY: mp_cart_create,&
-                                              mp_cart_rank,&
-                                              mp_environ, &
-                                              mp_dims_create, &
-                                              mp_comm_free, mp_comm_dup,&
-                                              mp_sum, mp_max
-   USE dbcsr_rectangular_global,        ONLY: dbcsr_r_distribution, dbcsr_r_rowcol_data
-   USE dbcsr_allocate_wrap,             ONLY: allocate_any
+   USE dbcsr_rectangular_types, ONLY: dbcsr_r_type, dbcsr_r_distribution_type, dbcsr_r_split_info
+   USE dbcsr_tensor_index, ONLY: get_2d_indices, &
+                                 get_nd_indices, &
+                                 create_nd_to_2d_mapping, &
+                                 destroy_nd_to_2d_mapping, &
+                                 get_mapping_info, &
+                                 nd_to_2d_mapping, &
+                                 split_index, &
+                                 combine_index, &
+                                 ndims_mapping
+   USE dbcsr_rectangular_split, ONLY: dbcsr_r_split_rows_or_cols, &
+                                      dbcsr_r_release_info
+   USE dbcsr_kinds, ONLY: default_string_length, int_8
+   USE dbcsr_mpiwrap, ONLY: mp_cart_create, &
+                            mp_cart_rank, &
+                            mp_environ, &
+                            mp_dims_create, &
+                            mp_comm_free, mp_comm_dup, &
+                            mp_sum, mp_max
+   USE dbcsr_rectangular_global, ONLY: dbcsr_r_distribution, dbcsr_r_rowcol_data
+   USE dbcsr_allocate_wrap, ONLY: allocate_any
 #include "base/dbcsr_base_uses.f90"
 
    IMPLICIT NONE
@@ -79,25 +79,25 @@ MODULE dbcsr_tensor_types
       dbcsr_t_distribution_new, &
       dbcsr_t_distribution_type, &
       dbcsr_t_get_data_type, &
-      dbcsr_t_get_stored_coordinates,&
-      dbcsr_t_hold,&
+      dbcsr_t_get_stored_coordinates, &
+      dbcsr_t_hold, &
       dbcsr_t_nd_mp_comm, &
       dbcsr_t_nd_mp_free, &
       dbcsr_t_type, &
       dims_tensor, &
-      ndims_tensor,&
-      dbcsr_t_pgrid_type,&
-      mp_environ_pgrid,&
-      dbcsr_t_pgrid_create,&
+      ndims_tensor, &
+      dbcsr_t_pgrid_type, &
+      mp_environ_pgrid, &
+      dbcsr_t_pgrid_create, &
       dbcsr_t_pgrid_destroy, &
-      dbcsr_t_set,&
-      dbcsr_t_filter,&
-      dbcsr_t_get_info,&
+      dbcsr_t_set, &
+      dbcsr_t_filter, &
+      dbcsr_t_get_info, &
       dbcsr_t_write_tensor_dist, &
       dbcsr_t_write_tensor_info, &
-      dbcsr_t_clear,&
-      dbcsr_t_get_num_blocks,&
-      dbcsr_t_finalize,&
+      dbcsr_t_clear, &
+      dbcsr_t_get_num_blocks, &
+      dbcsr_t_finalize, &
       dbcsr_t_get_nze, &
       dbcsr_t_get_nze_total
 
@@ -189,21 +189,21 @@ CONTAINS
       INTEGER(KIND=int_8), DIMENSION(2) :: matrix_dims
       INTEGER, DIMENSION(:), ALLOCATABLE :: index_map
 
-      IF(which_dim == 1) THEN
+      IF (which_dim == 1) THEN
          CALL get_mapping_info(map_blks, &
-                               dims_2d_i8 = matrix_dims, &
+                               dims_2d_i8=matrix_dims, &
                                map1_2d=index_map, &
                                dims1_2d=new_dbcsr_r_dist_t%dims)
          CALL get_mapping_info(map_grid, &
-                               dims_2d = grid_dims, &
+                               dims_2d=grid_dims, &
                                dims1_2d=new_dbcsr_r_dist_t%dims_grid)
-      ELSEIF(which_dim == 2) THEN
+      ELSEIF (which_dim == 2) THEN
          CALL get_mapping_info(map_blks, &
-                               dims_2d_i8 = matrix_dims, &
+                               dims_2d_i8=matrix_dims, &
                                map2_2d=index_map, &
                                dims2_2d=new_dbcsr_r_dist_t%dims)
          CALL get_mapping_info(map_grid, &
-                               dims_2d = grid_dims, &
+                               dims_2d=grid_dims, &
                                dims2_2d=new_dbcsr_r_dist_t%dims_grid)
       ELSE
          DBCSR_ABORT("Unknown value for which_dim")
@@ -250,14 +250,14 @@ CONTAINS
          ALLOCATE (blks_tmp(nblks))
          iblk_count = 0
          DO iblk = 1, nblks
-            IF(dist_${idim}$(iblk) == dist_blk(${idim}$)) THEN
-               iblk_count = iblk_count+1
+            IF (dist_${idim}$ (iblk) == dist_blk(${idim}$)) THEN
+               iblk_count = iblk_count + 1
                blks_tmp(iblk_count) = iblk
             ENDIF
          ENDDO
-         ALLOCATE(blks_${idim}$(iblk_count))
-         blks_${idim}$(:) = blks_tmp(:iblk_count)
-         DEALLOCATE(blks_tmp)
+         ALLOCATE (blks_${idim}$ (iblk_count))
+         blks_${idim}$ (:) = blks_tmp(:iblk_count)
+         DEALLOCATE (blks_tmp)
       ENDIF
 #:endfor
 
@@ -272,7 +272,7 @@ CONTAINS
 
 #:for ndim in range(1, maxdim+1)
       IF (SIZE(t%dims) == ${ndim}$) THEN
-         ALLOCATE(nd_ind(${ndim}$))
+         ALLOCATE (nd_ind(${ndim}$))
          i = 0
 #:for idim in range(1,ndim+1)
          DO i_${idim}$ = 1, SIZE(blks_${idim}$)
@@ -370,21 +370,21 @@ CONTAINS
 
       ndim1 = SIZE(map1_2d); ndim2 = SIZE(map2_2d)
 
-      IF(PRESENT(pdims_2d)) THEN
+      IF (PRESENT(pdims_2d)) THEN
          dims_2d(:) = pdims_2d
       ELSE
          CALL mp_environ(numtask, dims_2d, task_coor, comm_2d)
       ENDIF
 
-      IF(.NOT. PRESENT(dims_nd)) THEN
+      IF (.NOT. PRESENT(dims_nd)) THEN
          dims1_nd_prv = 0; dims2_nd_prv = 0
-         IF(PRESENT(dims1_nd)) THEN
+         IF (PRESENT(dims1_nd)) THEN
             dims1_nd_prv(:) = dims1_nd
          ELSE
             CALL mp_dims_create(dims_2d(1), dims1_nd_prv)
          ENDIF
 
-         IF(PRESENT(dims2_nd)) THEN
+         IF (PRESENT(dims2_nd)) THEN
             dims2_nd_prv(:) = dims2_nd
          ELSE
             CALL mp_dims_create(dims_2d(2), dims2_nd_prv)
@@ -466,7 +466,7 @@ CONTAINS
       INTEGER                                         :: ndims, comm_2d
       INTEGER, DIMENSION(2)                           :: pdims_2d_check, &
                                                          pdims_2d, task_coor_2d
-      INTEGER, DIMENSION(SIZE(map1_2d)+SIZE(map2_2d)) :: dims, nblks_nd, task_coor
+      INTEGER, DIMENSION(SIZE(map1_2d) + SIZE(map2_2d)) :: dims, nblks_nd, task_coor
       LOGICAL, DIMENSION(2)                           :: periods_2d
       TYPE(array_list)                                :: nd_dist
       TYPE(nd_to_2d_mapping)                          :: map_blks, map_grid
@@ -474,7 +474,7 @@ CONTAINS
       TYPE(dbcsr_r_dist_t)                            :: row_dist_obj, col_dist_obj
       TYPE(dbcsr_t_pgrid_type)                        :: pgrid_prv
       LOGICAL                                         :: need_pgrid_remap
-      INTEGER,DIMENSION(:), ALLOCATABLE               :: map1_2d_check, map2_2d_check
+      INTEGER, DIMENSION(:), ALLOCATABLE               :: map1_2d_check, map2_2d_check
       INTEGER                                         :: igroup, ngroup_prv
       TYPE(dbcsr_r_split_info)                        :: split_info
       CHARACTER(LEN=*), PARAMETER :: routineN = 'dbcsr_t_distribution_new', &
@@ -489,10 +489,10 @@ CONTAINS
       nblks_nd(:) = sizes_of_arrays(nd_dist)
 
       need_pgrid_remap = .TRUE.
-      IF(PRESENT(own_comm)) THEN
+      IF (PRESENT(own_comm)) THEN
          CALL get_mapping_info(pgrid%nd_index_grid, map1_2d=map1_2d_check, map2_2d=map2_2d_check)
-         IF(own_comm) THEN
-            IF(.NOT. array_eq_i(map1_2d_check, map1_2d) .OR. .NOT. array_eq_i(map2_2d_check, map2_2d)) THEN
+         IF (own_comm) THEN
+            IF (.NOT. array_eq_i(map1_2d_check, map1_2d) .OR. .NOT. array_eq_i(map2_2d_check, map2_2d)) THEN
                DBCSR_ABORT("map1_2d / map2_2d are not consistent with pgrid")
             ENDIF
             pgrid_prv = pgrid
@@ -500,7 +500,7 @@ CONTAINS
          ENDIF
       ENDIF
 
-      IF(need_pgrid_remap) CALL dbcsr_t_pgrid_remap(pgrid, map1_2d, map2_2d, pgrid_prv)
+      IF (need_pgrid_remap) CALL dbcsr_t_pgrid_remap(pgrid, map1_2d, map2_2d, pgrid_prv)
 
       ! check that 2d process topology is consistent with nd topology.
       !CALL mp_environ(comm_nd, ndims, dims, task_coor, periods)
@@ -525,10 +525,10 @@ CONTAINS
          DBCSR_ABORT("inconsistent process grid dimensions")
       ENDIF
 
-      IF(PRESENT(ngroup)) THEN
+      IF (PRESENT(ngroup)) THEN
          DBCSR_ASSERT(PRESENT(dimsplit))
 
-         IF(MOD(pdims_2d(dimsplit), ngroup) .NE. 0) THEN
+         IF (MOD(pdims_2d(dimsplit), ngroup) .NE. 0) THEN
             DBCSR_ABORT("split factor must divide process grid dimension")
          ENDIF
 
@@ -558,7 +558,7 @@ CONTAINS
 
       !dist%nd_index_grid = map_grid
 
-      ALLOCATE(dist%refcount)
+      ALLOCATE (dist%refcount)
       dist%refcount = 1
       CALL timestop(handle)
 
@@ -604,11 +604,11 @@ CONTAINS
 
       dist%refcount = dist%refcount - 1
 
-      IF(dist%refcount == 0) THEN
+      IF (dist%refcount == 0) THEN
          CALL dbcsr_t_pgrid_destroy(dist%pgrid)
          !CALL mp_comm_free(dist%comm_2d)
          !CALL mp_comm_free(dist%comm_nd)
-         DEALLOCATE(dist%refcount)
+         DEALLOCATE (dist%refcount)
       ENDIF
 
       CALL timestop(handle)
@@ -618,7 +618,7 @@ CONTAINS
       TYPE(dbcsr_t_distribution_type), INTENT(IN) :: dist
       INTEGER, POINTER                            :: ref
 
-      IF(dist%refcount < 1) THEN
+      IF (dist%refcount < 1) THEN
          DBCSR_ABORT("can not hold non-existing tensor distribution")
       ENDIF
       ref => dist%refcount
@@ -672,7 +672,7 @@ CONTAINS
       INTEGER, DIMENSION(:), ALLOCATABLE              :: nblks_local, nfull_local
 
       CALL timeset(routineN, handle)
-      ndims = SIZE(map1_2d)+SIZE(map2_2d)
+      ndims = SIZE(map1_2d) + SIZE(map2_2d)
       CALL create_array_list(blk_size, ndims, ${varlist("blk_size")}$)
       dims = sizes_of_arrays(blk_size)
 
@@ -682,7 +682,7 @@ CONTAINS
       row_blk_size_obj = dbcsr_r_blk_size_t(blk_size, map, 1)
       col_blk_size_obj = dbcsr_r_blk_size_t(blk_size, map, 2)
 
-      ALLOCATE(tensor%matrix_rep)
+      ALLOCATE (tensor%matrix_rep)
       CALL dbcsr_r_create(matrix=tensor%matrix_rep, &
                           name=TRIM(name)//" matrix", &
                           dist=dist%dist, &
@@ -711,8 +711,8 @@ CONTAINS
       ENDIF
 #:endfor
 
-      ALLOCATE(nblks_local(ndims))
-      ALLOCATE(nfull_local(ndims))
+      ALLOCATE (nblks_local(ndims))
+      ALLOCATE (nfull_local(ndims))
       nfull_local(:) = 0
 #:for idim in range(1, maxdim+1)
       IF (ndims .GE. ${idim}$) THEN
@@ -720,7 +720,7 @@ CONTAINS
          ALLOCATE (blks_local_${idim}$ (nblks_local(${idim}$)))
          iblk_count = 0
          DO iblk = 1, SIZE(dist_${idim}$)
-            IF (dist_${idim}$(iblk) == task_coor(${idim}$)) THEN
+            IF (dist_${idim}$ (iblk) == task_coor(${idim}$)) THEN
                iblk_count = iblk_count + 1
                blks_local_${idim}$ (iblk_count) = iblk
                nfull_local(${idim}$) = nfull_local(${idim}$) + blk_size_${idim}$ (iblk)
@@ -735,8 +735,8 @@ CONTAINS
       ENDIF
 #:endfor
 
-      ALLOCATE(tensor%nblks_local(ndims))
-      ALLOCATE(tensor%nfull_local(ndims))
+      ALLOCATE (tensor%nblks_local(ndims))
+      ALLOCATE (tensor%nfull_local(ndims))
       tensor%nblks_local(:) = nblks_local
       tensor%nfull_local(:) = nfull_local
 
@@ -761,7 +761,7 @@ CONTAINS
       TYPE(dbcsr_t_type), INTENT(IN) :: tensor
       INTEGER, POINTER :: ref
 
-      IF(tensor%refcount < 1) THEN
+      IF (tensor%refcount < 1) THEN
          DBCSR_ABORT("can not hold non-existing tensor")
       ENDIF
       ref => tensor%refcount
@@ -784,8 +784,8 @@ CONTAINS
                                      routineP = moduleN//':'//routineN
 
       CALL timeset(routineN, handle)
-      ALLOCATE(tensor%matrix_rep)
-      IF(.NOT. PRESENT(name)) THEN
+      ALLOCATE (tensor%matrix_rep)
+      IF (.NOT. PRESENT(name)) THEN
          CALL dbcsr_r_create(tensor_in%matrix_rep, tensor%matrix_rep, name=TRIM(tensor_in%name)//" matrix")
       ELSE
          CALL dbcsr_r_create(tensor_in%matrix_rep, tensor%matrix_rep, name=TRIM(name)//" matrix")
@@ -800,9 +800,9 @@ CONTAINS
       tensor%blk_offsets = tensor_in%blk_offsets
       tensor%nd_dist = tensor_in%nd_dist
       tensor%blks_local = tensor_in%blks_local
-      ALLOCATE(tensor%nblks_local(ndims_tensor(tensor_in)))
+      ALLOCATE (tensor%nblks_local(ndims_tensor(tensor_in)))
       tensor%nblks_local(:) = tensor_in%nblks_local
-      ALLOCATE(tensor%nfull_local(ndims_tensor(tensor_in)))
+      ALLOCATE (tensor%nfull_local(ndims_tensor(tensor_in)))
       tensor%nfull_local(:) = tensor_in%nfull_local
       !tensor%comm_nd = tensor_in%comm_nd
       !tensor%comm_2d = tensor_in%comm_2d
@@ -862,7 +862,7 @@ CONTAINS
       CALL dbcsr_get_info(matrix_in, distribution=matrix_dist)
       CALL dbcsr_distribution_get(matrix_dist, group=comm_2d, row_dist=row_dist, col_dist=col_dist, &
                                   nprows=pdims_2d(1), npcols=pdims_2d(2))
-      comm_nd = dbcsr_t_nd_mp_comm(comm_2d, [order_in(1)], [order_in(2)], pdims_2d = pdims_2d)
+      comm_nd = dbcsr_t_nd_mp_comm(comm_2d, [order_in(1)], [order_in(2)], pdims_2d=pdims_2d)
 
       CALL dbcsr_t_distribution_new( &
          dist, &
@@ -901,7 +901,7 @@ CONTAINS
          CALL dbcsr_r_destroy(tensor%matrix_rep)
          DEALLOCATE (tensor%matrix_rep)
       ELSE
-         NULLIFY(tensor%matrix_rep)
+         NULLIFY (tensor%matrix_rep)
       ENDIF
       tensor%owns_matrix = .FALSE.
 
@@ -913,7 +913,7 @@ CONTAINS
       CALL destroy_array_list(tensor%nd_dist)
       CALL destroy_array_list(tensor%blks_local)
 
-      DEALLOCATE(tensor%nblks_local, tensor%nfull_local)
+      DEALLOCATE (tensor%nblks_local, tensor%nfull_local)
 
       abort = .FALSE.
       IF (.NOT. ASSOCIATED(tensor%refcount)) THEN
@@ -928,11 +928,11 @@ CONTAINS
 
       tensor%refcount = tensor%refcount - 1
 
-      IF(tensor%refcount == 0) THEN
+      IF (tensor%refcount == 0) THEN
          CALL dbcsr_t_pgrid_destroy(tensor%pgrid)
          !CALL mp_comm_free(tensor%comm_2d)
          !CALL mp_comm_free(tensor%comm_nd)
-         DEALLOCATE(tensor%refcount)
+         DEALLOCATE (tensor%refcount)
       ELSE
          CALL dbcsr_t_pgrid_destroy(tensor%pgrid, keep_comm=.TRUE.)
       ENDIF
@@ -1056,18 +1056,18 @@ CONTAINS
       CALL timeset(routineN, handle)
 
       ndims = SIZE(dims)
-      IF(PRESENT(map1_2d) .AND. PRESENT(map2_2d)) THEN
+      IF (PRESENT(map1_2d) .AND. PRESENT(map2_2d)) THEN
          CALL allocate_any(map1_2d_prv, source=map1_2d)
          CALL allocate_any(map2_2d_prv, source=map2_2d)
       ELSE
-         ALLOCATE(map1_2d_prv(ndims/2))
-         ALLOCATE(map2_2d_prv(ndims-ndims/2))
-         map1_2d_prv(:) = (/(i, i=1,SIZE(map1_2d_prv))/)
+         ALLOCATE (map1_2d_prv(ndims/2))
+         ALLOCATE (map2_2d_prv(ndims - ndims/2))
+         map1_2d_prv(:) = (/(i, i=1, SIZE(map1_2d_prv))/)
          map2_2d_prv(:) = (/(i, i=SIZE(map1_2d_prv) + 1, SIZE(map1_2d_prv) + SIZE(map2_2d_prv))/)
       ENDIF
 
       CALL mp_environ(nproc, iproc, mp_comm)
-      IF(ANY(dims == 0)) CALL mp_dims_create(nproc, dims)
+      IF (ANY(dims == 0)) CALL mp_dims_create(nproc, dims)
       CALL create_nd_to_2d_mapping(pgrid%nd_index_grid, dims, map1_2d_prv, map2_2d_prv, base=0, col_major=.FALSE.)
       CALL get_mapping_info(pgrid%nd_index_grid, dims_2d=pdims_2d)
       CALL mp_cart_create(mp_comm, 2, pdims_2d, pos, pgrid%mp_comm_2d)
@@ -1079,12 +1079,12 @@ CONTAINS
       TYPE(dbcsr_t_pgrid_type), INTENT(INOUT) :: pgrid
       LOGICAL, INTENT(IN), OPTIONAL           :: keep_comm
       LOGICAL :: keep_comm_prv
-      IF(PRESENT(keep_comm)) THEN
+      IF (PRESENT(keep_comm)) THEN
          keep_comm_prv = keep_comm
       ELSE
          keep_comm_prv = .FALSE.
       ENDIF
-      IF(.NOT. keep_comm_prv) CALL mp_comm_free(pgrid%mp_comm_2d)
+      IF (.NOT. keep_comm_prv) CALL mp_comm_free(pgrid%mp_comm_2d)
       CALL destroy_nd_to_2d_mapping(pgrid%nd_index_grid)
    END SUBROUTINE
 
@@ -1094,8 +1094,8 @@ CONTAINS
       TYPE(dbcsr_t_pgrid_type), INTENT(OUT) :: pgrid_out
       INTEGER, DIMENSION(:), ALLOCATABLE :: dims
 
-      ALLOCATE(dims(SIZE(map1_2d) + SIZE(map2_2d)))
-      CALL get_mapping_info(pgrid_in%nd_index_grid, dims_nd = dims)
+      ALLOCATE (dims(SIZE(map1_2d) + SIZE(map2_2d)))
+      CALL get_mapping_info(pgrid_in%nd_index_grid, dims_nd=dims)
       CALL dbcsr_t_pgrid_create(pgrid_in%mp_comm_2d, dims, pgrid_out, map1_2d, map2_2d)
    END SUBROUTINE
 
@@ -1112,7 +1112,7 @@ CONTAINS
    END SUBROUTINE
 
 #:for dparam, dtype, dsuffix in dtype_float_list
-   SUBROUTINE dbcsr_t_set_${dsuffix}$(tensor, alpha)
+   SUBROUTINE dbcsr_t_set_${dsuffix}$ (tensor, alpha)
       TYPE(dbcsr_t_type), INTENT(INOUT)                   :: tensor
       ${dtype}$, INTENT(IN)                               :: alpha
       CALL dbcsr_r_set(tensor%matrix_rep, alpha)
@@ -1120,7 +1120,7 @@ CONTAINS
 #:endfor
 
 #:for dparam, dtype, dsuffix in dtype_float_list
-   SUBROUTINE dbcsr_t_filter_${dsuffix}$(tensor, eps, method, use_absolute)
+   SUBROUTINE dbcsr_t_filter_${dsuffix}$ (tensor, eps, method, use_absolute)
       TYPE(dbcsr_t_type), INTENT(INOUT)    :: tensor
       ${dtype}$, INTENT(IN)                :: eps
       INTEGER, INTENT(IN), OPTIONAL        :: method
@@ -1157,14 +1157,14 @@ CONTAINS
       INTEGER, INTENT(OUT), OPTIONAL                            :: data_type
       INTEGER, DIMENSION(ndims_tensor(tensor))                  :: pdims_tmp, my_ploc_tmp
 
-      IF(PRESENT(nblks_total)) CALL get_mapping_info(tensor%nd_index_blk, dims_nd=nblks_total)
-      IF(PRESENT(nfull_total)) CALL get_mapping_info(tensor%nd_index, dims_nd=nfull_total)
-      IF(PRESENT(nblks_local)) nblks_local(:) = tensor%nblks_local
-      IF(PRESENT(nfull_local)) nfull_local(:) = tensor%nfull_local
+      IF (PRESENT(nblks_total)) CALL get_mapping_info(tensor%nd_index_blk, dims_nd=nblks_total)
+      IF (PRESENT(nfull_total)) CALL get_mapping_info(tensor%nd_index, dims_nd=nfull_total)
+      IF (PRESENT(nblks_local)) nblks_local(:) = tensor%nblks_local
+      IF (PRESENT(nfull_local)) nfull_local(:) = tensor%nfull_local
 
-      IF(PRESENT(my_ploc) .OR. PRESENT(pdims)) CALL mp_environ_pgrid(tensor%pgrid, pdims_tmp, my_ploc_tmp)
-      IF(PRESENT(my_ploc)) my_ploc = my_ploc_tmp
-      IF(PRESENT(pdims)) pdims = pdims_tmp
+      IF (PRESENT(my_ploc) .OR. PRESENT(pdims)) CALL mp_environ_pgrid(tensor%pgrid, pdims_tmp, my_ploc_tmp)
+      IF (PRESENT(my_ploc)) my_ploc = my_ploc_tmp
+      IF (PRESENT(pdims)) pdims = pdims_tmp
 
 #:for idim in range(1, maxdim+1)
       IF (${idim}$ <= ndims_tensor(tensor)) THEN
@@ -1175,9 +1175,9 @@ CONTAINS
       ENDIF
 #:endfor
 
-      IF(PRESENT(distribution)) distribution = dbcsr_t_distribution(tensor)
-      IF(PRESENT(name)) name = tensor%name
-      IF(PRESENT(data_type)) data_type = dbcsr_t_get_data_type(tensor)
+      IF (PRESENT(distribution)) distribution = dbcsr_t_distribution(tensor)
+      IF (PRESENT(name)) name = tensor%name
+      IF (PRESENT(data_type)) data_type = dbcsr_t_get_data_type(tensor)
 
    END SUBROUTINE
 
@@ -1218,10 +1218,10 @@ CONTAINS
       mp_comm = tensor%pgrid%mp_comm_2d
       CALL mp_environ(nproc, myproc, mp_comm)
 
-      ALLOCATE(nblock(0:nproc-1))
+      ALLOCATE (nblock(0:nproc - 1))
       nblock(:) = 0
 
-      ALLOCATE(nelement(0:nproc-1))
+      ALLOCATE (nelement(0:nproc - 1))
       nelement(:) = 0
 
       nblock(myproc) = dbcsr_t_get_num_blocks(tensor)
@@ -1241,17 +1241,17 @@ CONTAINS
       nblock_tot = PRODUCT(INT(bdims, KIND=int_8))
 
       occupation = -1.0_real_8
-      IF(nblock_tot .NE. 0) occupation = 100.0_real_8*REAL(nblock_sum, real_8)/REAL(nblock_tot, real_8)
+      IF (nblock_tot .NE. 0) occupation = 100.0_real_8*REAL(nblock_sum, real_8)/REAL(nblock_tot, real_8)
 
-      IF(output_unit > 0) THEN
-         WRITE(output_unit, "(T2,A)") &
+      IF (output_unit > 0) THEN
+         WRITE (output_unit, "(T2,A)") &
             "DISTRIBUTION OF "//TRIM(tensor%name)
-         WRITE(output_unit, "(T15,A,T68,I13)") "Number of non-zero blocks:", nblock_sum
-         WRITE(output_unit, "(T15,A,T75,F6.2)") "Percentage of non-zero blocks:", occupation
-         WRITE(output_unit, "(T15,A,T68,I13)") "Average number of blocks per CPU:", (nblock_sum+nproc-1)/nproc
-         WRITE(output_unit, "(T15,A,T68,I13)") "Maximum number of blocks per CPU:", nblock_max
-         WRITE(output_unit, "(T15,A,T68,I13)") "Average number of matrix elements per CPU:", (nelement_sum+nproc-1)/nproc
-         WRITE(output_unit, "(T15,A,T68,I13)") "Maximum number of matrix elements per CPU:", nelement_max
+         WRITE (output_unit, "(T15,A,T68,I13)") "Number of non-zero blocks:", nblock_sum
+         WRITE (output_unit, "(T15,A,T75,F6.2)") "Percentage of non-zero blocks:", occupation
+         WRITE (output_unit, "(T15,A,T68,I13)") "Average number of blocks per CPU:", (nblock_sum + nproc - 1)/nproc
+         WRITE (output_unit, "(T15,A,T68,I13)") "Maximum number of blocks per CPU:", nblock_max
+         WRITE (output_unit, "(T15,A,T68,I13)") "Average number of matrix elements per CPU:", (nelement_sum + nproc - 1)/nproc
+         WRITE (output_unit, "(T15,A,T68,I13)") "Maximum number of matrix elements per CPU:", nelement_max
       ENDIF
 
    END SUBROUTINE
@@ -1286,39 +1286,39 @@ CONTAINS
                             ${varlist("blk_offset")}$, &
                             name=name)
 
-      IF(output_unit > 0) THEN
-         WRITE(output_unit, "(T2,A)") &
+      IF (output_unit > 0) THEN
+         WRITE (output_unit, "(T2,A)") &
             "GLOBAL INFO OF "//TRIM(name)
-         WRITE(output_unit, "(T4,A,1X)", advance="no") "block dimensions:"
+         WRITE (output_unit, "(T4,A,1X)", advance="no") "block dimensions:"
          DO idim = 1, ndims_tensor(tensor)
-            WRITE(output_unit, "(I6)", advance="no") nblks_total(idim)
+            WRITE (output_unit, "(I6)", advance="no") nblks_total(idim)
          ENDDO
-         WRITE(output_unit, "(/T4,A,1X)", advance="no") "full dimensions:"
+         WRITE (output_unit, "(/T4,A,1X)", advance="no") "full dimensions:"
          DO idim = 1, ndims_tensor(tensor)
-            WRITE(output_unit, "(I8)", advance="no") nfull_total(idim)
+            WRITE (output_unit, "(I8)", advance="no") nfull_total(idim)
          ENDDO
-         WRITE(output_unit, "(/T4,A,1X)", advance="no") "process grid dimensions:"
+         WRITE (output_unit, "(/T4,A,1X)", advance="no") "process grid dimensions:"
          DO idim = 1, ndims_tensor(tensor)
-            WRITE(output_unit, "(I6)", advance="no") pdims(idim)
+            WRITE (output_unit, "(I6)", advance="no") pdims(idim)
          ENDDO
 
-         IF(PRESENT(full_info)) THEN
-            IF(full_info) THEN
-               WRITE(output_unit,'(/T4,A)', advance='no') "Block sizes:"
+         IF (PRESENT(full_info)) THEN
+            IF (full_info) THEN
+               WRITE (output_unit, '(/T4,A)', advance='no') "Block sizes:"
 #:for dim in range(1, maxdim+1)
-               IF(ndims_tensor(tensor)>=${dim}$) THEN
-                  WRITE(output_unit,'(/T8,A,1X,I1,A,1X)', advance='no') 'Dim', ${dim}$,':'
-                  DO iblk=1, SIZE(blk_size_${dim}$)
-                     WRITE(output_unit,'(I2,1X)', advance='no') blk_size_${dim}$(iblk)
+               IF (ndims_tensor(tensor) >= ${dim}$) THEN
+                  WRITE (output_unit, '(/T8,A,1X,I1,A,1X)', advance='no') 'Dim', ${dim}$, ':'
+                  DO iblk = 1, SIZE(blk_size_${dim}$)
+                     WRITE (output_unit, '(I2,1X)', advance='no') blk_size_${dim}$ (iblk)
                   ENDDO
                ENDIF
 #:endfor
-               WRITE(output_unit,'(/T4,A)', advance='no') "Block distribution:"
+               WRITE (output_unit, '(/T4,A)', advance='no') "Block distribution:"
 #:for dim in range(1, maxdim+1)
-               IF(ndims_tensor(tensor)>=${dim}$) THEN
-                  WRITE(output_unit,'(/T8,A,1X,I1,A,1X)', advance='no') 'Dim', ${dim}$,':'
-                  DO iblk=1, SIZE(proc_dist_${dim}$)
-                     WRITE(output_unit,'(I3,1X)', advance='no') proc_dist_${dim}$(iblk)
+               IF (ndims_tensor(tensor) >= ${dim}$) THEN
+                  WRITE (output_unit, '(/T8,A,1X,I1,A,1X)', advance='no') 'Dim', ${dim}$, ':'
+                  DO iblk = 1, SIZE(proc_dist_${dim}$)
+                     WRITE (output_unit, '(I3,1X)', advance='no') proc_dist_${dim}$ (iblk)
                   ENDDO
                ENDIF
 #:endfor

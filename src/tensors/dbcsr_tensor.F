@@ -24,67 +24,67 @@ MODULE dbcsr_tensor
 #:set maxdim = maxrank
 #:set ndims = range(2,maxdim+1)
 
-   USE dbcsr_allocate_wrap,             ONLY: allocate_any
-   USE dbcsr_array_list_methods,        ONLY: get_arrays,&
-                                              reorder_arrays,&
-                                              get_ith_array,&
-                                              array_list, &
-                                              array_sublist, &
-                                              check_equal
-   USE dbcsr_api,                       ONLY: &
+   USE dbcsr_allocate_wrap, ONLY: allocate_any
+   USE dbcsr_array_list_methods, ONLY: get_arrays, &
+                                       reorder_arrays, &
+                                       get_ith_array, &
+                                       array_list, &
+                                       array_sublist, &
+                                       check_equal
+   USE dbcsr_api, ONLY: &
       dbcsr_type, dbcsr_iterator_type, dbcsr_iterator_blocks_left, &
       dbcsr_iterator_next_block, dbcsr_iterator_start, dbcsr_iterator_stop, &
       dbcsr_transpose, dbcsr_no_transpose, dbcsr_scalar, dbcsr_put_block, &
       ${uselist(dtype_float_param)}$, dbcsr_clear
-   USE dbcsr_rectangular_base, ONLY:&
+   USE dbcsr_rectangular_base, ONLY: &
       dbcsr_r_copy, dbcsr_r_finalize, dbcsr_r_get_data_type, dbcsr_r_get_info, dbcsr_r_info
    USE dbcsr_rectangular_mm, ONLY: dbcsr_r_multiply
-   USE dbcsr_tensor_block,              ONLY: dbcsr_t_iterator_type, &
-                                              dbcsr_t_get_block, &
-                                              dbcsr_t_put_block, &
-                                              dbcsr_t_iterator_start, &
-                                              dbcsr_t_iterator_blocks_left, &
-                                              dbcsr_t_iterator_stop, &
-                                              dbcsr_t_iterator_next_block, &
-                                              ndims_iterator,&
-                                              dbcsr_t_reserve_blocks, &
-                                              block_nd
-   USE dbcsr_tensor_index,              ONLY: get_mapping_info,&
-                                              nd_to_2d_mapping,&
-                                              dbcsr_t_inverse_order,&
-                                              permute_index
-   USE dbcsr_tensor_types,              ONLY: dbcsr_t_create,&
-                                              dbcsr_t_get_data_type,&
-                                              dbcsr_t_type,&
-                                              ndims_tensor,&
-                                              dims_tensor,&
-                                              dbcsr_t_distribution_type,&
-                                              dbcsr_t_distribution,&
-                                              dbcsr_t_nd_mp_comm,&
-                                              dbcsr_t_destroy,&
-                                              dbcsr_t_distribution_destroy,&
-                                              dbcsr_t_distribution_new,&
-                                              dbcsr_t_get_stored_coordinates,&
-                                              blk_dims_tensor,&
-                                              dbcsr_t_hold,&
-                                              dbcsr_t_pgrid_type,&
-                                              mp_environ_pgrid,&
-                                              dbcsr_t_write_tensor_dist,&
-                                              dbcsr_t_write_tensor_info,&
-                                              dbcsr_t_filter,&
-                                              dbcsr_t_clear,&
-                                              dbcsr_t_finalize,&
-                                              dbcsr_t_get_num_blocks
-   USE dbcsr_kinds,                     ONLY: ${uselist(dtype_float_prec)}$,&
-                                              default_string_length,&
-                                              int_8
-   USE dbcsr_mpiwrap,                   ONLY: mp_environ, mp_max, mp_sum
-   USE dbcsr_toollib,                   ONLY: sort
-   USE dbcsr_tensor_reshape,            ONLY: dbcsr_t_reshape
-   USE dbcsr_mpiwrap,                   ONLY: mp_comm_free
-   USE dbcsr_rectangular_split,         ONLY: dbcsr_r_mp_comm
-   USE dbcsr_operations,                ONLY: dbcsr_scale, dbcsr_add
-   USE dbcsr_data_types,                ONLY: dbcsr_scalar_type
+   USE dbcsr_tensor_block, ONLY: dbcsr_t_iterator_type, &
+                                 dbcsr_t_get_block, &
+                                 dbcsr_t_put_block, &
+                                 dbcsr_t_iterator_start, &
+                                 dbcsr_t_iterator_blocks_left, &
+                                 dbcsr_t_iterator_stop, &
+                                 dbcsr_t_iterator_next_block, &
+                                 ndims_iterator, &
+                                 dbcsr_t_reserve_blocks, &
+                                 block_nd
+   USE dbcsr_tensor_index, ONLY: get_mapping_info, &
+                                 nd_to_2d_mapping, &
+                                 dbcsr_t_inverse_order, &
+                                 permute_index
+   USE dbcsr_tensor_types, ONLY: dbcsr_t_create, &
+                                 dbcsr_t_get_data_type, &
+                                 dbcsr_t_type, &
+                                 ndims_tensor, &
+                                 dims_tensor, &
+                                 dbcsr_t_distribution_type, &
+                                 dbcsr_t_distribution, &
+                                 dbcsr_t_nd_mp_comm, &
+                                 dbcsr_t_destroy, &
+                                 dbcsr_t_distribution_destroy, &
+                                 dbcsr_t_distribution_new, &
+                                 dbcsr_t_get_stored_coordinates, &
+                                 blk_dims_tensor, &
+                                 dbcsr_t_hold, &
+                                 dbcsr_t_pgrid_type, &
+                                 mp_environ_pgrid, &
+                                 dbcsr_t_write_tensor_dist, &
+                                 dbcsr_t_write_tensor_info, &
+                                 dbcsr_t_filter, &
+                                 dbcsr_t_clear, &
+                                 dbcsr_t_finalize, &
+                                 dbcsr_t_get_num_blocks
+   USE dbcsr_kinds, ONLY: ${uselist(dtype_float_prec)}$, &
+                          default_string_length, &
+                          int_8
+   USE dbcsr_mpiwrap, ONLY: mp_environ, mp_max, mp_sum
+   USE dbcsr_toollib, ONLY: sort
+   USE dbcsr_tensor_reshape, ONLY: dbcsr_t_reshape
+   USE dbcsr_mpiwrap, ONLY: mp_comm_free
+   USE dbcsr_rectangular_split, ONLY: dbcsr_r_mp_comm
+   USE dbcsr_operations, ONLY: dbcsr_scale, dbcsr_add
+   USE dbcsr_data_types, ONLY: dbcsr_scalar_type
 
 #include "base/dbcsr_base_uses.f90"
 
@@ -107,10 +107,10 @@ MODULE dbcsr_tensor
       dbcsr_t_ndims, &
       dbcsr_t_put_block, &
       dbcsr_t_reserve_blocks, &
-      dbcsr_t_split_blocks,&
-      dbcsr_t_split_blocks_generic,&
-      dbcsr_t_copy_matrix_to_tensor,&
-      dbcsr_t_copy_tensor_to_matrix,&
+      dbcsr_t_split_blocks, &
+      dbcsr_t_split_blocks_generic, &
+      dbcsr_t_copy_matrix_to_tensor, &
+      dbcsr_t_copy_tensor_to_matrix, &
       dbcsr_t_split_copyback, &
       dbcsr_t_need_contract
 
@@ -158,7 +158,7 @@ CONTAINS
 
       CALL timeset(routineN, handle)
 
-      IF(PRESENT(move_data)) THEN
+      IF (PRESENT(move_data)) THEN
          move_prv = move_data
       ELSE
          move_prv = .FALSE.
@@ -172,14 +172,14 @@ CONTAINS
       new_in_2 = .FALSE.
       new_out_1 = .FALSE.
 
-      IF(PRESENT(summation)) THEN
+      IF (PRESENT(summation)) THEN
          summation_prv = summation
       ELSE
          summation_prv = .FALSE.
       ENDIF
 
-      IF(PRESENT(order)) THEN
-         ALLOCATE(in_tmp_1)
+      IF (PRESENT(order)) THEN
+         ALLOCATE (in_tmp_1)
          CALL dbcsr_t_permute_index(tensor_in, in_tmp_1, order)
          new_in_1 = .TRUE.
       ELSE
@@ -187,10 +187,10 @@ CONTAINS
       ENDIF
 
       block_compatible = check_equal(in_tmp_1%blk_sizes, tensor_out%blk_sizes)
-      IF(.NOT. block_compatible) THEN
-         ALLOCATE(in_tmp_2, out_tmp_1)
+      IF (.NOT. block_compatible) THEN
+         ALLOCATE (in_tmp_2, out_tmp_1)
          new_in_2 = .TRUE.; new_out_1 = .TRUE.
-         IF(.NOT. summation_prv) THEN
+         IF (.NOT. summation_prv) THEN
             CALL dbcsr_t_make_compatible_blocks(in_tmp_1, tensor_out, in_tmp_2, out_tmp_1, nodata2=.TRUE., move_data=move_data)
          ENDIF
 
@@ -231,28 +231,28 @@ CONTAINS
 
       IF (dist_compatible) THEN
          CALL dbcsr_r_copy(out_tmp_1%matrix_rep, in_tmp_2%matrix_rep, summation)
-         IF(move_prv) CALL dbcsr_t_clear(in_tmp_2)
+         IF (move_prv) CALL dbcsr_t_clear(in_tmp_2)
       ELSE
          CALL dbcsr_t_reshape(in_tmp_2, out_tmp_1, summation, move_data=move_data)
       ENDIF
 
-      IF(new_in_1) THEN
+      IF (new_in_1) THEN
          CALL dbcsr_t_destroy(in_tmp_1)
-         DEALLOCATE(in_tmp_1)
+         DEALLOCATE (in_tmp_1)
       ENDIF
 
-      IF(new_in_2) THEN
+      IF (new_in_2) THEN
          CALL dbcsr_t_destroy(in_tmp_2)
-         DEALLOCATE(in_tmp_2)
+         DEALLOCATE (in_tmp_2)
       ENDIF
 
-      IF(new_out_1) THEN
+      IF (new_out_1) THEN
          IF (PRESENT(unit_nr)) THEN
             CALL dbcsr_t_write_tensor_dist(out_tmp_1, unit_nr)
          ENDIF
          CALL dbcsr_t_split_copyback(out_tmp_1, tensor_out, summation)
          CALL dbcsr_t_destroy(out_tmp_1)
-         DEALLOCATE(out_tmp_1)
+         DEALLOCATE (out_tmp_1)
       ENDIF
 
       CALL timestop(handle)
@@ -281,8 +281,8 @@ CONTAINS
       CALL timeset(routineN, handle)
       DBCSR_ASSERT(tensor_out%valid)
 
-      IF(PRESENT(summation)) THEN
-         IF(.NOT. summation) CALL dbcsr_t_clear(tensor_out)
+      IF (PRESENT(summation)) THEN
+         IF (.NOT. summation) CALL dbcsr_t_clear(tensor_out)
       ELSE
          CALL dbcsr_t_clear(tensor_out)
       ENDIF
@@ -316,8 +316,8 @@ CONTAINS
 
       CALL timeset(routineN, handle)
 
-      IF(PRESENT(summation)) THEN
-         IF(.NOT. summation) CALL dbcsr_clear(matrix_out)
+      IF (PRESENT(summation)) THEN
+         IF (.NOT. summation) CALL dbcsr_clear(matrix_out)
       ELSE
          CALL dbcsr_clear(matrix_out)
       ENDIF
@@ -325,12 +325,12 @@ CONTAINS
       CALL dbcsr_t_reserve_blocks(tensor_in, matrix_out)
 
       CALL dbcsr_t_iterator_start(iter, tensor_in)
-      DO WHILE(dbcsr_t_iterator_blocks_left(iter))
+      DO WHILE (dbcsr_t_iterator_blocks_left(iter))
          CALL dbcsr_t_iterator_next_block(iter, ind_2d, blk)
          CALL dbcsr_t_get_block(tensor_in, ind_2d, block, found)
          DBCSR_ASSERT(found)
          CALL dbcsr_put_block(matrix_out, ind_2d(1), ind_2d(2), block, summation=summation)
-         DEALLOCATE(block)
+         DEALLOCATE (block)
       ENDDO
       CALL dbcsr_t_iterator_stop(iter)
 
@@ -368,7 +368,7 @@ CONTAINS
       LOGICAL, INTENT(IN), OPTIONAL                  :: move_data
       INTEGER, OPTIONAL, INTENT(IN)                  :: unit_nr
 
-      TYPE(dbcsr_t_type), POINTER                    :: tensor_contr_1=>NULL(), tensor_contr_2=>NULL(), tensor_contr_3=>NULL()
+      TYPE(dbcsr_t_type), POINTER                    :: tensor_contr_1 => NULL(), tensor_contr_2 => NULL(), tensor_contr_3 => NULL()
       TYPE(dbcsr_t_type)                             :: tensor_tmp_1, tensor_tmp_2, tensor_tmp_3
       LOGICAL                                        :: assert_stmt
       INTEGER                                        :: data_type, handle, max_mm_dim, max_tensor, mp_comm
@@ -391,7 +391,7 @@ CONTAINS
                                                      indchar2_mod, indchar3_mod
       CHARACTER(LEN=1), DIMENSION(15) :: alph = &
                                          ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o']
-      LOGICAL                         :: debug=.FALSE.
+      LOGICAL                         :: debug = .FALSE.
 
       CALL timeset(routineN, handle)
 
@@ -404,7 +404,7 @@ CONTAINS
       occ_2 = dbcsr_t_get_num_blocks(tensor_2)
       CALL mp_max(occ_2, mp_comm)
 
-      IF(occ_1 == 0 .OR. occ_2 == 0) THEN
+      IF (occ_1 == 0 .OR. occ_2 == 0) THEN
          CALL dbcsr_t_scale(tensor_3, beta)
          CALL timestop(handle)
          RETURN
@@ -591,10 +591,10 @@ CONTAINS
                                                                  tensor_contr_2, indchar2_mod, &
                                                                  tensor_contr_3, indchar3_mod, unit_nr)
       IF (PRESENT(unit_nr)) THEN
-         IF(new_1) CALL dbcsr_t_write_tensor_info(tensor_contr_1, unit_nr, full_info=debug)
-         IF(new_1) CALL dbcsr_t_write_tensor_dist(tensor_contr_1, unit_nr)
-         IF(new_2) CALL dbcsr_t_write_tensor_info(tensor_contr_2, unit_nr, full_info=debug)
-         IF(new_2) CALL dbcsr_t_write_tensor_dist(tensor_contr_2, unit_nr)
+         IF (new_1) CALL dbcsr_t_write_tensor_info(tensor_contr_1, unit_nr, full_info=debug)
+         IF (new_1) CALL dbcsr_t_write_tensor_dist(tensor_contr_1, unit_nr)
+         IF (new_2) CALL dbcsr_t_write_tensor_info(tensor_contr_2, unit_nr, full_info=debug)
+         IF (new_2) CALL dbcsr_t_write_tensor_dist(tensor_contr_2, unit_nr)
          !CALL dbcsr_t_write_tensor_dist(tensor_contr_3, unit_nr)
       ENDIF
 
@@ -613,7 +613,7 @@ CONTAINS
          ! need redistribute if we created new tensor for tensor 3
          CALL dbcsr_t_scale(tensor_tmp_3, beta)
          CALL dbcsr_t_copy(tensor_contr_3, tensor_tmp_3, summation=.TRUE., move_data=move_data)
-         IF(PRESENT(filter_eps)) CALL dbcsr_t_filter(tensor_tmp_3, filter_eps)
+         IF (PRESENT(filter_eps)) CALL dbcsr_t_filter(tensor_tmp_3, filter_eps)
          ! tensor_3 automatically has correct data because tensor_tmp_3 contains a matrix
          ! pointer to data of tensor_3
       ENDIF
@@ -627,17 +627,17 @@ CONTAINS
       CALL dbcsr_t_destroy(tensor_tmp_2)
       CALL dbcsr_t_destroy(tensor_tmp_3)
 
-      IF(new_1) THEN
+      IF (new_1) THEN
          CALL dbcsr_t_destroy(tensor_contr_1)
-         DEALLOCATE(tensor_contr_1)
+         DEALLOCATE (tensor_contr_1)
       ENDIF
-      IF(new_2) THEN
+      IF (new_2) THEN
          CALL dbcsr_t_destroy(tensor_contr_2)
-         DEALLOCATE(tensor_contr_2)
+         DEALLOCATE (tensor_contr_2)
       ENDIF
-      IF(new_3) THEN
+      IF (new_3) THEN
          CALL dbcsr_t_destroy(tensor_contr_3)
-         DEALLOCATE(tensor_contr_3)
+         DEALLOCATE (tensor_contr_3)
       ENDIF
 
       IF (PRESENT(unit_nr)) THEN
@@ -697,7 +697,7 @@ CONTAINS
                                        optimize_dist, unit_nr)
          TYPE(dbcsr_t_type), TARGET, INTENT(INOUT)   :: tensor1
          TYPE(dbcsr_t_type), TARGET, INTENT(INOUT)   :: tensor2
-         TYPE(dbcsr_t_type), POINTER, INTENT(OUT)    :: tensor1_out=>NULL(), tensor2_out=>NULL()
+         TYPE(dbcsr_t_type), POINTER, INTENT(OUT)    :: tensor1_out => NULL(), tensor2_out => NULL()
          INTEGER, DIMENSION(:), INTENT(IN)           :: ind1_free, ind2_free
          INTEGER, DIMENSION(:), INTENT(IN)           :: ind1_linked, ind2_linked
          CHARACTER(LEN=1), INTENT(OUT)               :: trans1, trans2
@@ -705,7 +705,7 @@ CONTAINS
          LOGICAL, INTENT(IN), OPTIONAL               :: nodata1, nodata2, move_data
          LOGICAL, INTENT(IN), OPTIONAL               :: optimize_dist
          INTEGER, INTENT(IN), OPTIONAL               :: unit_nr
-         INTEGER                                     :: ref_tensor, compat1, compat1_old, compat2, compat2_old,&
+         INTEGER                                     :: ref_tensor, compat1, compat1_old, compat2, compat2_old, &
                                                         comm_2d, io_unit
          TYPE(array_list)                            :: dist_list
          INTEGER, DIMENSION(:), ALLOCATABLE          :: mp_dims, dims
@@ -776,7 +776,7 @@ CONTAINS
                nblkrows = PRODUCT(INT(dims(ind1_linked), KIND=int_8))
                nblkcols = PRODUCT(INT(dims(ind1_free), KIND=int_8))
                comm_2d = dbcsr_r_mp_comm(tensor1%pgrid%mp_comm_2d, nblkrows, nblkcols)
-               ALLOCATE(tensor1_out)
+               ALLOCATE (tensor1_out)
                CALL dbcsr_t_remap(tensor1, ind1_linked, ind1_free, tensor1_out, comm_2d=comm_2d, &
                                   nodata=nodata1, move_data=move_data)
                CALL mp_comm_free(comm_2d)
@@ -794,14 +794,14 @@ CONTAINS
                   ! get distribution of linked index, tensor 2 must adopt this distribution
                   ! get grid dimensions of linked index
                   CALL get_mapping_info(dist_in%pgrid%nd_index_grid, dims1_2d=mp_dims)
-                  ALLOCATE(tensor2_out)
+                  ALLOCATE (tensor2_out)
                   CALL dbcsr_t_remap(tensor2, ind2_linked, ind2_free, tensor2_out, comm_2d=dist_in%pgrid%mp_comm_2d, &
                                      dist1=dist_list, mp_dims_1=mp_dims, nodata=nodata2, move_data=move_data)
                ELSEIF (compat1 == 2) THEN ! linked index is second 2d dimension
                   ! get distribution of linked index, tensor 2 must adopt this distribution
                   ! get grid dimensions of linked index
                   CALL get_mapping_info(dist_in%pgrid%nd_index_grid, dims2_2d=mp_dims)
-                  ALLOCATE(tensor2_out)
+                  ALLOCATE (tensor2_out)
                   CALL dbcsr_t_remap(tensor2, ind2_free, ind2_linked, tensor2_out, comm_2d=dist_in%pgrid%mp_comm_2d, &
                                      dist2=dist_list, mp_dims_2=mp_dims, nodata=nodata2, move_data=move_data)
                ELSE
@@ -820,7 +820,7 @@ CONTAINS
                nblkrows = PRODUCT(INT(dims(ind2_linked), KIND=int_8))
                nblkcols = PRODUCT(INT(dims(ind2_free), KIND=int_8))
                comm_2d = dbcsr_r_mp_comm(tensor2%pgrid%mp_comm_2d, nblkrows, nblkcols)
-               ALLOCATE(tensor2_out)
+               ALLOCATE (tensor2_out)
                CALL dbcsr_t_remap(tensor2, ind2_linked, ind2_free, tensor2_out, nodata=nodata2, move_data=move_data)
                CALL mp_comm_free(comm_2d)
                compat2 = 1
@@ -835,12 +835,12 @@ CONTAINS
                dist_list = array_sublist(dist_in%nd_dist, ind2_linked)
                IF (compat2 == 1) THEN
                   CALL get_mapping_info(dist_in%pgrid%nd_index_grid, dims1_2d=mp_dims)
-                  ALLOCATE(tensor1_out)
+                  ALLOCATE (tensor1_out)
                   CALL dbcsr_t_remap(tensor1, ind1_linked, ind1_free, tensor1_out, comm_2d=dist_in%pgrid%mp_comm_2d, &
                                      dist1=dist_list, mp_dims_1=mp_dims, nodata=nodata1, move_data=move_data)
                ELSEIF (compat1 == 2) THEN
                   CALL get_mapping_info(dist_in%pgrid%nd_index_grid, dims2_2d=mp_dims)
-                  ALLOCATE(tensor1_out)
+                  ALLOCATE (tensor1_out)
                   CALL dbcsr_t_remap(tensor1, ind1_free, ind1_linked, tensor1_out, comm_2d=dist_in%pgrid%mp_comm_2d, &
                                      dist2=dist_list, mp_dims_2=mp_dims, nodata=nodata1, move_data=move_data)
                ELSE
@@ -1040,7 +1040,7 @@ CONTAINS
       INTEGER, INTENT(in)                             :: dist_size, nbins
       INTEGER                                         :: i
 
-      CALL allocate_any(dist_array, source=(/(MODULO(nbins-i, nbins), i=1, dist_size)/))
+      CALL allocate_any(dist_array, source=(/(MODULO(nbins - i, nbins), i=1, dist_size)/))
 
    END SUBROUTINE cyclic_dist
 
@@ -1064,7 +1064,7 @@ CONTAINS
       INTEGER, DIMENSION(SIZE(map1_2d)), OPTIONAL :: mp_dims_1
       INTEGER, DIMENSION(SIZE(map2_2d)), OPTIONAL :: mp_dims_2
       CHARACTER(len=default_string_length)   :: name_tmp
-      INTEGER, DIMENSION(:), ALLOCATABLE     :: ${varlist("blk_sizes")}$,&
+      INTEGER, DIMENSION(:), ALLOCATABLE     :: ${varlist("blk_sizes")}$, &
                                                 ${varlist("nd_dist")}$
       TYPE(dbcsr_t_distribution_type)        :: dist
       INTEGER                                :: comm_2d_prv, handle, i
@@ -1081,15 +1081,15 @@ CONTAINS
       ELSE
          name_tmp = tensor_in%name
       ENDIF
-      IF(PRESENT(dist1)) THEN
+      IF (PRESENT(dist1)) THEN
          DBCSR_ASSERT(PRESENT(mp_dims_1))
       ENDIF
 
-      IF(PRESENT(dist2)) THEN
+      IF (PRESENT(dist2)) THEN
          DBCSR_ASSERT(PRESENT(mp_dims_2))
       ENDIF
 
-      IF(PRESENT(comm_2d)) THEN
+      IF (PRESENT(comm_2d)) THEN
          comm_2d_prv = comm_2d
       ELSE
          comm_2d_prv = tensor_in%pgrid%mp_comm_2d
@@ -1108,21 +1108,21 @@ CONTAINS
 #:for ndim in ndims
       IF (ndims_tensor(tensor_in) == ${ndim}$) THEN
 #:for idim in range(1, ndim+1)
-         IF(PRESENT (dist1)) THEN
-            IF(ANY(map1_2d == ${idim}$)) THEN
-               i = MINLOC(map1_2d, dim=1, mask=map1_2d==${idim}$) ! i is location of idim in map1_2d
+         IF (PRESENT(dist1)) THEN
+            IF (ANY(map1_2d == ${idim}$)) THEN
+               i = MINLOC(map1_2d, dim=1, mask=map1_2d == ${idim}$) ! i is location of idim in map1_2d
                CALL get_ith_array(dist1, i, nd_dist_${idim}$)
             ENDIF
          ENDIF
 
-         IF(PRESENT (dist2)) THEN
-            IF(ANY(map2_2d == ${idim}$)) THEN
-               i = MINLOC(map2_2d, dim=1, mask=map2_2d==${idim}$) ! i is location of idim in map2_2d
+         IF (PRESENT(dist2)) THEN
+            IF (ANY(map2_2d == ${idim}$)) THEN
+               i = MINLOC(map2_2d, dim=1, mask=map2_2d == ${idim}$) ! i is location of idim in map2_2d
                CALL get_ith_array(dist2, i, nd_dist_${idim}$)
             ENDIF
          ENDIF
 
-         IF(.NOT. ALLOCATED(nd_dist_${idim}$)) THEN
+         IF (.NOT. ALLOCATED(nd_dist_${idim}$)) THEN
             CALL cyclic_dist(nd_dist_${idim}$, SIZE(blk_sizes_${idim}$), pdims(${idim}$))
          ENDIF
 #:endfor
@@ -1134,18 +1134,18 @@ CONTAINS
 #:for ndim in ndims
       IF (ndims_tensor(tensor_in) == ${ndim}$) THEN
          CALL dbcsr_t_create(tensor_out, name_tmp, dist, &
-                             map1_2d, map2_2d, dbcsr_r_get_data_type(tensor_in%matrix_rep),&
+                             map1_2d, map2_2d, dbcsr_r_get_data_type(tensor_in%matrix_rep), &
                              ${varlist("blk_sizes", nmax=ndim)}$)
       ENDIF
 #:endfor
 
-      IF(PRESENT(nodata)) THEN
+      IF (PRESENT(nodata)) THEN
          nodata_prv = nodata
       ELSE
          nodata_prv = .FALSE.
       ENDIF
 
-      IF(.NOT. nodata_prv) CALL dbcsr_t_copy(tensor_in, tensor_out, move_data=move_data)
+      IF (.NOT. nodata_prv) CALL dbcsr_t_copy(tensor_in, tensor_out, move_data=move_data)
       CALL dbcsr_t_distribution_destroy(dist)
 
       CALL timestop(handle)
@@ -1174,7 +1174,7 @@ CONTAINS
       order_prv = dbcsr_t_inverse_order([map1_2d, map2_2d])
       CALL dbcsr_t_permute_index(tensor_in, tensor_out, order=order_prv)
 
-      IF(PRESENT(order)) order = order_prv
+      IF (PRESENT(order)) order = order_prv
 
       CALL timestop(handle)
    END SUBROUTINE
@@ -1223,8 +1223,8 @@ CONTAINS
       CALL reorder_arrays(tensor_in%blk_offsets, tensor_out%blk_offsets, order)
       CALL reorder_arrays(tensor_in%nd_dist, tensor_out%nd_dist, order)
       CALL reorder_arrays(tensor_in%blks_local, tensor_out%blks_local, order)
-      ALLOCATE(tensor_out%nblks_local(ndims))
-      ALLOCATE(tensor_out%nfull_local(ndims))
+      ALLOCATE (tensor_out%nblks_local(ndims))
+      ALLOCATE (tensor_out%nfull_local(ndims))
       tensor_out%nblks_local(order) = tensor_in%nblks_local(:)
       tensor_out%nfull_local(order) = tensor_in%nfull_local(:)
       tensor_out%name = tensor_in%name
@@ -1281,17 +1281,17 @@ CONTAINS
 #:for idim in range(1, maxdim+1)
          IF (idim == ${idim}$) THEN
             ! split block index offset for each normal block index
-            ALLOCATE(index_split_offset_${idim}$(SIZE(dist_d)))
+            ALLOCATE (index_split_offset_${idim}$ (SIZE(dist_d)))
             ! how many split blocks for each normal block index
-            ALLOCATE(blk_nsplit_${idim}$(SIZE(dist_d)))
+            ALLOCATE (blk_nsplit_${idim}$ (SIZE(dist_d)))
             ! data offset of split blocks w.r.t. corresponding normal block
-            ALLOCATE(inblock_offset_${idim}$(SIZE(blk_size_${idim}$)))
+            ALLOCATE (inblock_offset_${idim}$ (SIZE(blk_size_${idim}$)))
             CALL allocate_any(blk_size_split_d, source=blk_size_${idim}$)
          ENDIF
 #:endfor
 
          ! distribution vector for split blocks
-         ALLOCATE(dist_split_d(SIZE(blk_size_split_d)))
+         ALLOCATE (dist_split_d(SIZE(blk_size_split_d)))
 
          isplit_sum = 0 ! counting splits
          DO i = 1, SIZE(blk_size_d)
@@ -1308,21 +1308,21 @@ CONTAINS
             ENDDO
             DBCSR_ASSERT(splitsum == blk_size_d(i))
 #:for idim in range(1, maxdim+1)
-            IF(idim == ${idim}$) THEN
-               blk_nsplit_${idim}$(i) = nsplit
-               index_split_offset_${idim}$(i) = isplit_sum - nsplit
+            IF (idim == ${idim}$) THEN
+               blk_nsplit_${idim}$ (i) = nsplit
+               index_split_offset_${idim}$ (i) = isplit_sum - nsplit
             ENDIF
 #:endfor
          ENDDO
 
 #:for idim in range(1, maxdim+1)
-         IF(idim == ${idim}$) THEN
+         IF (idim == ${idim}$) THEN
             CALL allocate_any(nd_dist_split_${idim}$, source=dist_split_d)
             CALL allocate_any(nd_blk_size_split_${idim}$, source=blk_size_split_d)
          ENDIF
 #:endfor
-         DEALLOCATE(dist_split_d)
-         DEALLOCATE(blk_size_split_d)
+         DEALLOCATE (dist_split_d)
+         DEALLOCATE (blk_size_split_d)
 
       ENDDO
 
@@ -1339,8 +1339,8 @@ CONTAINS
 
       CALL dbcsr_t_distribution_destroy(dist_split)
 
-      IF(PRESENT(nodata)) THEN
-         IF(nodata) THEN
+      IF (PRESENT(nodata)) THEN
+         IF (nodata) THEN
             CALL timestop(handle)
             RETURN
          ENDIF
@@ -1354,7 +1354,7 @@ CONTAINS
 #:for ndim in ndims
          IF (dbcsr_t_ndims(tensor_in) == ${ndim}$) THEN
 #:for idim in range(1,ndim+1)
-            DO split_blk_${idim}$ = 1, blk_nsplit_${idim}$(blk_index(${idim}$))
+            DO split_blk_${idim}$ = 1, blk_nsplit_${idim}$ (blk_index(${idim}$))
 #:endfor
                bcount = bcount + 1
 #:for idim in range(1,ndim+1)
@@ -1365,7 +1365,7 @@ CONTAINS
       ENDDO
       CALL dbcsr_t_iterator_stop(iter)
 
-      ALLOCATE(blks_to_allocate(bcount, dbcsr_t_ndims(tensor_in)))
+      ALLOCATE (blks_to_allocate(bcount, dbcsr_t_ndims(tensor_in)))
 
       CALL dbcsr_t_iterator_start(iter, tensor_in)
 
@@ -1376,8 +1376,8 @@ CONTAINS
 #:for ndim in ndims
          IF (dbcsr_t_ndims(tensor_in) == ${ndim}$) THEN
 #:for idim in range(1,ndim+1)
-            DO split_blk_${idim}$ = 1, blk_nsplit_${idim}$(blk_index(${idim}$))
-               bi_split(${idim}$) = index_split_offset_${idim}$(blk_index(${idim}$)) + split_blk_${idim}$
+            DO split_blk_${idim}$ = 1, blk_nsplit_${idim}$ (blk_index(${idim}$))
+               bi_split(${idim}$) = index_split_offset_${idim}$ (blk_index(${idim}$)) + split_blk_${idim}$
 #:endfor
                bcount = bcount + 1
                blks_to_allocate(bcount, :) = bi_split(1:dbcsr_t_ndims(tensor_in))
@@ -1409,10 +1409,10 @@ CONTAINS
 #:for ndim in ndims
          IF (dbcsr_t_ndims(tensor_in) == ${ndim}$) THEN
 #:for idim in range(1,ndim+1)
-            DO split_blk_${idim}$ = 1, blk_nsplit_${idim}$(blk_index(${idim}$))
+            DO split_blk_${idim}$ = 1, blk_nsplit_${idim}$ (blk_index(${idim}$))
                ! split block index
-               bi_split(${idim}$) = index_split_offset_${idim}$(blk_index(${idim}$)) + split_blk_${idim}$
-               blk_shape(${idim}$) = blk_size_${idim}$(bi_split(${idim}$))
+               bi_split(${idim}$) = index_split_offset_${idim}$ (blk_index(${idim}$)) + split_blk_${idim}$
+               blk_shape(${idim}$) = blk_size_${idim}$ (bi_split(${idim}$))
 #:endfor
 
 #:for dparam, dtype, dsuffix in dtype_float_list
@@ -1420,7 +1420,7 @@ CONTAINS
                IF (dbcsr_t_get_data_type(tensor_in) == ${dparam}$) THEN
 
 #:for idim in range(1,ndim+1)
-                  inblock_offset(${idim}$) = inblock_offset_${idim}$(bi_split(${idim}$))
+                  inblock_offset(${idim}$) = inblock_offset_${idim}$ (bi_split(${idim}$))
 #:endfor
                   CALL dbcsr_t_put_block(tensor_out, bi_split(1:${ndim}$), &
                                          blk_shape, &
@@ -1436,7 +1436,7 @@ CONTAINS
 
 #:for dparam, dtype, dsuffix in dtype_float_list
             IF (dbcsr_t_get_data_type(tensor_in) == ${dparam}$) THEN
-               DEALLOCATE(block_${dsuffix}$_${ndim}$d)
+               DEALLOCATE (block_${dsuffix}$_${ndim}$d)
             ENDIF
 #:endfor
          ENDIF
@@ -1475,15 +1475,15 @@ CONTAINS
 
          isplit_sum = 0
          DO i = 1, SIZE(blk_size_d)
-            nsplit = (blk_size_d(i)+block_sizes(idim)-1)/block_sizes(idim)
+            nsplit = (blk_size_d(i) + block_sizes(idim) - 1)/block_sizes(idim)
             isplit_sum = isplit_sum + nsplit
          ENDDO
 
-         ALLOCATE(blk_size_split_d(isplit_sum))
+         ALLOCATE (blk_size_split_d(isplit_sum))
 
          isplit_sum = 0
          DO i = 1, SIZE(blk_size_d)
-            nsplit = (blk_size_d(i)+block_sizes(idim)-1)/block_sizes(idim)
+            nsplit = (blk_size_d(i) + block_sizes(idim) - 1)/block_sizes(idim)
             blk_remainder = blk_size_d(i)
             DO isplit = 1, nsplit
                isplit_sum = isplit_sum + 1
@@ -1494,11 +1494,11 @@ CONTAINS
          ENDDO
 
 #:for idim in range(1, maxdim+1)
-         IF(idim == ${idim}$) THEN
+         IF (idim == ${idim}$) THEN
             CALL allocate_any(nd_blk_size_split_${idim}$, source=blk_size_split_d)
          ENDIF
 #:endfor
-         DEALLOCATE(blk_size_split_d)
+         DEALLOCATE (blk_size_split_d)
       ENDDO
 
 #:for ndim in ndims
@@ -1518,7 +1518,7 @@ CONTAINS
                                                          ${varlist("first_split")}$, &
                                                          ${varlist("split")}$
       INTEGER, DIMENSION(:), ALLOCATABLE              :: ${varlist("inblock_offset")}$, ${varlist("blk_size_split")}$
-      INTEGER, DIMENSION(:,:), ALLOCATABLE            :: blks_to_allocate
+      INTEGER, DIMENSION(:, :), ALLOCATABLE            :: blks_to_allocate
       INTEGER                                         :: idim, iblk, blk, bcount
       INTEGER                                         :: ${varlist("iblk")}$, isplit_sum, splitsum, nblk
       TYPE(dbcsr_t_iterator_type)                     :: iter
@@ -1538,8 +1538,8 @@ CONTAINS
 
       CALL timeset(routineN, handle)
       DBCSR_ASSERT(tensor_out%valid)
-      IF(PRESENT(summation)) THEN
-         IF(.NOT. summation) CALL dbcsr_t_clear(tensor_out)
+      IF (PRESENT(summation)) THEN
+         IF (.NOT. summation) CALL dbcsr_t_clear(tensor_out)
       ELSE
          CALL dbcsr_t_clear(tensor_out)
       ENDIF
@@ -1551,14 +1551,14 @@ CONTAINS
 #:for idim in range(1, maxdim+1)
          IF (idim == ${idim}$) THEN
             ! data offset of split blocks w.r.t. corresponding normal block
-            ALLOCATE(inblock_offset_${idim}$(SIZE(blk_size_split_d)))
+            ALLOCATE (inblock_offset_${idim}$ (SIZE(blk_size_split_d)))
             ! normal block index for each split block
-            ALLOCATE(split_${idim}$(SIZE(blk_size_split_d)))
+            ALLOCATE (split_${idim}$ (SIZE(blk_size_split_d)))
          ENDIF
 #:endfor
 
-         ALLOCATE(last_split_d(SIZE(blk_size_d)))
-         ALLOCATE(first_split_d(SIZE(blk_size_d)))
+         ALLOCATE (last_split_d(SIZE(blk_size_d)))
+         ALLOCATE (first_split_d(SIZE(blk_size_d)))
          first_split_d(1) = 1
          isplit_sum = 0
          DO iblk = 1, SIZE(blk_size_d)
@@ -1569,7 +1569,7 @@ CONTAINS
 #:for idim in range(1, maxdim+1)
                IF (idim == ${idim}$) THEN
                   inblock_offset_${idim}$ (isplit_sum) = splitsum
-                  split_${idim}$(isplit_sum) = iblk
+                  split_${idim}$ (isplit_sum) = iblk
                ENDIF
 #:endfor
                splitsum = splitsum + blk_size_split_d(isplit_sum)
@@ -1578,18 +1578,18 @@ CONTAINS
             last_split_d(iblk) = isplit_sum
          ENDDO
 #:for idim in range(1, maxdim+1)
-         IF(idim == ${idim}$) THEN
+         IF (idim == ${idim}$) THEN
             CALL allocate_any(first_split_${idim}$, source=first_split_d)
             CALL allocate_any(last_split_${idim}$, source=last_split_d)
             CALL allocate_any(blk_size_split_${idim}$, source=blk_size_split_d)
          ENDIF
 #:endfor
-         DEALLOCATE(first_split_d, last_split_d)
-         DEALLOCATE(blk_size_split_d, blk_size_d)
+         DEALLOCATE (first_split_d, last_split_d)
+         DEALLOCATE (blk_size_split_d, blk_size_d)
       ENDDO
 
       nblk = dbcsr_t_get_num_blocks(tensor_split_in)
-      ALLOCATE(blks_to_allocate(nblk, ndims_tensor(tensor_split_in)))
+      ALLOCATE (blks_to_allocate(nblk, ndims_tensor(tensor_split_in)))
       CALL dbcsr_t_iterator_start(iter, tensor_split_in)
       bcount = 0
       DO WHILE (dbcsr_t_iterator_blocks_left(iter))
@@ -1597,7 +1597,7 @@ CONTAINS
 #:for ndim in ndims
          IF (dbcsr_t_ndims(tensor_out) == ${ndim}$) THEN
 #:for idim in range(1,ndim+1)
-            blk_index_n(${idim}$) = split_${idim}$(blk_index(${idim}$))
+            blk_index_n(${idim}$) = split_${idim}$ (blk_index(${idim}$))
 #:endfor
          ENDIF
 #:endfor
@@ -1621,14 +1621,14 @@ CONTAINS
                DO iblk_${idim}$ = first_split_${idim}$ (blk_index(${idim}$)), last_split_${idim}$ (blk_index(${idim}$))
 #:endfor
 #:for idim in range(1,ndim+1)
-                  inblock_offset(${idim}$) = inblock_offset_${idim}$(iblk_${idim}$)
+                  inblock_offset(${idim}$) = inblock_offset_${idim}$ (iblk_${idim}$)
 #:endfor
 
                   CALL dbcsr_t_get_block(tensor_split_in, [${", ".join(["iblk_"+str(idim) for idim in range(1, ndim+1)])}$], &
                                          block_split_${dsuffix}$_${ndim}$d, found)
                   IF (found) THEN
                      blk_shape(1:${ndim}$) = SHAPE(block_split_${dsuffix}$_${ndim}$d)
-                     block_${dsuffix}$_${ndim}$d(&
+                     block_${dsuffix}$_${ndim}$d( &
                         ${", ".join(["inblock_offset("+str(idim)+") + 1:inblock_offset("+str(idim)+") + blk_shape("+str(idim)+")" for idim in range(1, ndim+1)])}$) = &
                         block_split_${dsuffix}$_${ndim}$d
                   ENDIF
@@ -1637,7 +1637,7 @@ CONTAINS
                ENDDO
 #:endfor
                CALL dbcsr_t_put_block(tensor_out, blk_index, blk_size, block_${dsuffix}$_${ndim}$d, summation=summation)
-               DEALLOCATE(block_${dsuffix}$_${ndim}$d)
+               DEALLOCATE (block_${dsuffix}$_${ndim}$d)
             ENDIF
 #:endfor
          ENDIF
@@ -1653,23 +1653,23 @@ CONTAINS
       TYPE(dbcsr_t_type), INTENT(INOUT) :: tensor1, tensor2
       TYPE(dbcsr_t_type), INTENT(OUT)   :: tensor1_split, tensor2_split
       LOGICAL, INTENT(IN), OPTIONAL     :: nodata1, nodata2, move_data
-      INTEGER, DIMENSION(:), ALLOCATABLE  :: ${varlist("blk_size_split")}$,&
+      INTEGER, DIMENSION(:), ALLOCATABLE  :: ${varlist("blk_size_split")}$, &
                                              blk_size_d_1, blk_size_d_2, blk_size_d_split
       INTEGER :: size_sum_1, size_sum_2, size_sum, bind_1, bind_2, isplit, bs, idim
       LOGICAL :: move_prv, nodata1_prv, nodata2_prv
 
-      IF(PRESENT(move_data)) THEN
+      IF (PRESENT(move_data)) THEN
          move_prv = move_data
       ELSE
          move_prv = .FALSE.
       ENDIF
 
-      IF(PRESENT(nodata1)) THEN
+      IF (PRESENT(nodata1)) THEN
          nodata1_prv = nodata1
       ELSE
          nodata1_prv = .FALSE.
       ENDIF
-      IF(PRESENT(nodata2)) THEN
+      IF (PRESENT(nodata2)) THEN
          nodata2_prv = nodata2
       ELSE
          nodata2_prv = .FALSE.
@@ -1711,7 +1711,7 @@ CONTAINS
             ENDIF
          ENDDO
 
-         IF(bind_1 < SIZE(blk_size_d_1)) THEN
+         IF (bind_1 < SIZE(blk_size_d_1)) THEN
             bind_1 = bind_1 + 1
             bs = blk_size_d_1(bind_1)
             size_sum = size_sum + bs
@@ -1719,7 +1719,7 @@ CONTAINS
             blk_size_d_split(isplit) = bs
          ENDIF
 
-         IF(bind_2 < SIZE(blk_size_d_2)) THEN
+         IF (bind_2 < SIZE(blk_size_d_2)) THEN
             bind_2 = bind_2 + 1
             bs = blk_size_d_2(bind_2)
             size_sum = size_sum + bs
@@ -1728,20 +1728,20 @@ CONTAINS
          ENDIF
 
 #:for idim in range(1, maxdim+1)
-         IF(idim == ${idim}$) THEN
+         IF (idim == ${idim}$) THEN
             CALL allocate_any(blk_size_split_${idim}$, source=blk_size_d_split(:isplit))
          ENDIF
 #:endfor
 
-         DEALLOCATE(blk_size_d_split)
+         DEALLOCATE (blk_size_d_split)
       ENDDO
 
 #:for ndim in ndims
       IF (ndims_tensor(tensor1) == ${ndim}$) THEN
          CALL dbcsr_t_split_blocks_generic(tensor1, tensor1_split, ${varlist("blk_size_split", nmax=ndim)}$, nodata=nodata1)
-         IF(move_prv .AND. .NOT. nodata1_prv) CALL dbcsr_t_clear(tensor1)
+         IF (move_prv .AND. .NOT. nodata1_prv) CALL dbcsr_t_clear(tensor1)
          CALL dbcsr_t_split_blocks_generic(tensor2, tensor2_split, ${varlist("blk_size_split", nmax=ndim)}$, nodata=nodata2)
-         IF(move_prv .AND. .NOT. nodata2_prv) CALL dbcsr_t_clear(tensor2)
+         IF (move_prv .AND. .NOT. nodata2_prv) CALL dbcsr_t_clear(tensor2)
       ENDIF
 #:endfor
 
@@ -1763,12 +1763,12 @@ CONTAINS
 
       CALL blk_dims_tensor(tensor, bdims)
       bdim = bdims(dim)
-      ALLOCATE(ind(bdim))
+      ALLOCATE (ind(bdim))
       ind = .FALSE.
 
       CALL dbcsr_t_iterator_start(iter, tensor)
 
-      DO WHILE(dbcsr_t_iterator_blocks_left(iter))
+      DO WHILE (dbcsr_t_iterator_blocks_left(iter))
          CALL dbcsr_t_iterator_next_block(iter, blk_index, blk)
          ind(blk_index(dim)) = .TRUE.
       ENDDO
@@ -1799,13 +1799,13 @@ CONTAINS
          CALL mp_sum(ind1, mp_comm)
          CALL mp_sum(ind2, mp_comm)
 
-         IF(.NOT. ANY(ind1 .AND. ind2)) THEN
+         IF (.NOT. ANY(ind1 .AND. ind2)) THEN
             dbcsr_t_need_contract = .FALSE.
             CALL timestop(handle)
             RETURN
          ENDIF
 
-         DEALLOCATE(ind1, ind2)
+         DEALLOCATE (ind1, ind2)
       ENDDO
 
       CALL timestop(handle)
@@ -1828,43 +1828,43 @@ CONTAINS
          WRITE (unit_nr, '(T2,A)') "INDEX INFO"
          WRITE (unit_nr, '(T15,A)', advance='no') "tensor index: ("
          DO ichar1 = 1, SIZE(indchar1)
-            WRITE(unit_nr, '(A1)', advance='no') indchar1(ichar1)
+            WRITE (unit_nr, '(A1)', advance='no') indchar1(ichar1)
          ENDDO
-         WRITE(unit_nr, '(A)', advance='no') ") x ("
+         WRITE (unit_nr, '(A)', advance='no') ") x ("
          DO ichar2 = 1, SIZE(indchar2)
-            WRITE(unit_nr, '(A1)', advance='no') indchar2(ichar2)
+            WRITE (unit_nr, '(A1)', advance='no') indchar2(ichar2)
          ENDDO
-         WRITE(unit_nr, '(A)', advance='no') ") = ("
+         WRITE (unit_nr, '(A)', advance='no') ") = ("
          DO ichar3 = 1, SIZE(indchar3)
-            WRITE(unit_nr, '(A1)', advance='no') indchar3(ichar3)
+            WRITE (unit_nr, '(A1)', advance='no') indchar3(ichar3)
          ENDDO
-         WRITE(unit_nr, '(A)') ")"
+         WRITE (unit_nr, '(A)') ")"
 
-         WRITE(unit_nr, '(T15,A)', advance='no') "matrix index: ("
+         WRITE (unit_nr, '(T15,A)', advance='no') "matrix index: ("
          DO ichar1 = 1, SIZE(map11)
-            WRITE(unit_nr, '(A1)', advance='no') indchar1(map11(ichar1))
+            WRITE (unit_nr, '(A1)', advance='no') indchar1(map11(ichar1))
          ENDDO
-         WRITE(unit_nr, '(A1)', advance='no') "|"
+         WRITE (unit_nr, '(A1)', advance='no') "|"
          DO ichar1 = 1, SIZE(map12)
-            WRITE(unit_nr, '(A1)', advance='no') indchar1(map12(ichar1))
+            WRITE (unit_nr, '(A1)', advance='no') indchar1(map12(ichar1))
          ENDDO
-         WRITE(unit_nr, '(A)', advance='no') ") x ("
+         WRITE (unit_nr, '(A)', advance='no') ") x ("
          DO ichar2 = 1, SIZE(map21)
-            WRITE(unit_nr, '(A1)', advance='no') indchar2(map21(ichar2))
+            WRITE (unit_nr, '(A1)', advance='no') indchar2(map21(ichar2))
          ENDDO
-         WRITE(unit_nr, '(A1)', advance='no') "|"
+         WRITE (unit_nr, '(A1)', advance='no') "|"
          DO ichar2 = 1, SIZE(map22)
-            WRITE(unit_nr, '(A1)', advance='no') indchar2(map22(ichar2))
+            WRITE (unit_nr, '(A1)', advance='no') indchar2(map22(ichar2))
          ENDDO
-         WRITE(unit_nr, '(A)', advance='no') ") = ("
+         WRITE (unit_nr, '(A)', advance='no') ") = ("
          DO ichar3 = 1, SIZE(map31)
-            WRITE(unit_nr, '(A1)', advance='no') indchar3(map31(ichar3))
+            WRITE (unit_nr, '(A1)', advance='no') indchar3(map31(ichar3))
          ENDDO
-         WRITE(unit_nr, '(A1)', advance='no') "|"
+         WRITE (unit_nr, '(A1)', advance='no') "|"
          DO ichar3 = 1, SIZE(map32)
-            WRITE(unit_nr, '(A1)', advance='no') indchar3(map32(ichar3))
+            WRITE (unit_nr, '(A1)', advance='no') indchar3(map32(ichar3))
          ENDDO
-         WRITE(unit_nr, '(A)') ")"
+         WRITE (unit_nr, '(A)') ")"
       ENDIF
 
    END SUBROUTINE

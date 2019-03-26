@@ -13,59 +13,59 @@
 MODULE dbcsr_rectangular_base
 #:include "dbcsr_rectangular.fypp"
 
-   USE dbcsr_block_access,              ONLY: dbcsr_get_block_p,&
-                                              dbcsr_put_block,&
-                                              dbcsr_reserve_blocks
-   USE dbcsr_data_methods,              ONLY: dbcsr_data_new,&
-                                              dbcsr_data_release,&
-                                              dbcsr_type_1d_to_2d
-   USE dbcsr_data_methods_low,          ONLY: dbcsr_data_clear_pointer,&
-                                              dbcsr_data_init
-   USE dbcsr_data_types,                ONLY: dbcsr_data_obj,&
-                                              dbcsr_scalar_type
-   USE dbcsr_dist_methods,              ONLY: dbcsr_distribution_col_dist,&
-                                              dbcsr_distribution_new,&
-                                              dbcsr_distribution_row_dist,&
-                                              dbcsr_distribution_hold
-   USE dbcsr_iterator_operations,       ONLY: dbcsr_iterator_blocks_left,&
-                                              dbcsr_iterator_next_block,&
-                                              dbcsr_iterator_start,&
-                                              dbcsr_iterator_stop
-   USE dbcsr_methods,                   ONLY: &
+   USE dbcsr_block_access, ONLY: dbcsr_get_block_p, &
+                                 dbcsr_put_block, &
+                                 dbcsr_reserve_blocks
+   USE dbcsr_data_methods, ONLY: dbcsr_data_new, &
+                                 dbcsr_data_release, &
+                                 dbcsr_type_1d_to_2d
+   USE dbcsr_data_methods_low, ONLY: dbcsr_data_clear_pointer, &
+                                     dbcsr_data_init
+   USE dbcsr_data_types, ONLY: dbcsr_data_obj, &
+                               dbcsr_scalar_type
+   USE dbcsr_dist_methods, ONLY: dbcsr_distribution_col_dist, &
+                                 dbcsr_distribution_new, &
+                                 dbcsr_distribution_row_dist, &
+                                 dbcsr_distribution_hold
+   USE dbcsr_iterator_operations, ONLY: dbcsr_iterator_blocks_left, &
+                                        dbcsr_iterator_next_block, &
+                                        dbcsr_iterator_start, &
+                                        dbcsr_iterator_stop
+   USE dbcsr_methods, ONLY: &
       dbcsr_distribution_release, dbcsr_get_data_type, dbcsr_mp_release, dbcsr_nblkcols_total, &
       dbcsr_nblkrows_total, dbcsr_nfullrows_total, dbcsr_nfullcols_total, dbcsr_release, &
       dbcsr_get_data_size, dbcsr_get_num_blocks, dbcsr_get_nze
-   USE dbcsr_operations,                ONLY: dbcsr_get_info,&
-                                              dbcsr_set,&
-                                              dbcsr_filter
-   USE dbcsr_rectangular_types,         ONLY: dbcsr_r_distribution_type,&
-                                              dbcsr_r_iterator,&
-                                              dbcsr_r_split_info,&
-                                              dbcsr_r_type
-   USE dbcsr_rectangular_global,        ONLY: dbcsr_r_blk_size_arb,&
-                                              dbcsr_r_dist_arb,&
-                                              dbcsr_r_distribution,&
-                                              dbcsr_r_rowcol_data
-   USE dbcsr_rectangular_split,         ONLY: &
+   USE dbcsr_operations, ONLY: dbcsr_get_info, &
+                               dbcsr_set, &
+                               dbcsr_filter
+   USE dbcsr_rectangular_types, ONLY: dbcsr_r_distribution_type, &
+                                      dbcsr_r_iterator, &
+                                      dbcsr_r_split_info, &
+                                      dbcsr_r_type
+   USE dbcsr_rectangular_global, ONLY: dbcsr_r_blk_size_arb, &
+                                       dbcsr_r_dist_arb, &
+                                       dbcsr_r_distribution, &
+                                       dbcsr_r_rowcol_data
+   USE dbcsr_rectangular_split, ONLY: &
       block_index_global_to_local, block_index_local_to_global, colsplit, &
       dbcsr_r_info_hold, dbcsr_r_release_info, dbcsr_r_split, &
       group_to_mrowcol, rowsplit, dbcsr_r_get_split_info
-   USE dbcsr_rectangular_util,          ONLY: dbcsr_mp_environ,&
-                                              index_unique
-   USE dbcsr_types,                     ONLY: dbcsr_distribution_obj,&
-                                              dbcsr_iterator,&
-                                              dbcsr_mp_obj,&
-                                              dbcsr_type
-   USE dbcsr_work_operations,           ONLY: dbcsr_create,&
-                                              dbcsr_finalize
-   USE dbcsr_kinds,                     ONLY: default_string_length,&
-                                              int_8,&
-                                              real_8,&
-                                              real_4
-   USE dbcsr_mpiwrap,                   ONLY: mp_cart_rank, &
-                                              mp_environ, &
-                                              mp_sum, &
-                                              mp_max
+   USE dbcsr_rectangular_util, ONLY: dbcsr_mp_environ, &
+                                     index_unique
+   USE dbcsr_types, ONLY: dbcsr_distribution_obj, &
+                          dbcsr_iterator, &
+                          dbcsr_mp_obj, &
+                          dbcsr_type
+   USE dbcsr_work_operations, ONLY: dbcsr_create, &
+                                    dbcsr_finalize
+   USE dbcsr_kinds, ONLY: default_string_length, &
+                          int_8, &
+                          real_8, &
+                          real_4
+   USE dbcsr_mpiwrap, ONLY: mp_cart_rank, &
+                            mp_environ, &
+                            mp_sum, &
+                            mp_max
 #include "../base/dbcsr_base_uses.f90"
 
    IMPLICIT NONE
@@ -276,8 +276,8 @@ CONTAINS
       CALL dbcsr_finalize(matrix%matrix)
 
       CALL dbcsr_r_copy_distribution(matrix_in%dist, matrix%dist)
-      ALLOCATE(matrix%row_blk_size, source=matrix_in%row_blk_size)
-      ALLOCATE(matrix%col_blk_size, source=matrix_in%col_blk_size)
+      ALLOCATE (matrix%row_blk_size, source=matrix_in%row_blk_size)
+      ALLOCATE (matrix%col_blk_size, source=matrix_in%col_blk_size)
       matrix%nblkrows = matrix_in%nblkrows
       matrix%nblkcols = matrix_in%nblkcols
       matrix%nblkrowscols_split = matrix_in%nblkrowscols_split
@@ -332,8 +332,8 @@ CONTAINS
 
       CALL dbcsr_r_get_info(matrix_a, data_type=data_type)
 
-      IF(PRESENT(summation)) THEN
-         IF(.NOT. summation) CALL dbcsr_r_clear(matrix_b)
+      IF (PRESENT(summation)) THEN
+         IF (.NOT. summation) CALL dbcsr_r_clear(matrix_b)
       ELSE
          CALL dbcsr_r_clear(matrix_b)
       ENDIF
@@ -343,7 +343,7 @@ CONTAINS
       CALL dbcsr_data_init(block)
       CALL dbcsr_data_new(block, dbcsr_type_1d_to_2d(data_type))
       CALL dbcsr_r_iterator_start(iter, matrix_a)
-      DO WHILE(dbcsr_r_iterator_blocks_left(iter))
+      DO WHILE (dbcsr_r_iterator_blocks_left(iter))
          CALL dbcsr_r_iterator_next_block(iter, row, column, block, transposed)
          CALL dbcsr_r_put_block(matrix_b, row, column, block, transposed, summation=summation)
       ENDDO
@@ -369,9 +369,9 @@ CONTAINS
       INTEGER(KIND=int_8), DIMENSION(:), ALLOCATABLE :: row_res, col_res
 
       nblk = dbcsr_r_get_num_blocks(matrix_in)
-      ALLOCATE(row_res(nblk), col_res(nblk))
+      ALLOCATE (row_res(nblk), col_res(nblk))
       CALL dbcsr_r_iterator_start(iter, matrix_in)
-      DO iblk=1,nblk
+      DO iblk = 1, nblk
          CALL dbcsr_r_iterator_next_block(iter, row, column, blk)
          row_res(iblk) = row
          col_res(iblk) = column
@@ -439,7 +439,7 @@ CONTAINS
          ALLOCATE (row_dist_vec(nrows))
          ALLOCATE (col_dist_vec(ncols))
          DO irow = 1, nrows
-            row_dist_vec(irow) = row_dist%dist(dist%local_rowcols(irow))-split_info_prv%pgrid_split_size*split_info_prv%igroup
+            row_dist_vec(irow) = row_dist%dist(dist%local_rowcols(irow)) - split_info_prv%pgrid_split_size*split_info_prv%igroup
          ENDDO
          DO col = 1, ncols
             col_dist_vec(col) = col_dist%dist(INT(col, KIND=int_8))
@@ -451,7 +451,7 @@ CONTAINS
          ALLOCATE (col_dist_vec(ncols))
          ALLOCATE (row_dist_vec(nrows))
          DO icol = 1, ncols
-            col_dist_vec(icol) = col_dist%dist(dist%local_rowcols(icol))-split_info_prv%pgrid_split_size*split_info_prv%igroup
+            col_dist_vec(icol) = col_dist%dist(dist%local_rowcols(icol)) - split_info_prv%pgrid_split_size*split_info_prv%igroup
          ENDDO
          DO row = 1, nrows
             row_dist_vec(row) = row_dist%dist(INT(row, KIND=int_8))
@@ -536,14 +536,14 @@ CONTAINS
       pcoord(1) = matrix%dist%row_dist%dist(row_s)
       pcoord(2) = matrix%dist%col_dist%dist(col_s)
 
-      DO igroup = 0, info%ngroup-1
-         CALL mp_cart_rank(info%mp_comm, pcoord, processors(igroup+1))
+      DO igroup = 0, info%ngroup - 1
+         CALL mp_cart_rank(info%mp_comm, pcoord, processors(igroup + 1))
          SELECT CASE (info%split_rowcol)
          CASE (rowsplit)
-            row_s = row_s+dbcsr_r_nblkrows_local(matrix)
+            row_s = row_s + dbcsr_r_nblkrows_local(matrix)
             pcoord(1) = matrix%dist%row_dist%dist(row_s)
          CASE (colsplit)
-            col_s = col_s+dbcsr_r_nblkcols_local(matrix)
+            col_s = col_s + dbcsr_r_nblkcols_local(matrix)
             pcoord(2) = matrix%dist%col_dist%dist(col_s)
          END SELECT
       ENDDO
@@ -614,7 +614,7 @@ CONTAINS
 
       nblks_local = dbcsr_r_get_num_blocks(matrix_rect)
       CALL dbcsr_r_iterator_start(iter, matrix_rect)
-      ALLOCATE(nz_rows(nblks_local), nz_cols(nblks_local))
+      ALLOCATE (nz_rows(nblks_local), nz_cols(nblks_local))
       rb_count = 0
       DO WHILE (dbcsr_r_iterator_blocks_left(iter))
          CALL dbcsr_r_iterator_next_block(iter, row, col, block_number)
@@ -825,7 +825,7 @@ CONTAINS
 
       INTEGER                                            :: handle, icol, irow
       INTEGER, DIMENSION(SIZE(rows), 2)                :: rowcols_group
-      INTEGER, DIMENSION(:,:), ALLOCATABLE             :: rowcols_group_u
+      INTEGER, DIMENSION(:, :), ALLOCATABLE             :: rowcols_group_u
 
       CALL timeset(routineN, handle)
 
@@ -843,7 +843,7 @@ CONTAINS
       ! if this is really needed or whether DBCSR
       ! takes care of duplicate indices
 
-      CALL dbcsr_reserve_blocks(matrix%matrix, rowcols_group_u(:,1), rowcols_group_u(:,2))
+      CALL dbcsr_reserve_blocks(matrix%matrix, rowcols_group_u(:, 1), rowcols_group_u(:, 2))
 
       CALL timestop(handle)
    END SUBROUTINE
@@ -1175,7 +1175,7 @@ CONTAINS
 !> \param data_type ...
 ! **************************************************************************************************
    SUBROUTINE dbcsr_r_get_info(matrix, nblkrows_total, nblkcols_total, &
-                               nfullrows_total, nfullcols_total,&
+                               nfullrows_total, nfullcols_total, &
                                nblkrows_local, nblkcols_local, &
                                nfullrows_local, nfullcols_local, &
                                nprow, npcol, my_prow, my_pcol, &
@@ -1207,40 +1207,40 @@ CONTAINS
                           local_rows=local_rows_local, local_cols=local_cols_local, &
                           name=name, data_area=data_area, matrix_type=matrix_type, data_type=data_type)
 
-      IF(PRESENT(nblkrows_total)) nblkrows_total = dbcsr_r_nblkrows_total(matrix)
-      IF(PRESENT(nblkcols_total)) nblkcols_total = dbcsr_r_nblkcols_total(matrix)
+      IF (PRESENT(nblkrows_total)) nblkrows_total = dbcsr_r_nblkrows_total(matrix)
+      IF (PRESENT(nblkcols_total)) nblkcols_total = dbcsr_r_nblkcols_total(matrix)
 
-      IF(PRESENT(nfullrows_total)) nfullrows_total = dbcsr_r_nfullrows_total(matrix)
-      IF(PRESENT(nfullcols_total)) nfullcols_total = dbcsr_r_nfullcols_total(matrix)
+      IF (PRESENT(nfullrows_total)) nfullrows_total = dbcsr_r_nfullrows_total(matrix)
+      IF (PRESENT(nfullcols_total)) nfullcols_total = dbcsr_r_nfullcols_total(matrix)
 
       info = dbcsr_r_info(matrix)
 
       CALL mp_environ(numnodes, pdims, pcoord, info%mp_comm)
-      IF(PRESENT(my_prow)) my_prow = pcoord(1)
-      IF(PRESENT(my_pcol)) my_pcol = pcoord(2)
-      IF(PRESENT(nprow)) nprow = pdims(1)
-      IF(PRESENT(npcol)) npcol = pdims(2)
+      IF (PRESENT(my_prow)) my_prow = pcoord(1)
+      IF (PRESENT(my_pcol)) my_pcol = pcoord(2)
+      IF (PRESENT(nprow)) nprow = pdims(1)
+      IF (PRESENT(npcol)) npcol = pdims(2)
 
       IF (PRESENT(local_rows)) THEN
-         ALLOCATE(local_rows(SIZE(local_rows_local)))
+         ALLOCATE (local_rows(SIZE(local_rows_local)))
          DO irow = 1, SIZE(local_rows_local)
-            CALL block_index_local_to_global(info, matrix%dist, row_group = local_rows_local(irow), row=local_rows(irow))
+            CALL block_index_local_to_global(info, matrix%dist, row_group=local_rows_local(irow), row=local_rows(irow))
          ENDDO
       ENDIF
 
       IF (PRESENT(local_cols)) THEN
-         ALLOCATE(local_cols(SIZE(local_cols_local)))
+         ALLOCATE (local_cols(SIZE(local_cols_local)))
          DO icol = 1, SIZE(local_cols_local)
-            CALL block_index_local_to_global(info, matrix%dist, column_group = local_cols_local(irow), column=local_cols(irow))
+            CALL block_index_local_to_global(info, matrix%dist, column_group=local_cols_local(irow), column=local_cols(irow))
          ENDDO
       ENDIF
 
-      IF(PRESENT(proc_row_dist)) ALLOCATE(proc_row_dist, SOURCE=matrix%dist%row_dist)
-      IF(PRESENT(proc_col_dist)) ALLOCATE(proc_col_dist, SOURCE=matrix%dist%col_dist)
+      IF (PRESENT(proc_row_dist)) ALLOCATE (proc_row_dist, SOURCE=matrix%dist%row_dist)
+      IF (PRESENT(proc_col_dist)) ALLOCATE (proc_col_dist, SOURCE=matrix%dist%col_dist)
 
-      IF(PRESENT(row_blk_size)) ALLOCATE(row_blk_size, SOURCE=matrix%row_blk_size)
-      IF(PRESENT(col_blk_size)) ALLOCATE(col_blk_size, SOURCE=matrix%col_blk_size)
-      IF(PRESENT(distribution)) distribution = matrix%dist
+      IF (PRESENT(row_blk_size)) ALLOCATE (row_blk_size, SOURCE=matrix%row_blk_size)
+      IF (PRESENT(col_blk_size)) ALLOCATE (col_blk_size, SOURCE=matrix%col_blk_size)
+      IF (PRESENT(distribution)) distribution = matrix%dist
 
    END SUBROUTINE
 
@@ -1268,34 +1268,34 @@ CONTAINS
                             nprow=nprow, npcol=npcol, proc_row_dist=proc_row_dist, proc_col_dist=proc_col_dist, &
                             row_blk_size=row_blk_size, col_blk_size=col_blk_size, name=name)
 
-      IF(output_unit > 0) THEN
-         WRITE(output_unit, "(T2,A)") &
+      IF (output_unit > 0) THEN
+         WRITE (output_unit, "(T2,A)") &
             "GLOBAL INFO OF "//TRIM(name)
-         WRITE(output_unit, "(T4,A,1X)", advance="no") "block dimensions:"
-         WRITE(output_unit, "(I12,I12)", advance="no") nblkrows_total, nblkcols_total
-         WRITE(output_unit, "(/T4,A,1X)", advance="no") "full dimensions:"
-         WRITE(output_unit, "(I14,I14)", advance="no") nfullrows_total, nfullcols_total
-         WRITE(output_unit, "(/T4,A,1X)", advance="no") "process grid dimensions:"
-         WRITE(output_unit, "(I10,I10)", advance="no") nprow, npcol
-         IF(PRESENT(full_info)) THEN
-            IF(full_info) THEN
-               WRITE(output_unit, '(/T4,A)', advance='no') "Block sizes:"
-               WRITE(output_unit, '(/T8,A)', advance='no') 'Row:'
-               DO iblk=1, row_blk_size%nmrowcol
-                  WRITE(output_unit, '(I4,1X)', advance='no') row_blk_size%data(iblk)
+         WRITE (output_unit, "(T4,A,1X)", advance="no") "block dimensions:"
+         WRITE (output_unit, "(I12,I12)", advance="no") nblkrows_total, nblkcols_total
+         WRITE (output_unit, "(/T4,A,1X)", advance="no") "full dimensions:"
+         WRITE (output_unit, "(I14,I14)", advance="no") nfullrows_total, nfullcols_total
+         WRITE (output_unit, "(/T4,A,1X)", advance="no") "process grid dimensions:"
+         WRITE (output_unit, "(I10,I10)", advance="no") nprow, npcol
+         IF (PRESENT(full_info)) THEN
+            IF (full_info) THEN
+               WRITE (output_unit, '(/T4,A)', advance='no') "Block sizes:"
+               WRITE (output_unit, '(/T8,A)', advance='no') 'Row:'
+               DO iblk = 1, row_blk_size%nmrowcol
+                  WRITE (output_unit, '(I4,1X)', advance='no') row_blk_size%data(iblk)
                ENDDO
-               WRITE(output_unit, '(/T8,A)', advance='no') 'Column:'
-               DO iblk=1, col_blk_size%nmrowcol
-                  WRITE(output_unit, '(I4,1X)', advance='no') col_blk_size%data(iblk)
+               WRITE (output_unit, '(/T8,A)', advance='no') 'Column:'
+               DO iblk = 1, col_blk_size%nmrowcol
+                  WRITE (output_unit, '(I4,1X)', advance='no') col_blk_size%data(iblk)
                ENDDO
-               WRITE(output_unit, '(/T4,A)', advance='no') "Block distribution:"
-               WRITE(output_unit, '(/T8,A)', advance='no') 'Row:'
-               DO iblk=1, proc_row_dist%nmrowcol
-                  WRITE(output_unit, '(I4,1X)', advance='no') proc_row_dist%dist(iblk)
+               WRITE (output_unit, '(/T4,A)', advance='no') "Block distribution:"
+               WRITE (output_unit, '(/T8,A)', advance='no') 'Row:'
+               DO iblk = 1, proc_row_dist%nmrowcol
+                  WRITE (output_unit, '(I4,1X)', advance='no') proc_row_dist%dist(iblk)
                ENDDO
-               WRITE(output_unit, '(/T8,A)', advance='no') 'Column:'
-               DO iblk=1, proc_col_dist%nmrowcol
-                  WRITE(output_unit, '(I4,1X)', advance='no') proc_col_dist%dist(iblk)
+               WRITE (output_unit, '(/T8,A)', advance='no') 'Column:'
+               DO iblk = 1, proc_col_dist%nmrowcol
+                  WRITE (output_unit, '(I4,1X)', advance='no') proc_col_dist%dist(iblk)
                ENDDO
 
             ENDIF
@@ -1352,37 +1352,37 @@ CONTAINS
 
       nblock_tot = dbcsr_r_nblkrows_total(matrix)*dbcsr_r_nblkcols_total(matrix)
       occupation = -1.0_real_8
-      IF(nblock_tot .NE. 0) occupation = 100.0_real_8*REAL(nblock_p_sum, real_8)/REAL(nblock_tot, real_8)
+      IF (nblock_tot .NE. 0) occupation = 100.0_real_8*REAL(nblock_p_sum, real_8)/REAL(nblock_tot, real_8)
 
       rowdist => dbcsr_distribution_row_dist(matrix%matrix%dist)
       coldist => dbcsr_distribution_col_dist(matrix%matrix%dist)
 
-      IF(output_unit > 0) THEN
-         WRITE(output_unit, "(T2,A)") &
+      IF (output_unit > 0) THEN
+         WRITE (output_unit, "(T2,A)") &
             "DISTRIBUTION OF "//TRIM(name)
-         WRITE(output_unit, "(T15,A,T68,I13)") "Number of non-zero blocks:", nblock_p_sum
-         WRITE(output_unit, "(T15,A,T75,F6.2)") "Percentage of non-zero blocks:", occupation
-         WRITE(output_unit, "(T15,A,T68,I13)") "Average number of blocks per group:", (nblock_p_sum+ngroup-1)/ngroup
-         WRITE(output_unit, "(T15,A,T68,I13)") "Maximum number of blocks per group:", nblock_s_max
-         WRITE(output_unit, "(T15,A,T68,I13)") "Average number of matrix elements per group:", (nelement_p_sum+ngroup-1)/ngroup
-         WRITE(output_unit, "(T15,A,T68,I13)") "Maximum number of matrix elements per group:", nelement_s_max
-         WRITE(output_unit, "(T15,A,T68,I13)") "Average number of blocks per CPU:", (nblock_p_sum+nproc-1)/nproc
-         WRITE(output_unit, "(T15,A,T68,I13)") "Maximum number of blocks per CPU:", nblock_p_max
-         WRITE(output_unit, "(T15,A,T68,I13)") "Average number of matrix elements per CPU:", (nelement_p_sum+nproc-1)/nproc
-         WRITE(output_unit, "(T15,A,T68,I13)") "Maximum number of matrix elements per CPU:", nelement_p_max
+         WRITE (output_unit, "(T15,A,T68,I13)") "Number of non-zero blocks:", nblock_p_sum
+         WRITE (output_unit, "(T15,A,T75,F6.2)") "Percentage of non-zero blocks:", occupation
+         WRITE (output_unit, "(T15,A,T68,I13)") "Average number of blocks per group:", (nblock_p_sum + ngroup - 1)/ngroup
+         WRITE (output_unit, "(T15,A,T68,I13)") "Maximum number of blocks per group:", nblock_s_max
+         WRITE (output_unit, "(T15,A,T68,I13)") "Average number of matrix elements per group:", (nelement_p_sum + ngroup - 1)/ngroup
+         WRITE (output_unit, "(T15,A,T68,I13)") "Maximum number of matrix elements per group:", nelement_s_max
+         WRITE (output_unit, "(T15,A,T68,I13)") "Average number of blocks per CPU:", (nblock_p_sum + nproc - 1)/nproc
+         WRITE (output_unit, "(T15,A,T68,I13)") "Maximum number of blocks per CPU:", nblock_p_max
+         WRITE (output_unit, "(T15,A,T68,I13)") "Average number of matrix elements per CPU:", (nelement_p_sum + nproc - 1)/nproc
+         WRITE (output_unit, "(T15,A,T68,I13)") "Maximum number of matrix elements per CPU:", nelement_p_max
          IF (PRESENT(dist)) THEN
             IF (dist) THEN
                WRITE (output_unit, "(/T15,A)") "Row distribution on subgroup:"
-               WRITE(output_unit, '(T15)', advance='no')
+               WRITE (output_unit, '(T15)', advance='no')
                DO irow = 1, SIZE(rowdist)
                   WRITE (output_unit, '(I3, 1X)', advance='no') rowdist(irow)
                ENDDO
                WRITE (output_unit, "(/T15,A)") "Column distribution on subgroup:"
-               WRITE(output_unit, '(T15)', advance='no')
+               WRITE (output_unit, '(T15)', advance='no')
                DO icol = 1, SIZE(coldist)
                   WRITE (output_unit, '(I3, 1X)', advance='no') coldist(icol)
                ENDDO
-               WRITE(output_unit, *)
+               WRITE (output_unit, *)
             ENDIF
          ENDIF
       ENDIF
@@ -1400,8 +1400,8 @@ CONTAINS
 !> \param row_size ...
 !> \param col_size ...
 ! **************************************************************************************************
-   SUBROUTINE dbcsr_r_iterator_next_block_${dsuffix}$(iterator, row, column, block, transposed, block_number, &
-                                                      row_size, col_size)
+   SUBROUTINE dbcsr_r_iterator_next_block_${dsuffix}$ (iterator, row, column, block, transposed, block_number, &
+                                                       row_size, col_size)
       TYPE(dbcsr_r_iterator), INTENT(INOUT) :: iterator
       INTEGER(KIND=int_8), INTENT(OUT)      :: row, column
       ${dtype}$, DIMENSION(:, :), POINTER   :: block
@@ -1436,10 +1436,10 @@ CONTAINS
 !> \param scale ...
 ! **************************************************************************************************
 #:for dparam, dtype, dsuffix in dtype_float_list
-   SUBROUTINE dbcsr_r_put_block_${dsuffix}$(matrix, row, col, block, transposed, summation, &
-                                            scale)
+   SUBROUTINE dbcsr_r_put_block_${dsuffix}$ (matrix, row, col, block, transposed, summation, &
+                                             scale)
       TYPE(dbcsr_r_type), INTENT(INOUT)     :: matrix
-      ${dtype}$, DIMENSION(:,:), INTENT(IN) :: block
+      ${dtype}$, DIMENSION(:, :), INTENT(IN) :: block
       LOGICAL, INTENT(IN), OPTIONAL         :: transposed, summation
       INTEGER(KIND=int_8), INTENT(IN)       :: row, col
       ${dtype}$, INTENT(IN), OPTIONAL       :: scale
@@ -1451,7 +1451,7 @@ CONTAINS
 
       CALL timeset(routineN, handle)
       CALL block_index_global_to_local(matrix%dist%info, matrix%dist, row=row, column=col, &
-                                       row_group=row_group, column_group = col_group)
+                                       row_group=row_group, column_group=col_group)
 
       CALL dbcsr_put_block(matrix%matrix, row_group, col_group, block, transposed=transposed, summation=summation, scale=scale)
 
@@ -1471,10 +1471,10 @@ CONTAINS
 !> \param row_size ...
 !> \param col_size ...
 ! **************************************************************************************************
-   SUBROUTINE dbcsr_r_get_block_p_${dsuffix}$(matrix, row, col, block, transposed, found, row_size, col_size)
+   SUBROUTINE dbcsr_r_get_block_p_${dsuffix}$ (matrix, row, col, block, transposed, found, row_size, col_size)
       TYPE(dbcsr_r_type), INTENT(INOUT)  :: matrix
       INTEGER(KIND=int_8), INTENT(IN)    :: row, col
-      ${dtype}$, DIMENSION(:,:), POINTER :: block
+      ${dtype}$, DIMENSION(:, :), POINTER :: block
       LOGICAL, INTENT(OUT)               :: transposed
       LOGICAL, INTENT(OUT)               :: found
       INTEGER, INTENT(OUT), OPTIONAL     :: row_size, col_size
@@ -1487,7 +1487,7 @@ CONTAINS
       CALL timeset(routineN, handle)
 
       CALL block_index_global_to_local(matrix%dist%info, matrix%dist, row=row, column=col, &
-                                       row_group=row_group, column_group = col_group)
+                                       row_group=row_group, column_group=col_group)
 
       CALL dbcsr_get_block_p(matrix%matrix, row_group, col_group, block, transposed, found, row_size=row_size, col_size=col_size)
 
@@ -1501,7 +1501,7 @@ CONTAINS
 !> \param matrix ...
 !> \param alpha ...
 ! **************************************************************************************************
-   SUBROUTINE dbcsr_r_set_${dsuffix}$(matrix, alpha)
+   SUBROUTINE dbcsr_r_set_${dsuffix}$ (matrix, alpha)
       TYPE(dbcsr_r_type), INTENT(INOUT)    :: matrix
       ${dtype}$, INTENT(IN)                :: alpha
       CALL dbcsr_set(matrix%matrix, alpha)
@@ -1514,7 +1514,7 @@ CONTAINS
 !> \param matrix ...
 !> \param alpha ...
 ! **************************************************************************************************
-   SUBROUTINE dbcsr_r_filter_${dsuffix}$(matrix, eps, method, use_absolute)
+   SUBROUTINE dbcsr_r_filter_${dsuffix}$ (matrix, eps, method, use_absolute)
       TYPE(dbcsr_r_type), INTENT(INOUT)    :: matrix
       ${dtype}$, INTENT(IN)                :: eps
       INTEGER, INTENT(IN), OPTIONAL        :: method

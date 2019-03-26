@@ -8,40 +8,40 @@
 ! **************************************************************************************************
 
 MODULE dbcsr_rectangular_test
-   USE dbcsr_types,                                      ONLY: dbcsr_type_real_8
-   USE dbcsr_data_methods,                               ONLY: dbcsr_scalar
-   USE dbcsr_methods,                                    ONLY: &
+   USE dbcsr_types, ONLY: dbcsr_type_real_8
+   USE dbcsr_data_methods, ONLY: dbcsr_scalar
+   USE dbcsr_methods, ONLY: &
       dbcsr_release, dbcsr_nblkcols_total, dbcsr_nblkrows_total, dbcsr_row_block_sizes, dbcsr_col_block_sizes, &
       dbcsr_mp_release, dbcsr_distribution_release
-   USE dbcsr_multiply_api,                               ONLY: dbcsr_multiply
-   USE dbcsr_rectangular_base,                           ONLY: &
+   USE dbcsr_multiply_api, ONLY: dbcsr_multiply
+   USE dbcsr_rectangular_base, ONLY: &
       dbcsr_r_convert_to_dbcsr, dbcsr_r_create, dbcsr_r_distribution_new, &
       dbcsr_r_finalize, dbcsr_r_get_stored_coordinates, dbcsr_r_nblkcols_total, &
       dbcsr_r_nblkrows_total, dbcsr_r_put_block, dbcsr_r_info
-   USE dbcsr_rectangular_types,                          ONLY: dbcsr_r_distribution_type,&
-                                                               dbcsr_r_type
-   USE dbcsr_rectangular_global,                         ONLY: dbcsr_r_blk_size_arb,&
-                                                               dbcsr_r_dist_cyclic
-   USE dbcsr_rectangular_mm,                             ONLY: dbcsr_r_multiply
-   USE dbcsr_rectangular_split,                          ONLY: dbcsr_r_mp_comm, &
-                                                               dbcsr_r_get_split_info
-   USE dbcsr_rectangular_util,                           ONLY: dbcsr_mp_environ,&
-                                                               invert_transpose_flag
-   USE dbcsr_types,                                      ONLY: &
+   USE dbcsr_rectangular_types, ONLY: dbcsr_r_distribution_type, &
+                                      dbcsr_r_type
+   USE dbcsr_rectangular_global, ONLY: dbcsr_r_blk_size_arb, &
+                                       dbcsr_r_dist_cyclic
+   USE dbcsr_rectangular_mm, ONLY: dbcsr_r_multiply
+   USE dbcsr_rectangular_split, ONLY: dbcsr_r_mp_comm, &
+                                      dbcsr_r_get_split_info
+   USE dbcsr_rectangular_util, ONLY: dbcsr_mp_environ, &
+                                     invert_transpose_flag
+   USE dbcsr_types, ONLY: &
       dbcsr_type, dbcsr_distribution_obj, dbcsr_mp_obj, dbcsr_no_transpose, dbcsr_transpose, &
       dbcsr_type_no_symmetry
-   USE dbcsr_kinds,                                      ONLY: int_8,&
-                                                               real_8
-   USE dbcsr_mpiwrap,                                    ONLY: mp_environ, &
-                                                               mp_cart_create, &
-                                                               mp_comm_free
-   USE dbcsr_dist_methods,                               ONLY: dbcsr_distribution_new
-   USE dbcsr_work_operations,                            ONLY: dbcsr_create, &
-                                                               dbcsr_finalize
-   USE dbcsr_dist_util,                                  ONLY: dbcsr_checksum
-   USE dbcsr_operations,                                 ONLY: dbcsr_maxabs, &
-                                                               dbcsr_add
-   USE dbcsr_transformations,                            ONLY: dbcsr_complete_redistribute
+   USE dbcsr_kinds, ONLY: int_8, &
+                          real_8
+   USE dbcsr_mpiwrap, ONLY: mp_environ, &
+                            mp_cart_create, &
+                            mp_comm_free
+   USE dbcsr_dist_methods, ONLY: dbcsr_distribution_new
+   USE dbcsr_work_operations, ONLY: dbcsr_create, &
+                                    dbcsr_finalize
+   USE dbcsr_dist_util, ONLY: dbcsr_checksum
+   USE dbcsr_operations, ONLY: dbcsr_maxabs, &
+                               dbcsr_add
+   USE dbcsr_transformations, ONLY: dbcsr_complete_redistribute
 #include "../base/dbcsr_base_uses.f90"
 
    IMPLICIT NONE
@@ -49,7 +49,7 @@ MODULE dbcsr_rectangular_test
 
    PUBLIC :: &
       dbcsr_r_benchmark_mm, &
-      dbcsr_r_checksum,&
+      dbcsr_r_checksum, &
       dbcsr_r_random_bsizes, &
       dbcsr_r_setup_test_matrix, &
       dbcsr_r_test_mm
@@ -187,9 +187,9 @@ CONTAINS
       INTEGER, DIMENSION(:), POINTER                     :: cd_a, cd_b, cd_c, rd_a, rd_b, rd_c
       TYPE(dbcsr_mp_obj)                                 :: mp_environ_tmp
 
-      IF(PRESENT(io_unit)) THEN
-      IF(io_unit > 0) THEN
-         WRITE(io_unit, *) "starting rectangular benchmark"
+      IF (PRESENT(io_unit)) THEN
+      IF (io_unit > 0) THEN
+         WRITE (io_unit, *) "starting rectangular benchmark"
       ENDIF
       ENDIF
       CALL timeset("benchmark_rectangular_mm", handle1)
@@ -197,9 +197,9 @@ CONTAINS
                             dbcsr_scalar(0.0_real_8), matrix_c, &
                             filter_eps=filter_eps, io_unit=io_unit)
       CALL timestop(handle1)
-      IF(PRESENT(io_unit)) THEN
-      IF(io_unit > 0) THEN
-         WRITE(io_unit, *) "rectangular benchmark completed"
+      IF (PRESENT(io_unit)) THEN
+      IF (io_unit > 0) THEN
+         WRITE (io_unit, *) "rectangular benchmark completed"
       ENDIF
       ENDIF
 
@@ -241,18 +241,18 @@ CONTAINS
 
          CALL dbcsr_complete_redistribute(dbcsr_a, dbcsr_a_mm)
          CALL dbcsr_complete_redistribute(dbcsr_b, dbcsr_b_mm)
-         IF(PRESENT(io_unit)) THEN
-         IF(io_unit > 0) THEN
-            WRITE(io_unit, *) "starting dbcsr benchmark"
+         IF (PRESENT(io_unit)) THEN
+         IF (io_unit > 0) THEN
+            WRITE (io_unit, *) "starting dbcsr benchmark"
          ENDIF
          ENDIF
          CALL timeset("benchmark_dbcsr_mm", handle2)
          CALL dbcsr_multiply(transa, transb, dbcsr_scalar(1.0_real_8), dbcsr_a_mm, dbcsr_b_mm, &
                              dbcsr_scalar(0.0_real_8), dbcsr_c_mm, filter_eps=filter_eps)
          CALL timestop(handle2)
-         IF(PRESENT(io_unit)) THEN
-         IF(io_unit > 0) THEN
-            WRITE(io_unit, *) "dbcsr benchmark completed"
+         IF (PRESENT(io_unit)) THEN
+         IF (io_unit > 0) THEN
+            WRITE (io_unit, *) "dbcsr benchmark completed"
          ENDIF
          ENDIF
 
@@ -435,7 +435,7 @@ CONTAINS
       INTEGER                                            :: d, size_i
 
       DO d = 1, SIZE(block_sizes)
-         size_i = MOD((d-1)/repeat, SIZE(sizes))+1
+         size_i = MOD((d - 1)/repeat, SIZE(sizes)) + 1
          block_sizes(d) = sizes(size_i)
       ENDDO
    END SUBROUTINE
@@ -454,7 +454,7 @@ CONTAINS
 
       ALLOCATE (dist_array(dist_size))
       DO i = 1, dist_size
-         dist_array(i) = MODULO(nbins-i, nbins)
+         dist_array(i) = MODULO(nbins - i, nbins)
       END DO
 
    END SUBROUTINE random_dist

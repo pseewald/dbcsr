@@ -17,41 +17,41 @@
 
 MODULE dbcsr_rectangular_mm
 
-   USE dbcsr_data_methods,                               ONLY: dbcsr_scalar_zero
-   USE dbcsr_data_types,                                 ONLY: dbcsr_scalar_type
-   USE dbcsr_multiply_api,                               ONLY: dbcsr_multiply
+   USE dbcsr_data_methods, ONLY: dbcsr_scalar_zero
+   USE dbcsr_data_types, ONLY: dbcsr_scalar_type
+   USE dbcsr_multiply_api, ONLY: dbcsr_multiply
    USE dbcsr_rectangular_base, ONLY: &
       dbcsr_r_create, dbcsr_r_destroy, dbcsr_r_distribution_destroy, dbcsr_r_distribution_new, &
       dbcsr_r_get_data_type, dbcsr_r_info, dbcsr_r_nblkcols_total, &
       dbcsr_r_nblkrows_total, dbcsr_r_write_matrix_info, dbcsr_r_filter, dbcsr_r_write_dist
-   USE dbcsr_rectangular_types,                          ONLY: dbcsr_r_distribution_type, &
-                                                               dbcsr_r_split_info, &
-                                                               dbcsr_r_type
-   USE dbcsr_rectangular_global,                         ONLY: dbcsr_r_dist_cyclic, &
-                                                               dbcsr_r_dist_arb, &
-                                                               dbcsr_r_distribution, &
-                                                               dbcsr_r_dist_arb_default
-   USE dbcsr_rectangular_reshape,                        ONLY: dbcsr_r_merge, &
-                                                               dbcsr_r_replicate, &
-                                                               dbcsr_r_reshape
-   USE dbcsr_rectangular_split,                          ONLY: colsplit, &
-                                                               dbcsr_r_get_split_info, &
-                                                               dbcsr_r_split, &
-                                                               dbcsr_r_mp_comm, &
-                                                               dbcsr_r_release_info, &
-                                                               dbcsr_r_print_split_info
-   USE dbcsr_rectangular_util,                           ONLY: swap, &
-                                                               invert_transpose_flag,&
-                                                               array_eq_i8
-   USE dbcsr_types,                                      ONLY: dbcsr_no_transpose, &
-                                                               dbcsr_transpose
-   USE dbcsr_kinds,                                      ONLY: int_8, &
-                                                               real_8
-   USE dbcsr_mpiwrap,                                    ONLY: mp_comm_compare, &
-                                                               mp_environ, &
-                                                               mp_sum, &
-                                                               mp_comm_free
-   USE dbcsr_operations,                                 ONLY: dbcsr_scale
+   USE dbcsr_rectangular_types, ONLY: dbcsr_r_distribution_type, &
+                                      dbcsr_r_split_info, &
+                                      dbcsr_r_type
+   USE dbcsr_rectangular_global, ONLY: dbcsr_r_dist_cyclic, &
+                                       dbcsr_r_dist_arb, &
+                                       dbcsr_r_distribution, &
+                                       dbcsr_r_dist_arb_default
+   USE dbcsr_rectangular_reshape, ONLY: dbcsr_r_merge, &
+                                        dbcsr_r_replicate, &
+                                        dbcsr_r_reshape
+   USE dbcsr_rectangular_split, ONLY: colsplit, &
+                                      dbcsr_r_get_split_info, &
+                                      dbcsr_r_split, &
+                                      dbcsr_r_mp_comm, &
+                                      dbcsr_r_release_info, &
+                                      dbcsr_r_print_split_info
+   USE dbcsr_rectangular_util, ONLY: swap, &
+                                     invert_transpose_flag, &
+                                     array_eq_i8
+   USE dbcsr_types, ONLY: dbcsr_no_transpose, &
+                          dbcsr_transpose
+   USE dbcsr_kinds, ONLY: int_8, &
+                          real_8
+   USE dbcsr_mpiwrap, ONLY: mp_comm_compare, &
+                            mp_environ, &
+                            mp_sum, &
+                            mp_comm_free
+   USE dbcsr_operations, ONLY: dbcsr_scale
 #include "../base/dbcsr_base_uses.f90"
 
    IMPLICIT NONE
@@ -108,7 +108,7 @@ CONTAINS
       TYPE(dbcsr_r_split_info)                   :: info
       CHARACTER(LEN=*), PARAMETER                :: routineN = 'dbcsr_r_multiply', &
                                                     routineP = moduleN//':'//routineN
-      LOGICAL                                    :: debug=.FALSE.
+      LOGICAL                                    :: debug = .FALSE.
 
       CALL timeset(routineN, handle)
 
@@ -118,7 +118,7 @@ CONTAINS
          io_unit_prv = 0
       ENDIF
 
-      IF(PRESENT(move_data)) THEN
+      IF (PRESENT(move_data)) THEN
          move_prv = move_data
       ELSE
          move_prv = .FALSE.
@@ -180,13 +180,13 @@ CONTAINS
       CASE (1)
 
          CALL reshape_mm_compatible(matrix_a, matrix_c, matrix_a_rs, matrix_c_rs, &
-                           new_a, new_c, transa_prv, transc_prv, optimize_dist=optimize_dist, nodata2 = .TRUE., comm_new=comm_tmp, &
+                             new_a, new_c, transa_prv, transc_prv, optimize_dist=optimize_dist, nodata2=.TRUE., comm_new=comm_tmp, &
                                     move_data=move_data, unit_nr=io_unit)
 
          CALL dbcsr_r_get_split_info(dbcsr_r_info(matrix_a_rs), mp_comm=mp_comm)
 
-         ALLOCATE(matrix_b_rs)
-         CALL reshape_mm_small(mp_comm, matrix_b, matrix_b_rs, transb_prv==dbcsr_transpose, transb_prv, move_data=move_data)
+         ALLOCATE (matrix_b_rs)
+         CALL reshape_mm_small(mp_comm, matrix_b, matrix_b_rs, transb_prv == dbcsr_transpose, transb_prv, move_data=move_data)
          new_b = .TRUE.
          tr_case = transa_prv
 
@@ -206,8 +206,8 @@ CONTAINS
 
          CALL dbcsr_r_get_split_info(dbcsr_r_info(matrix_a_rs), mp_comm=mp_comm)
 
-         ALLOCATE(matrix_c_rs)
-         CALL reshape_mm_small(mp_comm, matrix_c, matrix_c_rs, transc_prv==dbcsr_transpose, transc_prv, nodata=.TRUE.)
+         ALLOCATE (matrix_c_rs)
+         CALL reshape_mm_small(mp_comm, matrix_c, matrix_c_rs, transc_prv == dbcsr_transpose, transc_prv, nodata=.TRUE.)
          new_c = .TRUE.
          tr_case = transa_prv
 
@@ -227,8 +227,8 @@ CONTAINS
 
          CALL dbcsr_r_get_split_info(dbcsr_r_info(matrix_b_rs), mp_comm=mp_comm)
 
-         ALLOCATE(matrix_a_rs)
-         CALL reshape_mm_small(mp_comm, matrix_a, matrix_a_rs, transa_prv==dbcsr_transpose, transa_prv, move_data=move_data)
+         ALLOCATE (matrix_a_rs)
+         CALL reshape_mm_small(mp_comm, matrix_a, matrix_a_rs, transa_prv == dbcsr_transpose, transa_prv, move_data=move_data)
          new_a = .TRUE.
          tr_case = transb_prv
 
@@ -246,13 +246,13 @@ CONTAINS
       CALL dbcsr_r_get_split_info(info, nsplit=nsplit, mp_comm=mp_comm)
       CALL mp_environ(numnodes, pdims, pcoord, mp_comm)
 
-      IF(PRESENT(filter_eps)) THEN
+      IF (PRESENT(filter_eps)) THEN
          filter_eps_prv = filter_eps
       ELSE
          filter_eps_prv = 0.0_real_8
       ENDIF
 
-      IF(PRESENT(io_unit)) CALL dbcsr_r_print_split_info(info, " Split info:", io_unit_prv)
+      IF (PRESENT(io_unit)) CALL dbcsr_r_print_split_info(info, " Split info:", io_unit_prv)
 
       zero = dbcsr_scalar_zero(data_type)
       SELECT CASE (max_mm_dim)
@@ -274,7 +274,7 @@ CONTAINS
 
             CALL timestop(handle2)
          END SELECT
-         IF(PRESENT(io_unit)) THEN
+         IF (PRESENT(io_unit)) THEN
             CALL dbcsr_r_write_dist(matrix_a_rs, io_unit)
             CALL dbcsr_r_write_dist(matrix_b_rep, io_unit)
             CALL dbcsr_r_write_dist(matrix_c_rs, io_unit)
@@ -289,7 +289,7 @@ CONTAINS
                              matrix_b=matrix_b_rs%matrix, beta=beta, matrix_c=matrix_c_rep%matrix, &
                              filter_eps=filter_eps_prv/REAL(nsplit, KIND=real_8), flop=flop)
          CALL timestop(handle2)
-         IF(PRESENT(io_unit)) THEN
+         IF (PRESENT(io_unit)) THEN
             CALL dbcsr_r_write_dist(matrix_a_rs, io_unit)
             CALL dbcsr_r_write_dist(matrix_b_rs, io_unit)
             CALL dbcsr_r_write_dist(matrix_c_rep, io_unit)
@@ -315,7 +315,7 @@ CONTAINS
                                 filter_eps=filter_eps_prv, flop=flop)
             CALL timestop(handle2)
          END SELECT
-         IF(PRESENT(io_unit)) THEN
+         IF (PRESENT(io_unit)) THEN
             CALL dbcsr_r_write_dist(matrix_a_rep, io_unit, dist=.TRUE.)
             CALL dbcsr_r_write_dist(matrix_b_rs, io_unit)
             CALL dbcsr_r_write_dist(matrix_c_rs, io_unit)
@@ -326,30 +326,30 @@ CONTAINS
 
       IF (new_a) THEN
          CALL dbcsr_r_destroy(matrix_a_rs)
-         DEALLOCATE(matrix_a_rs)
+         DEALLOCATE (matrix_a_rs)
       ENDIF
       IF (new_b) THEN
          CALL dbcsr_r_destroy(matrix_b_rs)
-         DEALLOCATE(matrix_b_rs)
+         DEALLOCATE (matrix_b_rs)
       ENDIF
       IF (new_c) THEN
          CALL dbcsr_scale(matrix_c%matrix, beta)
-         CALL dbcsr_r_reshape(matrix_c_rs, matrix_c, summation=.TRUE., transposed=transc_prv/=transc, &
+         CALL dbcsr_r_reshape(matrix_c_rs, matrix_c, summation=.TRUE., transposed=transc_prv /= transc, &
                               move_data=.TRUE.)
-         IF(PRESENT(filter_eps)) CALL dbcsr_r_filter(matrix_c, filter_eps)
+         IF (PRESENT(filter_eps)) CALL dbcsr_r_filter(matrix_c, filter_eps)
          CALL dbcsr_r_destroy(matrix_c_rs)
-         DEALLOCATE(matrix_c_rs)
+         DEALLOCATE (matrix_c_rs)
       ENDIF
 
-      IF(PRESENT(flop)) THEN
+      IF (PRESENT(flop)) THEN
          CALL mp_sum(flop, mp_comm)
-         flop = (flop+numnodes-1)/numnodes
+         flop = (flop + numnodes - 1)/numnodes
       ENDIF
 
-      IF(PRESENT(optimize_dist)) THEN
-         IF(optimize_dist) CALL mp_comm_free(comm_tmp)
+      IF (PRESENT(optimize_dist)) THEN
+         IF (optimize_dist) CALL mp_comm_free(comm_tmp)
       ENDIF
-      IF(io_unit_prv > 0) THEN
+      IF (io_unit_prv > 0) THEN
          WRITE (io_unit_prv, '(A)') repeat("-", 80)
          WRITE (io_unit_prv, '(A,1X,A,1X,A,1X,A,1X,A,1X,A)') "RECTANGULAR MATRIX MULTIPLICATION DONE"
          WRITE (io_unit_prv, '(A)') repeat("-", 80)
@@ -390,17 +390,17 @@ CONTAINS
 
       CALL timeset(routineN, handle)
 
-      IF(PRESENT(nodata)) THEN
+      IF (PRESENT(nodata)) THEN
          nodata_prv = nodata
       ELSE
          nodata_prv = .FALSE.
       ENDIF
 
-      IF(transposed) THEN
-         SELECT CASE(trans)
-         CASE(dbcsr_transpose)
+      IF (transposed) THEN
+         SELECT CASE (trans)
+         CASE (dbcsr_transpose)
             trans = dbcsr_no_transpose
-         CASE(dbcsr_no_transpose)
+         CASE (dbcsr_no_transpose)
             trans = dbcsr_transpose
          END SELECT
       ENDIF
@@ -425,7 +425,7 @@ CONTAINS
                              matrix_in%col_blk_size, matrix_in%row_blk_size, own_dist=.TRUE.)
 
       ENDIF
-      IF(.NOT. nodata_prv) CALL dbcsr_r_reshape(matrix_in, matrix_out, transposed=transposed, move_data=move_data)
+      IF (.NOT. nodata_prv) CALL dbcsr_r_reshape(matrix_in, matrix_out, transposed=transposed, move_data=move_data)
 
       CALL timestop(handle)
 
@@ -470,19 +470,19 @@ CONTAINS
       TYPE(dbcsr_r_distribution_type) :: dist_1, dist_2
       TYPE(dbcsr_r_split_info) :: split_info
 
-      IF(PRESENT(unit_nr)) THEN
+      IF (PRESENT(unit_nr)) THEN
          io_unit = unit_nr
       ELSE
          io_unit = 0
       ENDIF
 
-      IF(PRESENT(optimize_dist)) THEN
+      IF (PRESENT(optimize_dist)) THEN
          optimize_dist_prv = optimize_dist
       ELSE
          optimize_dist_prv = .FALSE.
       ENDIF
 
-      IF(optimize_dist_prv) THEN
+      IF (optimize_dist_prv) THEN
          DBCSR_ASSERT(PRESENT(comm_new))
       ENDIF
 
@@ -492,8 +492,8 @@ CONTAINS
       IF ((.NOT. optimize_dist_prv) .AND. dist_compatible(matrix1_in, matrix2_in)) THEN
          matrix1_out => matrix1_in
          matrix2_out => matrix2_in
-         IF(io_unit > 0) THEN
-            WRITE(io_unit, "(T2,A,1X,A,1X,A,1X,A)") "No redistribution of", TRIM(matrix1_in%matrix%name), &
+         IF (io_unit > 0) THEN
+            WRITE (io_unit, "(T2,A,1X,A,1X,A,1X,A)") "No redistribution of", TRIM(matrix1_in%matrix%name), &
                "and", TRIM(matrix2_in%matrix%name)
          ENDIF
       ELSE
@@ -502,8 +502,8 @@ CONTAINS
          dims2 = [dbcsr_r_nblkrows_total(matrix2_in), dbcsr_r_nblkcols_total(matrix2_in)]
 
          IF (optimize_dist_prv) THEN
-            IF(io_unit > 0) THEN
-               WRITE(io_unit, "(T2,A,1X,A,1X,A)") "Optimizing distribution of", TRIM(matrix1_in%matrix%name), &
+            IF (io_unit > 0) THEN
+               WRITE (io_unit, "(T2,A,1X,A,1X,A)") "Optimizing distribution of", TRIM(matrix1_in%matrix%name), &
                   "and", TRIM(matrix2_in%matrix%name)
             ENDIF
             CALL dbcsr_r_get_split_info(dbcsr_r_info(matrix1_in), mp_comm=mp_comm, split_rowcol=split_rc_1)
@@ -512,12 +512,12 @@ CONTAINS
             trans1_newdist = (split_rc_1 == colsplit)
             trans2_newdist = (split_rc_2 == colsplit)
 
-            IF(trans1_newdist) THEN
+            IF (trans1_newdist) THEN
                CALL swap(dims1)
                CALL invert_transpose_flag(trans1)
             ENDIF
 
-            IF(trans2_newdist) THEN
+            IF (trans2_newdist) THEN
                CALL swap(dims2)
                CALL invert_transpose_flag(trans2)
             ENDIF
@@ -536,11 +536,11 @@ CONTAINS
             ! sizes are not equal. However we can not use arbitrary distributions
             ! for large dimensions since this would require storing distribution vectors as arrays
             ! which can not be stored for large dimensions.
-            row_dist_1=dbcsr_r_dist_cyclic(1, pdims(1), dims1(1))
-            col_dist_1=dbcsr_r_dist_cyclic(1, pdims(2), dims1(2))
+            row_dist_1 = dbcsr_r_dist_cyclic(1, pdims(1), dims1(1))
+            col_dist_1 = dbcsr_r_dist_cyclic(1, pdims(2), dims1(2))
 
-            row_dist_2=dbcsr_r_dist_cyclic(1, pdims(1), dims2(1))
-            col_dist_2=dbcsr_r_dist_cyclic(1, pdims(2), dims2(2))
+            row_dist_2 = dbcsr_r_dist_cyclic(1, pdims(1), dims2(1))
+            col_dist_2 = dbcsr_r_dist_cyclic(1, pdims(2), dims2(2))
 
             CALL dbcsr_r_distribution_new(dist_1, comm_new, row_dist_1, col_dist_1, split_info=split_info)
             CALL dbcsr_r_distribution_new(dist_2, comm_new, row_dist_2, col_dist_2, split_info=split_info)
@@ -572,8 +572,8 @@ CONTAINS
 
          ELSE
             IF (PRODUCT(dims1) .GE. PRODUCT(dims2)) THEN
-               IF(io_unit > 0) THEN
-                  WRITE(io_unit, "(T2,A,1X,A)") "Redistribution of", TRIM(matrix2_in%matrix%name)
+               IF (io_unit > 0) THEN
+                  WRITE (io_unit, "(T2,A,1X,A)") "Redistribution of", TRIM(matrix2_in%matrix%name)
                ENDIF
 
                ALLOCATE (matrix2_out)
@@ -581,8 +581,8 @@ CONTAINS
                new2 = .TRUE.
                matrix1_out => matrix1_in
             ELSE
-               IF(io_unit > 0) THEN
-                  WRITE(io_unit, "(T2,A,1X,A)") "Redistribution of", TRIM(matrix1_in%matrix%name)
+               IF (io_unit > 0) THEN
+                  WRITE (io_unit, "(T2,A,1X,A)") "Redistribution of", TRIM(matrix1_in%matrix%name)
                ENDIF
                ALLOCATE (matrix1_out)
                CALL reshape_mm_template(matrix2_in, matrix1_in, matrix1_out, trans1, nodata=nodata1, move_data=move_data)
@@ -705,11 +705,11 @@ CONTAINS
       dim_split_matrix = info_matrix%split_rowcol
 
       transposed = dim_split_template .NE. dim_split_matrix
-      IF(transposed) THEN
-         SELECT CASE(trans)
-         CASE(dbcsr_transpose)
+      IF (transposed) THEN
+         SELECT CASE (trans)
+         CASE (dbcsr_transpose)
             trans = dbcsr_no_transpose
-         CASE(dbcsr_no_transpose)
+         CASE (dbcsr_no_transpose)
             trans = dbcsr_transpose
          END SELECT
       ENDIF
@@ -718,7 +718,7 @@ CONTAINS
 
       SELECT CASE (dim_split_template)
       CASE (1)
-         IF(.NOT. transposed) THEN
+         IF (.NOT. transposed) THEN
             ALLOCATE (row_dist, source=template%dist%row_dist)
             ALLOCATE (col_dist, source=dbcsr_r_dist_arb_default(pdims(2), matrix_in%nblkcols, matrix_in%col_blk_size))
          ELSE
@@ -726,7 +726,7 @@ CONTAINS
             ALLOCATE (col_dist, source=dbcsr_r_dist_arb_default(pdims(2), matrix_in%nblkrows, matrix_in%row_blk_size))
          ENDIF
       CASE (2)
-         IF(.NOT. transposed) THEN
+         IF (.NOT. transposed) THEN
             ALLOCATE (row_dist, source=dbcsr_r_dist_arb_default(pdims(1), matrix_in%nblkrows, matrix_in%row_blk_size))
             ALLOCATE (col_dist, source=template%dist%col_dist)
          ELSE
@@ -737,7 +737,7 @@ CONTAINS
 
       CALL dbcsr_r_get_split_info(info_template, mp_comm=mp_comm)
       CALL dbcsr_r_distribution_new(dist_new, mp_comm, row_dist, col_dist, split_info=info_template)
-      IF(.NOT. transposed) THEN
+      IF (.NOT. transposed) THEN
          CALL dbcsr_r_create(matrix_out, matrix_in%matrix%name, dist_new, dbcsr_r_get_data_type(matrix_in), &
                              matrix_in%row_blk_size, matrix_in%col_blk_size, own_dist=.TRUE.)
       ELSE

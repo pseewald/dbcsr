@@ -16,7 +16,7 @@
 
 MODULE dbcsr_rectangular_global
 
-   USE dbcsr_kinds,                           ONLY: int_8
+   USE dbcsr_kinds, ONLY: int_8
 #include "../base/dbcsr_base_uses.f90"
 
    IMPLICIT NONE
@@ -199,8 +199,8 @@ CONTAINS
       INTEGER :: igroup
       INTEGER :: rowcol_local
 
-      igroup = INT((rowcol-1_int_8)/t%nmrowcol_local)
-      rowcol_local = INT(MOD(rowcol-1_int_8, INT(t%nmrowcol_local, KIND=int_8)))+1
+      igroup = INT((rowcol - 1_int_8)/t%nmrowcol_local)
+      rowcol_local = INT(MOD(rowcol - 1_int_8, INT(t%nmrowcol_local, KIND=int_8))) + 1
       blk_size_repl = t%blk_size_vec(rowcol_local)
 
    END FUNCTION
@@ -265,10 +265,10 @@ CONTAINS
       INTEGER :: rowcol_local
       INTEGER :: igroup
 
-      igroup = INT((rowcol-1_int_8)/t%nmrowcol_local)
-      rowcol_local = INT(MOD(rowcol-1_int_8, INT(t%nmrowcol_local, KIND=int_8)))+1
+      igroup = INT((rowcol - 1_int_8)/t%nmrowcol_local)
+      rowcol_local = INT(MOD(rowcol - 1_int_8, INT(t%nmrowcol_local, KIND=int_8))) + 1
 
-      repl_dist = t%dist_vec(rowcol_local)+igroup*t%dist_size
+      repl_dist = t%dist_vec(rowcol_local) + igroup*t%dist_size
 
    END FUNCTION
 
@@ -294,16 +294,16 @@ CONTAINS
       ALLOCATE (rowcols_tmp(nrowcols))
       rowcols_tmp(:) = 0
       DO rowcol = 1, nrowcols
-         cond = t%dist_vec(rowcol)+igroup*t%dist_size == dist
+         cond = t%dist_vec(rowcol) + igroup*t%dist_size == dist
 
          IF (cond) THEN
-            count = count+1
+            count = count + 1
             rowcols_tmp(count) = rowcol
          ENDIF
       ENDDO
 
       ALLOCATE (repl_rowcols(count))
-      repl_rowcols(:) = rowcols_tmp(1:count)+igroup*t%nmrowcol_local
+      repl_rowcols(:) = rowcols_tmp(1:count) + igroup*t%nmrowcol_local
 
    END FUNCTION
 
@@ -326,7 +326,7 @@ CONTAINS
       rowcols_tmp(:) = 0
       DO rowcol = 1, nrowcols
          IF (t%dist_vec(rowcol) == dist) THEN
-            count = count+1
+            count = count + 1
             rowcols_tmp(count) = rowcol
          ENDIF
       ENDDO
@@ -389,7 +389,7 @@ CONTAINS
       INTEGER, DIMENSION(nmrowcol) :: dist_vec, bsize_vec
       INTEGER(KIND=int_8) :: ind
 
-      DO ind=1, nmrowcol
+      DO ind = 1, nmrowcol
          bsize_vec(ind) = block_sizes%data(ind)
       ENDDO
 
@@ -464,7 +464,7 @@ CONTAINS
       INTEGER(KIND=int_8), INTENT(IN) :: rowcol
       INTEGER :: cyclic_dist
 
-      cyclic_dist = INT(MOD((rowcol-1)/INT(t%split_size, KIND=int_8), INT(t%nprowcol, KIND=int_8)))
+      cyclic_dist = INT(MOD((rowcol - 1)/INT(t%split_size, KIND=int_8), INT(t%nprowcol, KIND=int_8)))
 
    END FUNCTION
 
@@ -482,19 +482,19 @@ CONTAINS
       INTEGER(KIND=int_8) :: rowcol
       INTEGER(KIND=int_8), DIMENSION(:), ALLOCATABLE :: rowcols_tmp
 
-      nsplit = INT((t%nmrowcol-1)/INT(t%split_size, KIND=int_8)+1_int_8)
+      nsplit = INT((t%nmrowcol - 1)/INT(t%split_size, KIND=int_8) + 1_int_8)
       max_size = nsplit*t%split_size
       ALLOCATE (rowcols_tmp(max_size))
       rowcols_tmp(:) = 0
       count = 0
       loop: DO isplit = 1, nsplit
          DO irowcol = 1, t%split_size
-            rowcol = INT((dist+(isplit-1)*t%nprowcol), KIND=int_8)*INT(t%split_size, KIND=int_8)+ &
+            rowcol = INT((dist + (isplit - 1)*t%nprowcol), KIND=int_8)*INT(t%split_size, KIND=int_8) + &
                      INT(irowcol, KIND=int_8)
             IF (rowcol > t%nmrowcol) THEN
                EXIT loop
             ELSE
-               count = count+1
+               count = count + 1
                rowcols_tmp(count) = rowcol
             ENDIF
          ENDDO

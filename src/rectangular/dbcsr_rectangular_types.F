@@ -12,12 +12,12 @@
 
 MODULE dbcsr_rectangular_types
 
-   USE dbcsr_rectangular_global,        ONLY: dbcsr_r_distribution,&
-                                              dbcsr_r_rowcol_data
-   USE dbcsr_types,                     ONLY: dbcsr_distribution_obj,&
-                                              dbcsr_iterator,&
-                                              dbcsr_type
-   USE dbcsr_kinds,                           ONLY: int_8
+   USE dbcsr_rectangular_global, ONLY: dbcsr_r_distribution, &
+                                       dbcsr_r_rowcol_data
+   USE dbcsr_types, ONLY: dbcsr_distribution_obj, &
+                          dbcsr_iterator, &
+                          dbcsr_type
+   USE dbcsr_kinds, ONLY: int_8
 #include "../base/dbcsr_base_uses.f90"
 
    IMPLICIT NONE

@@ -10,14 +10,14 @@
 
 MODULE dbcsr_rectangular_util
 
-   USE dbcsr_mp_methods,                ONLY: dbcsr_mp_new
-   USE dbcsr_types,                     ONLY: dbcsr_mp_obj,&
-                                              dbcsr_transpose,&
-                                              dbcsr_no_transpose
-   USE dbcsr_kinds,                     ONLY: int_8
-   USE dbcsr_mpiwrap,                   ONLY: mp_cart_rank,&
-                                              mp_environ
-   USE dbcsr_index_operations,          ONLY: dbcsr_sort_indices
+   USE dbcsr_mp_methods, ONLY: dbcsr_mp_new
+   USE dbcsr_types, ONLY: dbcsr_mp_obj, &
+                          dbcsr_transpose, &
+                          dbcsr_no_transpose
+   USE dbcsr_kinds, ONLY: int_8
+   USE dbcsr_mpiwrap, ONLY: mp_cart_rank, &
+                            mp_environ
+   USE dbcsr_index_operations, ONLY: dbcsr_sort_indices
 #include "../base/dbcsr_base_uses.f90"
 
    IMPLICIT NONE
@@ -53,9 +53,9 @@ CONTAINS
 
       CALL mp_environ(numnodes, npdims, mycoord, mp_comm)
       CALL mp_environ(numnodes, mynode, mp_comm)
-      ALLOCATE (pgrid(0:npdims(1)-1, 0:npdims(2)-1))
-      DO prow = 0, npdims(1)-1
-         DO pcol = 0, npdims(2)-1
+      ALLOCATE (pgrid(0:npdims(1) - 1, 0:npdims(2) - 1))
+      DO prow = 0, npdims(1) - 1
+         DO pcol = 0, npdims(2) - 1
             coord = (/prow, pcol/)
             CALL mp_cart_rank(mp_comm, coord, pgrid(prow, pcol))
          ENDDO
@@ -107,7 +107,7 @@ CONTAINS
       INTEGER                                            :: blk, count, orig_size
       INTEGER, ALLOCATABLE, DIMENSION(:, :)  :: index_tmp
       INTEGER, DIMENSION(2)                  :: prev_index
-      INTEGER, DIMENSION(1:SIZE(index_in, 1)&
+      INTEGER, DIMENSION(1:SIZE(index_in, 1) &
                          , 1:SIZE(index_in, 2))                          :: index_sorted
 
       orig_size = SIZE(index_in, 1)
@@ -118,7 +118,7 @@ CONTAINS
       prev_index(:) = [0, 0]
       DO blk = 1, orig_size
          IF (ANY(index_sorted(blk, :) .NE. prev_index(:))) THEN
-            count = count+1
+            count = count + 1
             index_tmp(count, :) = index_sorted(blk, :)
             prev_index(:) = index_sorted(blk, :)
          ENDIF

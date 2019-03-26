@@ -11,19 +11,19 @@
 ! **************************************************************************************************
 MODULE dbcsr_rectangular_split
 
-   USE dbcsr_rectangular_types,               ONLY: dbcsr_r_distribution_type, &
-                                                    dbcsr_r_split_info
-   USE dbcsr_rectangular_global,              ONLY: dbcsr_r_distribution
-   USE dbcsr_rectangular_util,                ONLY: swap
-   USE dbcsr_toollib,                         ONLY: sort
-   USE dbcsr_kinds,                           ONLY: int_8
-   USE dbcsr_mpiwrap,                         ONLY: mp_bcast, &
-                                                    mp_cart_create, &
-                                                    mp_comm_dup, &
-                                                    mp_comm_free, &
-                                                    mp_comm_split_direct, &
-                                                    mp_dims_create, &
-                                                    mp_environ
+   USE dbcsr_rectangular_types, ONLY: dbcsr_r_distribution_type, &
+                                      dbcsr_r_split_info
+   USE dbcsr_rectangular_global, ONLY: dbcsr_r_distribution
+   USE dbcsr_rectangular_util, ONLY: swap
+   USE dbcsr_toollib, ONLY: sort
+   USE dbcsr_kinds, ONLY: int_8
+   USE dbcsr_mpiwrap, ONLY: mp_bcast, &
+                            mp_cart_create, &
+                            mp_comm_dup, &
+                            mp_comm_free, &
+                            mp_comm_split_direct, &
+                            mp_dims_create, &
+                            mp_environ
 #include "../base/dbcsr_base_uses.f90"
 
    IMPLICIT NONE
@@ -572,22 +572,22 @@ CONTAINS
       INTEGER, INTENT(in), OPTIONAL   :: l_index, u_index
       INTEGER                         :: res, lindex, uindex, aindex
 
-      character(len=*), parameter :: routineN='i8_bsearch',&
-                                     routineP=moduleN//':'//routineN
+      character(len=*), parameter :: routineN = 'i8_bsearch', &
+                                     routineP = moduleN//':'//routineN
 
-      lindex=1
-      uindex=size(array)
-      if (present(l_index)) lindex=l_index
-      if (present(u_index)) uindex=u_index
+      lindex = 1
+      uindex = size(array)
+      if (present(l_index)) lindex = l_index
+      if (present(u_index)) uindex = u_index
       DO WHILE (lindex <= uindex)
-         aindex=(lindex+uindex)/2
+         aindex = (lindex + uindex)/2
          IF (array(aindex) < el) THEN
-            lindex=aindex+1
+            lindex = aindex + 1
          ELSE
-            uindex=aindex-1
+            uindex = aindex - 1
          END IF
       END DO
-      res=lindex
+      res = lindex
    END FUNCTION
 
 ! **************************************************************************************************

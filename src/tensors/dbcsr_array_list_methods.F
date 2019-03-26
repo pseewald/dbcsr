@@ -37,7 +37,7 @@ MODULE dbcsr_array_list_methods
       get_arrays, &
       get_ith_array, &
       number_of_arrays, &
-      reorder_arrays,&
+      reorder_arrays, &
       sizes_of_arrays, &
       sum_of_arrays, &
       check_equal
@@ -58,7 +58,7 @@ CONTAINS
       TYPE(array_list), INTENT(IN) :: list
       INTEGER                      :: number_of_arrays
 
-      number_of_arrays = SIZE(list%ptr)-1
+      number_of_arrays = SIZE(list%ptr) - 1
 
    END FUNCTION number_of_arrays
 
@@ -76,7 +76,7 @@ CONTAINS
       INTEGER                                                :: i, ind
 
       DO i = 1, SIZE(indices)
-         ind = indices(i)+list%ptr(i)-1
+         ind = indices(i) + list%ptr(i) - 1
          get_array_elements(i) = list%col_data(ind)
       ENDDO
 
@@ -102,11 +102,11 @@ CONTAINS
 #:for dim in range(1, maxdim+1)
       IF (ndata .GE. ${dim}$) THEN
          DBCSR_ASSERT(PRESENT(data_${dim}$))
-         size_all = size_all+SIZE(data_${dim}$)
+         size_all = size_all + SIZE(data_${dim}$)
       ENDIF
 #:endfor
 
-      ALLOCATE (list%ptr(ndata+1))
+      ALLOCATE (list%ptr(ndata + 1))
       ALLOCATE (list%col_data(size_all))
 
       ptr = 1
@@ -114,8 +114,8 @@ CONTAINS
 
 #:for dim in range(1, maxdim+1)
       IF (ndata .GE. ${dim}$) THEN
-         list%col_data(ptr:ptr+SIZE(data_${dim}$)-1) = data_${dim}$(:)
-         ptr = ptr+SIZE(data_${dim}$)
+         list%col_data(ptr:ptr + SIZE(data_${dim}$) - 1) = data_${dim}$ (:)
+         ptr = ptr + SIZE(data_${dim}$)
          list%ptr(${dim+1}$) = ptr
       ENDIF
 #:endfor
@@ -175,10 +175,10 @@ CONTAINS
          o(1:ndata) = (/(i, i=1, ndata)/)
       ENDIF
 
-      ASSOCIATE(ptr=>list%ptr, col_data=>list%col_data)
+      ASSOCIATE (ptr=>list%ptr, col_data=>list%col_data)
 #:for dim in range(1, maxdim+1)
          IF (ndata > ${dim-1}$) THEN
-            CALL allocate_any(data_${dim}$, source=col_data(ptr(o(${dim}$)):ptr(o(${dim}$)+1)-1))
+            CALL allocate_any(data_${dim}$, source=col_data(ptr(o(${dim}$)):ptr(o(${dim}$) + 1) - 1))
          ENDIF
 #:endfor
       END ASSOCIATE
@@ -196,10 +196,10 @@ CONTAINS
       INTEGER, INTENT(IN)                             :: i
       INTEGER, DIMENSION(:), ALLOCATABLE, INTENT(OUT) :: array
 
-      ASSOCIATE(ptr=>list%ptr, col_data=>list%col_data)
+      ASSOCIATE (ptr=>list%ptr, col_data=>list%col_data)
          DBCSR_ASSERT(i <= number_of_arrays(list))
 
-         CALL allocate_any(array, source=col_data(ptr(i):ptr(i+1)-1))
+         CALL allocate_any(array, source=col_data(ptr(i):ptr(i + 1) - 1))
       END ASSOCIATE
    END SUBROUTINE
 
@@ -217,7 +217,7 @@ CONTAINS
       num_data = number_of_arrays(list)
       ALLOCATE (sizes_of_arrays(num_data))
       DO i_data = 1, num_data
-         sizes_of_arrays(i_data) = list%ptr(i_data+1)-list%ptr(i_data)
+         sizes_of_arrays(i_data) = list%ptr(i_data + 1) - list%ptr(i_data)
       ENDDO
    END FUNCTION sizes_of_arrays
 
@@ -235,7 +235,7 @@ CONTAINS
       num_data = number_of_arrays(list)
       ALLOCATE (sum_of_arrays(num_data))
       DO i_data = 1, num_data
-         sum_of_arrays(i_data) = SUM(list%col_data(list%ptr(i_data):list%ptr(i_data+1)-1))
+         sum_of_arrays(i_data) = SUM(list%col_data(list%ptr(i_data):list%ptr(i_data + 1) - 1))
       ENDDO
 
    END FUNCTION sum_of_arrays
@@ -256,9 +256,9 @@ CONTAINS
       ALLOCATE (list_out%col_data(SIZE(list_in%col_data)))
       DO i_data = 1, num_data
          partial_sum = 1
-         DO i_ptr = list_out%ptr(i_data), list_out%ptr(i_data+1)-1
+         DO i_ptr = list_out%ptr(i_data), list_out%ptr(i_data + 1) - 1
             list_out%col_data(i_ptr) = partial_sum
-            partial_sum = partial_sum+list_in%col_data(i_ptr)
+            partial_sum = partial_sum + list_in%col_data(i_ptr)
          ENDDO
       ENDDO
    END SUBROUTINE

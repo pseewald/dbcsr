@@ -10,62 +10,62 @@
 MODULE dbcsr_rectangular_reshape
 #:include "dbcsr_rectangular.fypp"
 
-   USE dbcsr_block_access,              ONLY: dbcsr_put_block,&
-                                              dbcsr_reserve_blocks
-   USE dbcsr_data_methods,              ONLY: dbcsr_data_clear_pointer,&
-                                              dbcsr_data_init,&
-                                              dbcsr_data_new,&
-                                              dbcsr_data_release,&
-                                              dbcsr_type_1d_to_2d,&
-                                              dbcsr_data_get_sizes,&
-                                              dbcsr_data_set_pointer
-   USE dbcsr_data_methods_low,          ONLY: internal_data_allocate,&
-                                              internal_data_deallocate,&
-                                              ${uselist(["dbcsr_get_data_p_2d_" + s for s in dtype_float_suffix_dbcsr])}$
-   USE dbcsr_data_types,                ONLY: dbcsr_data_obj,&
-                                              ${uselist(dtype_float_param)}$
-   USE dbcsr_dist_methods,              ONLY: dbcsr_distribution_col_dist,&
-                                              dbcsr_distribution_row_dist
-   USE dbcsr_dist_operations,           ONLY: dbcsr_get_stored_coordinates
-   USE dbcsr_iterator_operations,       ONLY: dbcsr_iterator_blocks_left,&
-                                              dbcsr_iterator_next_block,&
-                                              dbcsr_iterator_start,&
-                                              dbcsr_iterator_stop
-   USE dbcsr_methods,                   ONLY: dbcsr_blk_column_size,&
-                                              dbcsr_blk_row_size
-   USE dbcsr_operations,                ONLY: dbcsr_get_info, &
-                                              dbcsr_clear
-   USE dbcsr_rectangular_base,          ONLY: &
+   USE dbcsr_block_access, ONLY: dbcsr_put_block, &
+                                 dbcsr_reserve_blocks
+   USE dbcsr_data_methods, ONLY: dbcsr_data_clear_pointer, &
+                                 dbcsr_data_init, &
+                                 dbcsr_data_new, &
+                                 dbcsr_data_release, &
+                                 dbcsr_type_1d_to_2d, &
+                                 dbcsr_data_get_sizes, &
+                                 dbcsr_data_set_pointer
+   USE dbcsr_data_methods_low, ONLY: internal_data_allocate, &
+                                     internal_data_deallocate, &
+                                     ${uselist(["dbcsr_get_data_p_2d_" + s for s in dtype_float_suffix_dbcsr])}$
+   USE dbcsr_data_types, ONLY: dbcsr_data_obj, &
+                               ${uselist(dtype_float_param)}$
+   USE dbcsr_dist_methods, ONLY: dbcsr_distribution_col_dist, &
+                                 dbcsr_distribution_row_dist
+   USE dbcsr_dist_operations, ONLY: dbcsr_get_stored_coordinates
+   USE dbcsr_iterator_operations, ONLY: dbcsr_iterator_blocks_left, &
+                                        dbcsr_iterator_next_block, &
+                                        dbcsr_iterator_start, &
+                                        dbcsr_iterator_stop
+   USE dbcsr_methods, ONLY: dbcsr_blk_column_size, &
+                            dbcsr_blk_row_size
+   USE dbcsr_operations, ONLY: dbcsr_get_info, &
+                               dbcsr_clear
+   USE dbcsr_rectangular_base, ONLY: &
       dbcsr_r_blk_sizes, dbcsr_r_create, dbcsr_r_distribution_new, dbcsr_r_finalize, &
       dbcsr_r_get_data_type, dbcsr_r_get_stored_coordinates, dbcsr_r_info, &
       dbcsr_r_iterator_blocks_left, dbcsr_r_iterator_next_block, dbcsr_r_iterator_start, &
       dbcsr_r_iterator_stop, dbcsr_r_put_block, dbcsr_r_reserve_blocks, &
       dbcsr_repl_get_stored_coordinates, dbcsr_r_clear
-   USE dbcsr_rectangular_types,         ONLY: dbcsr_r_distribution_type,&
-                                              dbcsr_r_iterator,&
-                                              dbcsr_r_split_info,&
-                                              dbcsr_r_type
-   USE dbcsr_rectangular_global,        ONLY: dbcsr_r_blk_size_arb,&
-                                              dbcsr_r_blk_size_repl,&
-                                              dbcsr_r_dist_arb,&
-                                              dbcsr_r_dist_repl,&
-                                              dbcsr_r_distribution,&
-                                              dbcsr_r_rowcol_data
-   USE dbcsr_rectangular_split,         ONLY: colsplit,&
-                                              dbcsr_r_get_split_info,&
-                                              rowsplit
-   USE dbcsr_types,                     ONLY: dbcsr_distribution_obj,&
-                                              dbcsr_iterator,&
-                                              dbcsr_type
-   USE dbcsr_work_operations,           ONLY: dbcsr_finalize
-   USE dbcsr_kinds,                     ONLY: int_8,&
-                                              real_8,&
-                                              real_4
-   USE dbcsr_mpiwrap,                   ONLY: mp_alltoall,&
-                                              mp_environ,&
-                                              mp_isend,&
-                                              mp_irecv,&
-                                              mp_waitall
+   USE dbcsr_rectangular_types, ONLY: dbcsr_r_distribution_type, &
+                                      dbcsr_r_iterator, &
+                                      dbcsr_r_split_info, &
+                                      dbcsr_r_type
+   USE dbcsr_rectangular_global, ONLY: dbcsr_r_blk_size_arb, &
+                                       dbcsr_r_blk_size_repl, &
+                                       dbcsr_r_dist_arb, &
+                                       dbcsr_r_dist_repl, &
+                                       dbcsr_r_distribution, &
+                                       dbcsr_r_rowcol_data
+   USE dbcsr_rectangular_split, ONLY: colsplit, &
+                                      dbcsr_r_get_split_info, &
+                                      rowsplit
+   USE dbcsr_types, ONLY: dbcsr_distribution_obj, &
+                          dbcsr_iterator, &
+                          dbcsr_type
+   USE dbcsr_work_operations, ONLY: dbcsr_finalize
+   USE dbcsr_kinds, ONLY: int_8, &
+                          real_8, &
+                          real_4
+   USE dbcsr_mpiwrap, ONLY: mp_alltoall, &
+                            mp_environ, &
+                            mp_isend, &
+                            mp_irecv, &
+                            mp_waitall
 
    USE dbcsr_rectangular_util, ONLY: swap, index_unique
 #include "../base/dbcsr_base_uses.f90"
@@ -81,7 +81,7 @@ MODULE dbcsr_rectangular_reshape
       dbcsr_r_reshape
 
    TYPE block_buffer_type
-      INTEGER :: nblock=-1
+      INTEGER :: nblock = -1
       INTEGER(KIND=int_8), DIMENSION(:, :), ALLOCATABLE :: indx
 #:for dparam, dtype, dsuffix in dtype_float_list
       ${dtype}$, DIMENSION(:), ALLOCATABLE :: msg_${dsuffix}$
@@ -140,13 +140,13 @@ CONTAINS
 
       CALL timeset(routineN, handle)
 
-      IF(PRESENT(summation)) THEN
-         IF(.NOT. summation) CALL dbcsr_clear(matrix_out%matrix)
+      IF (PRESENT(summation)) THEN
+         IF (.NOT. summation) CALL dbcsr_clear(matrix_out%matrix)
       ELSE
          CALL dbcsr_clear(matrix_out%matrix)
       ENDIF
 
-      IF(PRESENT(move_data)) THEN
+      IF (PRESENT(move_data)) THEN
          move_prv = move_data
       ELSE
          move_prv = .FALSE.
@@ -165,14 +165,14 @@ CONTAINS
       info = dbcsr_r_info(matrix_in)
       mp_comm = info%mp_comm
       CALL mp_environ(numnodes, mynode, mp_comm)
-      ALLOCATE (buffer_send(0:numnodes-1))
-      ALLOCATE (buffer_recv(0:numnodes-1))
-      ALLOCATE (num_blocks_recv(0:numnodes-1))
-      ALLOCATE (num_blocks_send(0:numnodes-1))
-      ALLOCATE (num_entries_recv(0:numnodes-1))
-      ALLOCATE (num_entries_send(0:numnodes-1))
-      ALLOCATE (num_rec(0:2*numnodes-1))
-      ALLOCATE (num_send(0:2*numnodes-1))
+      ALLOCATE (buffer_send(0:numnodes - 1))
+      ALLOCATE (buffer_recv(0:numnodes - 1))
+      ALLOCATE (num_blocks_recv(0:numnodes - 1))
+      ALLOCATE (num_blocks_send(0:numnodes - 1))
+      ALLOCATE (num_entries_recv(0:numnodes - 1))
+      ALLOCATE (num_entries_send(0:numnodes - 1))
+      ALLOCATE (num_rec(0:2*numnodes - 1))
+      ALLOCATE (num_send(0:2*numnodes - 1))
       num_send(:) = 0
       ALLOCATE (req_array(1:numnodes, 4))
       CALL dbcsr_r_iterator_start(iter, matrix_in)
@@ -188,8 +188,8 @@ CONTAINS
             CALL dbcsr_r_get_stored_coordinates(matrix_out, blk_index(1), blk_index(2), iproc)
          ENDIF
 
-         num_send(2*iproc) = num_send(2*iproc)+PRODUCT(blk_size)
-         num_send(2*iproc+1) = num_send(2*iproc+1)+1
+         num_send(2*iproc) = num_send(2*iproc) + PRODUCT(blk_size)
+         num_send(2*iproc + 1) = num_send(2*iproc + 1) + 1
       ENDDO
       CALL dbcsr_r_iterator_stop(iter)
       CALL timestop(handle2)
@@ -199,11 +199,11 @@ CONTAINS
       CALL timestop(handle2)
 
       CALL timeset(routineN//"_buffer_fill", handle2)
-      DO iproc = 0, numnodes-1
+      DO iproc = 0, numnodes - 1
          num_entries_recv(iproc) = num_rec(2*iproc)
-         num_blocks_recv(iproc) = num_rec(2*iproc+1)
+         num_blocks_recv(iproc) = num_rec(2*iproc + 1)
          num_entries_send(iproc) = num_send(2*iproc)
-         num_blocks_send(iproc) = num_send(2*iproc+1)
+         num_blocks_send(iproc) = num_send(2*iproc + 1)
 
          CALL block_buffer_create(buffer_send(iproc), num_blocks_send(iproc), num_entries_send(iproc), &
                                   dbcsr_r_get_data_type(matrix_in))
@@ -239,7 +239,7 @@ CONTAINS
       CALL timeset(routineN//"_communicate_buffer", handle2)
       CALL dbcsr_r_communicate_buffer(mp_comm, buffer_recv, buffer_send, req_array)
 
-      DO iproc = 0, numnodes-1
+      DO iproc = 0, numnodes - 1
          CALL block_buffer_destroy(buffer_send(iproc))
       ENDDO
 
@@ -255,13 +255,13 @@ CONTAINS
          CALL block_buffer_get_index(buffer_recv(iproc), index_recv)
          blks_to_allocate(bcount + 1:bcount + SIZE(index_recv, 1), :) = index_recv(:, :)
          bcount = bcount + SIZE(index_recv, 1)
-         DEALLOCATE(index_recv)
+         DEALLOCATE (index_recv)
       ENDDO
 
       CALL dbcsr_r_reserve_blocks(matrix_out, blks_to_allocate(:, 1), blks_to_allocate(:, 2))
-      DEALLOCATE(blks_to_allocate)
+      DEALLOCATE (blks_to_allocate)
 
-      DO iproc = 0, numnodes-1
+      DO iproc = 0, numnodes - 1
          ! First, we need to get the index to create block
          DO WHILE (block_buffer_blocks_left(buffer_recv(iproc)))
             CALL block_buffer_get_next_block(buffer_recv(iproc), ndata, blk_index)
@@ -342,7 +342,7 @@ CONTAINS
          nodata_prv = .FALSE.
       ENDIF
 
-      IF(PRESENT(move_data)) THEN
+      IF (PRESENT(move_data)) THEN
          move_prv = move_data
       ELSE
          move_prv = .FALSE.
@@ -390,14 +390,14 @@ CONTAINS
          RETURN
       ENDIF
 
-      ALLOCATE (buffer_send(0:numnodes-1))
-      ALLOCATE (buffer_recv(0:numnodes-1))
-      ALLOCATE (num_blocks_recv(0:numnodes-1))
-      ALLOCATE (num_blocks_send(0:numnodes-1))
-      ALLOCATE (num_entries_recv(0:numnodes-1))
-      ALLOCATE (num_entries_send(0:numnodes-1))
-      ALLOCATE (num_rec(0:2*numnodes-1))
-      ALLOCATE (num_send(0:2*numnodes-1))
+      ALLOCATE (buffer_send(0:numnodes - 1))
+      ALLOCATE (buffer_recv(0:numnodes - 1))
+      ALLOCATE (num_blocks_recv(0:numnodes - 1))
+      ALLOCATE (num_blocks_send(0:numnodes - 1))
+      ALLOCATE (num_entries_recv(0:numnodes - 1))
+      ALLOCATE (num_entries_send(0:numnodes - 1))
+      ALLOCATE (num_rec(0:2*numnodes - 1))
+      ALLOCATE (num_send(0:2*numnodes - 1))
       num_send(:) = 0
       ALLOCATE (req_array(1:numnodes, 4))
 
@@ -408,8 +408,8 @@ CONTAINS
                                         row_size=blk_size(1), col_size=blk_size(2))
          CALL dbcsr_repl_get_stored_coordinates(matrix_out, blk_index(1), blk_index(2), iprocs)
          DO i = 1, SIZE(iprocs)
-            num_send(2*iprocs(i)) = num_send(2*iprocs(i))+PRODUCT(blk_size)
-            num_send(2*iprocs(i)+1) = num_send(2*iprocs(i)+1)+1
+            num_send(2*iprocs(i)) = num_send(2*iprocs(i)) + PRODUCT(blk_size)
+            num_send(2*iprocs(i) + 1) = num_send(2*iprocs(i) + 1) + 1
          ENDDO
       ENDDO
       CALL dbcsr_iterator_stop(iter)
@@ -418,11 +418,11 @@ CONTAINS
       CALL mp_alltoall(num_send, num_rec, 2, mp_comm)
       CALL timestop(handle2)
 
-      DO iproc = 0, numnodes-1
+      DO iproc = 0, numnodes - 1
          num_entries_recv(iproc) = num_rec(2*iproc)
-         num_blocks_recv(iproc) = num_rec(2*iproc+1)
+         num_blocks_recv(iproc) = num_rec(2*iproc + 1)
          num_entries_send(iproc) = num_send(2*iproc)
-         num_blocks_send(iproc) = num_send(2*iproc+1)
+         num_blocks_send(iproc) = num_send(2*iproc + 1)
 
          CALL block_buffer_create(buffer_send(iproc), num_blocks_send(iproc), num_entries_send(iproc), &
                                   data_type)
@@ -451,7 +451,7 @@ CONTAINS
       CALL timeset(routineN//"_communicate_buffer", handle2)
       CALL dbcsr_r_communicate_buffer(mp_comm, buffer_recv, buffer_send, req_array)
 
-      DO iproc = 0, numnodes-1
+      DO iproc = 0, numnodes - 1
          CALL block_buffer_destroy(buffer_send(iproc))
       ENDDO
 
@@ -465,13 +465,13 @@ CONTAINS
          CALL block_buffer_get_index(buffer_recv(iproc), index_recv)
          blks_to_allocate(bcount + 1:bcount + SIZE(index_recv, 1), :) = INT(index_recv(:, :))
          bcount = bcount + SIZE(index_recv, 1)
-         DEALLOCATE(index_recv)
+         DEALLOCATE (index_recv)
       ENDDO
 
       CALL dbcsr_reserve_blocks(matrix_out%matrix, blks_to_allocate(:, 1), blks_to_allocate(:, 2))
-      DEALLOCATE(blks_to_allocate)
+      DEALLOCATE (blks_to_allocate)
 
-      DO iproc = 0, numnodes-1
+      DO iproc = 0, numnodes - 1
          ! First, we need to get the index to create block
          DO WHILE (block_buffer_blocks_left(buffer_recv(iproc)))
             CALL block_buffer_get_next_block(buffer_recv(iproc), ndata, blk_index_i8)
@@ -525,7 +525,7 @@ CONTAINS
 
       CALL dbcsr_clear(matrix_out)
 
-      IF(PRESENT(move_data)) THEN
+      IF (PRESENT(move_data)) THEN
          move_prv = move_data
       ELSE
          move_prv = .FALSE.
@@ -537,14 +537,14 @@ CONTAINS
       CALL dbcsr_r_get_split_info(info, mp_comm=mp_comm)
       CALL mp_environ(numnodes, mynode, mp_comm)
 
-      ALLOCATE (buffer_send(0:numnodes-1))
-      ALLOCATE (buffer_recv(0:numnodes-1))
-      ALLOCATE (num_blocks_recv(0:numnodes-1))
-      ALLOCATE (num_blocks_send(0:numnodes-1))
-      ALLOCATE (num_entries_recv(0:numnodes-1))
-      ALLOCATE (num_entries_send(0:numnodes-1))
-      ALLOCATE (num_rec(0:2*numnodes-1))
-      ALLOCATE (num_send(0:2*numnodes-1))
+      ALLOCATE (buffer_send(0:numnodes - 1))
+      ALLOCATE (buffer_recv(0:numnodes - 1))
+      ALLOCATE (num_blocks_recv(0:numnodes - 1))
+      ALLOCATE (num_blocks_send(0:numnodes - 1))
+      ALLOCATE (num_entries_recv(0:numnodes - 1))
+      ALLOCATE (num_entries_send(0:numnodes - 1))
+      ALLOCATE (num_rec(0:2*numnodes - 1))
+      ALLOCATE (num_send(0:2*numnodes - 1))
       num_send(:) = 0
       ALLOCATE (req_array(1:numnodes, 4))
 
@@ -555,8 +555,8 @@ CONTAINS
          CALL dbcsr_iterator_next_block(iter, blk_index(1), blk_index(2), nblock, transposed=tr, &
                                         row_size=blk_size(1), col_size=blk_size(2))
          CALL dbcsr_get_stored_coordinates(matrix_out, blk_index(1), blk_index(2), iproc)
-         num_send(2*iproc) = num_send(2*iproc)+PRODUCT(blk_size)
-         num_send(2*iproc+1) = num_send(2*iproc+1)+1
+         num_send(2*iproc) = num_send(2*iproc) + PRODUCT(blk_size)
+         num_send(2*iproc + 1) = num_send(2*iproc + 1) + 1
       ENDDO
       CALL dbcsr_iterator_stop(iter)
 
@@ -564,11 +564,11 @@ CONTAINS
       CALL mp_alltoall(num_send, num_rec, 2, mp_comm)
       CALL timestop(handle2)
 
-      DO iproc = 0, numnodes-1
+      DO iproc = 0, numnodes - 1
          num_entries_recv(iproc) = num_rec(2*iproc)
-         num_blocks_recv(iproc) = num_rec(2*iproc+1)
+         num_blocks_recv(iproc) = num_rec(2*iproc + 1)
          num_entries_send(iproc) = num_send(2*iproc)
-         num_blocks_send(iproc) = num_send(2*iproc+1)
+         num_blocks_send(iproc) = num_send(2*iproc + 1)
 
          CALL block_buffer_create(buffer_send(iproc), num_blocks_send(iproc), num_entries_send(iproc), &
                                   data_type)
@@ -595,7 +595,7 @@ CONTAINS
       CALL timeset(routineN//"_communicate_buffer", handle2)
       CALL dbcsr_r_communicate_buffer(mp_comm, buffer_recv, buffer_send, req_array)
 
-      DO iproc = 0, numnodes-1
+      DO iproc = 0, numnodes - 1
          CALL block_buffer_destroy(buffer_send(iproc))
       ENDDO
 
@@ -609,15 +609,15 @@ CONTAINS
          CALL block_buffer_get_index(buffer_recv(iproc), index_recv)
          blks_to_allocate(bcount + 1:bcount + SIZE(index_recv, 1), :) = INT(index_recv(:, :))
          bcount = bcount + SIZE(index_recv, 1)
-         DEALLOCATE(index_recv)
+         DEALLOCATE (index_recv)
       ENDDO
 
       CALL index_unique(blks_to_allocate, blks_to_allocate_u)
 
       CALL dbcsr_reserve_blocks(matrix_out, blks_to_allocate_u(:, 1), blks_to_allocate_u(:, 2))
-      DEALLOCATE(blks_to_allocate, blks_to_allocate_u)
+      DEALLOCATE (blks_to_allocate, blks_to_allocate_u)
 
-      DO iproc = 0, numnodes-1
+      DO iproc = 0, numnodes - 1
          ! First, we need to get the index to create block
          DO WHILE (block_buffer_blocks_left(buffer_recv(iproc)))
             CALL block_buffer_get_next_block(buffer_recv(iproc), ndata, blk_index_i8)
@@ -655,7 +655,7 @@ CONTAINS
 
       CALL timeset(routineN, handle)
 
-      indx_shape = SHAPE(buffer%indx)-[0, 1]
+      indx_shape = SHAPE(buffer%indx) - [0, 1]
       ALLOCATE (INDEX(indx_shape(1), indx_shape(2)))
       INDEX(:, :) = buffer%indx(1:indx_shape(1), 1:indx_shape(2))
       CALL timestop(handle)
@@ -700,7 +700,7 @@ CONTAINS
       SELECT CASE (data_type)
 #:for dparam, dtype, dsuffix in dtype_float_list
       CASE (${dparam}$)
-         ALLOCATE (buffer%msg_${dsuffix}$(ndata))
+         ALLOCATE (buffer%msg_${dsuffix}$ (ndata))
 #:endfor
       END SELECT
       ALLOCATE (buffer%indx(nblock, 3))
@@ -740,14 +740,14 @@ CONTAINS
       LOGICAL, INTENT(IN), OPTIONAL :: transposed
 
 #:for dparam, dtype, dsuffix in dtype_float_list
-      ${dtype}$, DIMENSION(:,:), POINTER :: block_${dsuffix}$
+      ${dtype}$, DIMENSION(:, :), POINTER :: block_${dsuffix}$
 #:endfor
 
-      SELECT CASE(buffer%data_type)
+      SELECT CASE (buffer%data_type)
 #:for dparam, dtype, dsuffix, dsuffix_dbcsr in dtype_float_list_dbcsr
-      CASE(${dparam}$)
-         block_${dsuffix}$ => dbcsr_get_data_p_2d_${dsuffix_dbcsr}$(block)
-         CALL block_buffer_add_block_${dsuffix}$(buffer, index, block_${dsuffix}$, transposed)
+      CASE (${dparam}$)
+         block_${dsuffix}$ => dbcsr_get_data_p_2d_${dsuffix_dbcsr}$ (block)
+         CALL block_buffer_add_block_${dsuffix}$ (buffer, index, block_${dsuffix}$, transposed)
 #:endfor
       END SELECT
    END SUBROUTINE
@@ -770,7 +770,7 @@ CONTAINS
       LOGICAL :: valid
       INTEGER, DIMENSION(2) :: sizes
 #:for dparam, dtype, dsuffix in dtype_float_list
-      ${dtype}$, DIMENSION(:,:), POINTER :: data_${dsuffix}$
+      ${dtype}$, DIMENSION(:, :), POINTER :: data_${dsuffix}$
 #:endfor
       INTEGER :: handle
 
@@ -784,15 +784,15 @@ CONTAINS
          CALL internal_data_deallocate(block%d)
       ENDIF
 
-      SELECT CASE(buffer%data_type)
+      SELECT CASE (buffer%data_type)
 #:for dparam, dtype, dsuffix in dtype_float_list
-      CASE(${dparam}$)
-         IF(PRESENT(block)) THEN
-            ALLOCATE(data_${dsuffix}$(sizes(1), sizes(2)))
-            CALL block_buffer_get_next_block_${dsuffix}$(buffer, ndata, index, data_${dsuffix}$, advance_iter=advance_iter)
+      CASE (${dparam}$)
+         IF (PRESENT(block)) THEN
+            ALLOCATE (data_${dsuffix}$ (sizes(1), sizes(2)))
+            CALL block_buffer_get_next_block_${dsuffix}$ (buffer, ndata, index, data_${dsuffix}$, advance_iter=advance_iter)
             CALL dbcsr_data_set_pointer(block, data_${dsuffix}$)
          ELSE
-            CALL block_buffer_get_next_block_${dsuffix}$(buffer, ndata, index, advance_iter=advance_iter)
+            CALL block_buffer_get_next_block_${dsuffix}$ (buffer, ndata, index, advance_iter=advance_iter)
          ENDIF
 #:endfor
       END SELECT
@@ -807,11 +807,11 @@ CONTAINS
 !> \param block block
 !> \param transposed ...
 ! **************************************************************************************************
-   SUBROUTINE block_buffer_add_block_${dsuffix}$(buffer, index, block, transposed)
+   SUBROUTINE block_buffer_add_block_${dsuffix}$ (buffer, index, block, transposed)
       TYPE(block_buffer_type), INTENT(INOUT)      :: buffer
       INTEGER(KIND=int_8), DIMENSION(2), &
          INTENT(IN)                               :: index
-      ${dtype}$, DIMENSION(:,:), INTENT(IN)                  :: block
+      ${dtype}$, DIMENSION(:, :), INTENT(IN)                  :: block
       LOGICAL, INTENT(IN), OPTIONAL :: transposed
       INTEGER(KIND=int_8), DIMENSION(2)   :: index_prv
 
@@ -820,14 +820,14 @@ CONTAINS
       INTEGER :: ndata
       INTEGER :: p_data
 
-      IF(PRESENT(transposed)) THEN
+      IF (PRESENT(transposed)) THEN
          tr = transposed
       ELSE
          tr = .FALSE.
       ENDIF
 
       index_prv(:) = index(:)
-      IF(tr) THEN
+      IF (tr) THEN
          CALL swap(index_prv)
       ENDIF
       ndata = PRODUCT(SHAPE(block))
@@ -840,19 +840,19 @@ CONTAINS
          p_data = INT(buffer%indx(p, 3))
       ENDIF
 
-      IF(tr) THEN
-         buffer%msg_${dsuffix}$(p_data+1:p_data+ndata) = RESHAPE(TRANSPOSE(block),[ndata])
+      IF (tr) THEN
+         buffer%msg_${dsuffix}$ (p_data + 1:p_data + ndata) = RESHAPE(TRANSPOSE(block), [ndata])
       ELSE
-         buffer%msg_${dsuffix}$(p_data+1:p_data+ndata) = RESHAPE(block,[ndata])
+         buffer%msg_${dsuffix}$ (p_data + 1:p_data + ndata) = RESHAPE(block, [ndata])
       ENDIF
 
-      buffer%indx(p+1, 1:2) = index_prv(:)
+      buffer%indx(p + 1, 1:2) = index_prv(:)
       IF (p > 0) THEN
-         buffer%indx(p+1,3) = buffer%indx(p,3)+INT(ndata, KIND=int_8)
+         buffer%indx(p + 1, 3) = buffer%indx(p, 3) + INT(ndata, KIND=int_8)
       ELSE
-         buffer%indx(p+1,3) = INT(ndata, KIND=int_8)
+         buffer%indx(p + 1, 3) = INT(ndata, KIND=int_8)
       ENDIF
-      buffer%endpos = buffer%endpos+1
+      buffer%endpos = buffer%endpos + 1
    END SUBROUTINE
 #:endfor
 
@@ -865,12 +865,12 @@ CONTAINS
 !> \param block ...
 !> \param advance_iter ...
 ! **************************************************************************************************
-   SUBROUTINE block_buffer_get_next_block_${dsuffix}$(buffer, ndata, index, block, advance_iter)
+   SUBROUTINE block_buffer_get_next_block_${dsuffix}$ (buffer, ndata, index, block, advance_iter)
       TYPE(block_buffer_type), INTENT(INOUT)      :: buffer
       INTEGER, INTENT(OUT)                        :: ndata
       INTEGER(KIND=int_8), DIMENSION(2), &
          INTENT(OUT)                              :: index
-      ${dtype}$, DIMENSION(:,:), INTENT(OUT), OPTIONAL     :: block
+      ${dtype}$, DIMENSION(:, :), INTENT(OUT), OPTIONAL     :: block
       LOGICAL, INTENT(IN), OPTIONAL               :: advance_iter
       INTEGER :: p, p_data
       LOGICAL :: do_advance
@@ -892,17 +892,17 @@ CONTAINS
       ENDIF
 
       IF (p > 0) THEN
-         ndata = INT(buffer%indx(p+1, 3)-buffer%indx(p, 3))
+         ndata = INT(buffer%indx(p + 1, 3) - buffer%indx(p, 3))
       ELSE
-         ndata = INT(buffer%indx(p+1, 3))
+         ndata = INT(buffer%indx(p + 1, 3))
       ENDIF
-      index(:) = buffer%indx(p+1,1:2)
+      index(:) = buffer%indx(p + 1, 1:2)
 
       IF (PRESENT(block)) THEN
-         block(:,:) = RESHAPE(buffer%msg_${dsuffix}$(p_data+1:p_data+ndata),SHAPE(block))
+         block(:, :) = RESHAPE(buffer%msg_${dsuffix}$ (p_data + 1:p_data + ndata), SHAPE(block))
       ENDIF
 
-      IF(do_advance) buffer%endpos = buffer%endpos+1
+      IF (do_advance) buffer%endpos = buffer%endpos + 1
    END SUBROUTINE
 #:endfor
 
@@ -932,11 +932,11 @@ CONTAINS
          send_counter = 0
          rec_counter = 0
 
-         DO iproc = 0, numnodes-1
+         DO iproc = 0, numnodes - 1
             IF (buffer_recv(iproc)%nblock > 0) THEN
-               rec_counter = rec_counter+1
+               rec_counter = rec_counter + 1
                CALL mp_irecv(buffer_recv(iproc)%indx, iproc, mp_comm, req_array(rec_counter, 3), tag=4)
-               SELECT CASE (buffer_recv (iproc)%data_type)
+               SELECT CASE (buffer_recv(iproc)%data_type)
 #:for dparam, dtype, dsuffix in dtype_float_list
                CASE (${dparam}$)
                   CALL mp_irecv(buffer_recv(iproc)%msg_${dsuffix}$, iproc, mp_comm, req_array(rec_counter, 4), tag=7)
@@ -945,11 +945,11 @@ CONTAINS
             END IF
          END DO
 
-         DO iproc = 0, numnodes-1
+         DO iproc = 0, numnodes - 1
             IF (buffer_send(iproc)%nblock > 0) THEN
-               send_counter = send_counter+1
+               send_counter = send_counter + 1
                CALL mp_isend(buffer_send(iproc)%indx, iproc, mp_comm, req_array(send_counter, 1), tag=4)
-               SELECT CASE (buffer_recv (iproc)%data_type)
+               SELECT CASE (buffer_recv(iproc)%data_type)
 #:for dparam, dtype, dsuffix in dtype_float_list
                CASE (${dparam}$)
                   CALL mp_isend(buffer_send(iproc)%msg_${dsuffix}$, iproc, mp_comm, req_array(send_counter, 2), tag=7)
@@ -968,10 +968,10 @@ CONTAINS
       ELSE
          IF (buffer_recv(0)%nblock > 0) THEN
             buffer_recv(0)%indx(:, :) = buffer_send(0)%indx(:, :)
-            SELECT CASE (buffer_recv (0)%data_type)
+            SELECT CASE (buffer_recv(0)%data_type)
 #:for dparam, dtype, dsuffix in dtype_float_list
             CASE (${dparam}$)
-               buffer_recv(0)%msg_${dsuffix}$(:) = buffer_send(0)%msg_${dsuffix}$(:)
+               buffer_recv(0)%msg_${dsuffix}$ (:) = buffer_send(0)%msg_${dsuffix}$ (:)
 #:endfor
             END SELECT
          ENDIF
