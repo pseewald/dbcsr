@@ -1243,6 +1243,12 @@ CONTAINS
       CALL timestop(handle)
    END SUBROUTINE
 
+! **************************************************************************************************
+!> \brief Get all indices along one dimension that have at least one occupied block
+!> \param tensor ...
+!> \param dim which dim to test
+!> \param ind indices with occupied blocks
+! **************************************************************************************************
    SUBROUTINE dbcsr_t_get_nonzero_index(tensor, dim, ind)
       TYPE(dbcsr_t_type), INTENT(IN) :: tensor
       INTEGER, INTENT(IN) :: dim
@@ -1266,6 +1272,14 @@ CONTAINS
       CALL dbcsr_t_iterator_stop(iter)
    END SUBROUTINE
 
+! **************************************************************************************************
+!> \brief check whether we need to contract two tensors (whether the contraction indices of both tensors
+!> have common occupied blocks)
+!> \param tensor_1 ...
+!> \param tensor_2 ...
+!> \param contract_1 contraction indices of tensor 1
+!> \param contract_2 contraction indices of tensor 2
+! **************************************************************************************************
    FUNCTION dbcsr_t_need_contract(tensor_1, tensor_2, contract_1, contract_2)
       TYPE(dbcsr_t_type), INTENT(INOUT)  :: tensor_1, tensor_2
       INTEGER, DIMENSION(:), INTENT(IN)  :: contract_1, contract_2
@@ -1301,6 +1315,16 @@ CONTAINS
       CALL timestop(handle)
    END FUNCTION
 
+! **************************************************************************************************
+!> \brief print tensor contraction indices in a human readable way
+!> \param tensor_1 ...
+!> \indchar1 characters printed for index of tensor 1
+!> \param tensor_2 ...
+!> \indchar2 characters printed for index of tensor 2
+!> \param tensor_3 ...
+!> \indchar3 characters printed for index of tensor 3
+!> \param unit_nr output unit
+! **************************************************************************************************
    SUBROUTINE dbcsr_t_print_contraction_index(tensor_1, indchar1, tensor_2, indchar2, tensor_3, indchar3, unit_nr)
       TYPE(dbcsr_t_type), INTENT(IN) :: tensor_1, tensor_2, tensor_3
       CHARACTER(LEN=1), DIMENSION(dbcsr_t_ndims(tensor_1)), INTENT(IN) :: indchar1
