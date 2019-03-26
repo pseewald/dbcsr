@@ -62,6 +62,8 @@ MODULE dbcsr_tensor_types
                             mp_sum, mp_max
    USE dbcsr_rectangular_global, ONLY: dbcsr_r_distribution, dbcsr_r_rowcol_data
    USE dbcsr_allocate_wrap, ONLY: allocate_any
+   USE dbcsr_data_types, ONLY: dbcsr_scalar_type
+   USE dbcsr_operations, ONLY: dbcsr_scale
 #include "base/dbcsr_base_uses.f90"
 
    IMPLICIT NONE
@@ -72,34 +74,35 @@ MODULE dbcsr_tensor_types
       blk_dims_tensor, &
       dbcsr_t_blk_offsets, &
       dbcsr_t_blk_sizes, &
+      dbcsr_t_clear, &
       dbcsr_t_create, &
       dbcsr_t_destroy, &
       dbcsr_t_distribution, &
       dbcsr_t_distribution_destroy, &
       dbcsr_t_distribution_new, &
       dbcsr_t_distribution_type, &
+      dbcsr_t_filter, &
+      dbcsr_t_finalize, &
       dbcsr_t_get_data_type, &
+      dbcsr_t_get_info, &
+      dbcsr_t_get_num_blocks, &
+      dbcsr_t_get_nze, &
+      dbcsr_t_get_nze_total, &
       dbcsr_t_get_stored_coordinates, &
       dbcsr_t_hold, &
       dbcsr_t_nd_mp_comm, &
       dbcsr_t_nd_mp_free, &
-      dbcsr_t_type, &
-      dims_tensor, &
-      ndims_tensor, &
-      dbcsr_t_pgrid_type, &
-      mp_environ_pgrid, &
       dbcsr_t_pgrid_create, &
       dbcsr_t_pgrid_destroy, &
+      dbcsr_t_pgrid_type, &
+      dbcsr_t_scale, &
       dbcsr_t_set, &
-      dbcsr_t_filter, &
-      dbcsr_t_get_info, &
+      dbcsr_t_type, &
       dbcsr_t_write_tensor_dist, &
       dbcsr_t_write_tensor_info, &
-      dbcsr_t_clear, &
-      dbcsr_t_get_num_blocks, &
-      dbcsr_t_finalize, &
-      dbcsr_t_get_nze, &
-      dbcsr_t_get_nze_total
+      dims_tensor, &
+      mp_environ_pgrid, &
+      ndims_tensor
 
    TYPE dbcsr_t_pgrid_type
       TYPE(nd_to_2d_mapping) :: nd_index_grid
@@ -1222,6 +1225,12 @@ CONTAINS
    SUBROUTINE dbcsr_t_finalize(tensor)
       TYPE(dbcsr_t_type), INTENT(INOUT) :: tensor
       CALL dbcsr_r_finalize(tensor%matrix_rep)
+   END SUBROUTINE
+
+   SUBROUTINE dbcsr_t_scale(tensor, alpha)
+      TYPE(dbcsr_t_type), INTENT(INOUT) :: tensor
+      TYPE(dbcsr_scalar_type), INTENT(IN) :: alpha
+      CALL dbcsr_scale(tensor%matrix_rep%matrix, alpha)
    END SUBROUTINE
 
    SUBROUTINE dbcsr_t_write_tensor_dist(tensor, output_unit)

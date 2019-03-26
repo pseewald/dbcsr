@@ -74,7 +74,8 @@ MODULE dbcsr_tensor
                                  dbcsr_t_filter, &
                                  dbcsr_t_clear, &
                                  dbcsr_t_finalize, &
-                                 dbcsr_t_get_num_blocks
+                                 dbcsr_t_get_num_blocks,&
+                                 dbcsr_t_scale
    USE dbcsr_kinds, ONLY: ${uselist(dtype_float_prec)}$, &
                           default_string_length, &
                           int_8
@@ -241,6 +242,7 @@ CONTAINS
 !> \brief copy matrix to tensor.
 !> \param matrix_in ...
 !> \param tensor_out ...
+!> \param summation tensor_out = tensor_out + matrix_in
 ! **************************************************************************************************
    SUBROUTINE dbcsr_t_copy_matrix_to_tensor(matrix_in, tensor_out, summation)
       TYPE(dbcsr_type), INTENT(IN)                       :: matrix_in
@@ -280,6 +282,12 @@ CONTAINS
 
    END SUBROUTINE
 
+! **************************************************************************************************
+!> \brief copy tensor to matrix
+!> \param tensor_in ...
+!> \param matrix_out ...
+!> \param summation matrix_out = matrix_out + tensor_in
+! **************************************************************************************************
    SUBROUTINE dbcsr_t_copy_tensor_to_matrix(tensor_in, matrix_out, summation)
       TYPE(dbcsr_t_type), INTENT(INOUT)      :: tensor_in
       TYPE(dbcsr_type), INTENT(INOUT)           :: matrix_out
@@ -661,14 +669,25 @@ CONTAINS
 
 ! **************************************************************************************************
 !> \brief Prepare tensor for contraction: redistribute to a 2d format which can be contracted by
-!>        matrix multiplication.
-!> \param tensor_in ...
-!> \param contract ...
-!> \param notcontract ...
-!> \param contract_index ...
-!> \param tensor_out ...
-!> \param trans1 'N' if tensor 1 out has format (ind linked, ind free), 'T' otherwise
-!> \param trans2 'N' if tensor 2 out has format (ind linked, ind free), 'T' otherwise
+!>        matrix multiplication. This routine reshapes the two largest of the three tensors. Redistribution
+!>        is avoided if tensors already in a consistent layout.
+!> \param tensor1 tensor 1 in
+!> \param tensor2 tensor 2 in
+!> \param tensor1_out tensor 1 out
+!> \param tensor2_out tensor 2 out
+!> \param ind1_free indices of tensor 1 that are "free" (not linked to any index of tensor 2)
+!> \param ind1_linked indices of tensor 1 that are linked to indices of tensor 2
+!> \param ind2_free ...
+!> \param ind2_linked 1:1 correspondence with ind1_linked
+!> \param trans1 transpose flag of matrix rep. of tensor 1
+!> \param trans2 transpose flag of matrix rep. tensor 2
+!> \param new1 whether a new tensor 1 was created
+!> \param new2 whether a new tensor 2 was created
+!> \param nodata1 don't copy data of tensor 1
+!> \param nodata2 don't copy data of tensor 2
+!> \param move_data memory optimization: transfer data s.t. tensor1 and tensor2 may be empty on return
+!> \param optimize_dist experimental: optimize distribution
+!> \param unit_nr output unit
 ! **************************************************************************************************
       SUBROUTINE reshape_mm_compatible(tensor1, tensor2, tensor1_out, tensor2_out, ind1_free, ind1_linked, &
                                        ind2_free, ind2_linked, trans1, trans2, new1, new2, nodata1, nodata2, move_data, &
@@ -876,8 +895,20 @@ CONTAINS
 
       END SUBROUTINE
 
+! **************************************************************************************************
+!> \brief Prepare tensor for contraction: redistribute to a 2d format which can be contracted by
+!>        matrix multiplication. This routine reshapes the smallest of the three tensors.
+!> \param tensor_in tensor in
+!> \param ind1 index that should be mapped to first matrix dimension
+!> \param ind2 index that should be mapped to second matrix dimension
+!> \param tensor_out tensor out
+!> \param trans transpose flag of matrix rep.
+!> \param new whether a new tensor was created for tensor_out
+!> \param nodata don't copy tensor data
+!> \param move_data memory optimization: transfer data s.t. tensor_in may be empty on return
+!> \param unit_nr output unit
+! **************************************************************************************************
       SUBROUTINE reshape_mm_small(tensor_in, ind1, ind2, tensor_out, trans, new, nodata, move_data, unit_nr)
-         ! was called prep_tensor
          TYPE(dbcsr_t_type), TARGET, INTENT(INOUT)   :: tensor_in
          INTEGER, DIMENSION(:), INTENT(IN)           :: ind1, ind2
          TYPE(dbcsr_t_type), POINTER, INTENT(OUT)    :: tensor_out
@@ -1728,11 +1759,7 @@ CONTAINS
 
    END SUBROUTINE
 
-   SUBROUTINE dbcsr_t_scale(tensor, alpha)
-      TYPE(dbcsr_t_type), INTENT(INOUT) :: tensor
-      TYPE(dbcsr_scalar_type), INTENT(IN) :: alpha
-      CALL dbcsr_scale(tensor%matrix_rep%matrix, alpha)
-   END SUBROUTINE
+
 
    SUBROUTINE dbcsr_t_get_nonzero_index(tensor, dim, ind)
       TYPE(dbcsr_t_type), INTENT(IN) :: tensor
