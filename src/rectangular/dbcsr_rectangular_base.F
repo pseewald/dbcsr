@@ -705,8 +705,6 @@ CONTAINS
       CALL timestop(handle)
    END SUBROUTINE
 
-
-
 ! **************************************************************************************************
 !> \brief As dbcsr_iterator_start
 !> \param iter ...

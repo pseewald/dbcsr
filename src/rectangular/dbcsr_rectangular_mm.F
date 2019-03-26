@@ -4,45 +4,54 @@
 !--------------------------------------------------------------------------------------------------!
 
 ! **************************************************************************************************
-!> \brief Matrix multiplication for rectangular matrices (CARMA algorithm).
+!> \brief Matrix multiplication for rectangular matrices. This uses the k-split (non-recursive) CARMA
+!>        algorithm that is communication-optimal as long as the two smaller dimensions have
+!>        the same size.
+!>
+!> Submatrices are obtained by splitting a dimension of the process grid. Multiplication of
+!> submatrices uses DBCSR Cannon algorithm. Due to unknown sparsity pattern of result matrix, parameters
+!> (group sizes and process grid dimensions) can not be derived from matrix dimensions and need to be
+!> set manually.
 !> \author Patrick Seewald
 ! **************************************************************************************************
 
 MODULE dbcsr_rectangular_mm
 
-   USE dbcsr_data_methods, ONLY: dbcsr_scalar_zero
-   USE dbcsr_data_types, ONLY: dbcsr_scalar_type
-   USE dbcsr_multiply_api, ONLY: dbcsr_multiply
+   USE dbcsr_data_methods,                               ONLY: dbcsr_scalar_zero
+   USE dbcsr_data_types,                                 ONLY: dbcsr_scalar_type
+   USE dbcsr_multiply_api,                               ONLY: dbcsr_multiply
    USE dbcsr_rectangular_base, ONLY: &
       dbcsr_r_create, dbcsr_r_destroy, dbcsr_r_distribution_destroy, dbcsr_r_distribution_new, &
-      dbcsr_r_finalize, dbcsr_r_get_data_type, dbcsr_r_info, dbcsr_r_nblkcols_total, &
+      dbcsr_r_get_data_type, dbcsr_r_info, dbcsr_r_nblkcols_total, &
       dbcsr_r_nblkrows_total, dbcsr_r_write_matrix_info, dbcsr_r_filter, dbcsr_r_write_dist
-   USE dbcsr_rectangular_types, ONLY: dbcsr_r_distribution_type, &
-                                           dbcsr_r_split_info, &
-                                           dbcsr_r_type
-   USE dbcsr_rectangular_global, ONLY: dbcsr_r_dist_cyclic, dbcsr_r_dist_arb, dbcsr_r_distribution, dbcsr_r_dist_arb_default
-   USE dbcsr_rectangular_reshape, ONLY: dbcsr_r_merge, &
-                                        dbcsr_r_replicate, &
-                                        dbcsr_r_reshape
-   USE dbcsr_rectangular_split, ONLY: colsplit, &
-                                      dbcsr_r_get_split_info, &
-                                      dbcsr_r_split, &
-                                      dbcsr_r_split_rows_or_cols, &
-                                      rowsplit, &
-                                      world_to_group_proc_map, &
-                                      dbcsr_r_mp_comm, &
-                                      dbcsr_r_release_info, &
-                                      dbcsr_r_print_split_info
-   USE dbcsr_rectangular_util, ONLY: swap
-   USE dbcsr_types, ONLY: dbcsr_no_transpose, &
-                          dbcsr_transpose
-   USE dbcsr_kinds, ONLY: default_string_length, &
-                          int_8, &
-                          real_8
-   USE dbcsr_mpiwrap, ONLY: mp_comm_compare, &
-                            mp_environ, mp_sum, mp_comm_free
-   USE dbcsr_io, ONLY: dbcsr_print
-   USE dbcsr_operations, ONLY: dbcsr_scale
+   USE dbcsr_rectangular_types,                          ONLY: dbcsr_r_distribution_type, &
+                                                               dbcsr_r_split_info, &
+                                                               dbcsr_r_type
+   USE dbcsr_rectangular_global,                         ONLY: dbcsr_r_dist_cyclic, &
+                                                               dbcsr_r_dist_arb, &
+                                                               dbcsr_r_distribution, &
+                                                               dbcsr_r_dist_arb_default
+   USE dbcsr_rectangular_reshape,                        ONLY: dbcsr_r_merge, &
+                                                               dbcsr_r_replicate, &
+                                                               dbcsr_r_reshape
+   USE dbcsr_rectangular_split,                          ONLY: colsplit, &
+                                                               dbcsr_r_get_split_info, &
+                                                               dbcsr_r_split, &
+                                                               dbcsr_r_mp_comm, &
+                                                               dbcsr_r_release_info, &
+                                                               dbcsr_r_print_split_info
+   USE dbcsr_rectangular_util,                           ONLY: swap, &
+                                                               invert_transpose_flag,&
+                                                               array_eq_i8
+   USE dbcsr_types,                                      ONLY: dbcsr_no_transpose, &
+                                                               dbcsr_transpose
+   USE dbcsr_kinds,                                      ONLY: int_8, &
+                                                               real_8
+   USE dbcsr_mpiwrap,                                    ONLY: mp_comm_compare, &
+                                                               mp_environ, &
+                                                               mp_sum, &
+                                                               mp_comm_free
+   USE dbcsr_operations,                                 ONLY: dbcsr_scale
 #include "../base/dbcsr_base_uses.f90"
 
    IMPLICIT NONE
@@ -55,9 +64,8 @@ MODULE dbcsr_rectangular_mm
 CONTAINS
 
 ! **************************************************************************************************
-!> \brief ...
-!> We split only once but with an arbitrary factor in order to use DBCSR mm to efficiently compute
-!> products of submatrices.
+!> \brief Rectangular matrix-matrix multiplication. Undocumented dummy arguments are identical to
+!> arguments of dbcsr_multiply (see dbcsr_mm, dbcsr_multiply_generic).
 !> \param transa ...
 !> \param transb ...
 !> \param transc ...
@@ -66,43 +74,43 @@ CONTAINS
 !> \param matrix_b ...
 !> \param beta ...
 !> \param matrix_c ...
-!> \param optimize_dist ...
+!> \param optimize_dist Whether distribution should be optimized internally. Experimental and should
+!> be used for dense matrices only.
 !> \param filter_eps ...
 !> \param flop ...
-!> \param move_data ...
-!> \param io_unit ...
+!> \param move_data memory optimization: move data to matrix_c such that matrix_a and matrix_b are
+!> empty on return
+!> \param io_unit unit number for output
 ! **************************************************************************************************
    SUBROUTINE dbcsr_r_multiply(transa, transb, transc, alpha, matrix_a, matrix_b, beta, matrix_c, &
                                optimize_dist, filter_eps, flop, move_data, io_unit)
-      CHARACTER(LEN=1), INTENT(IN)                       :: transa, transb, transc
-      TYPE(dbcsr_scalar_type), INTENT(IN) :: alpha
-      TYPE(dbcsr_r_type), TARGET, INTENT(INOUT) :: matrix_a, matrix_b
-      TYPE(dbcsr_r_type), POINTER :: matrix_b_rs => NULL(), matrix_a_rs => NULL(), matrix_c_rs => NULL()
-      TYPE(dbcsr_r_type) :: matrix_c_rep, matrix_b_rep, matrix_a_rep
-      TYPE(dbcsr_scalar_type), INTENT(IN) :: beta
-      TYPE(dbcsr_r_type), TARGET, INTENT(INOUT) :: matrix_c
-      LOGICAL, INTENT(IN), OPTIONAL             :: optimize_dist
-      REAL(KIND=real_8), INTENT(IN), OPTIONAL            :: filter_eps
-      INTEGER(KIND=int_8), INTENT(OUT), OPTIONAL        :: flop
-      LOGICAL, INTENT(IN), OPTIONAL                     :: move_data
-      REAL(KIND=real_8)                                  :: filter_eps_prv
-      INTEGER(KIND=int_8), DIMENSION(2) :: dims_a, dims_b, dims_c
-      INTEGER(KIND=int_8), DIMENSION(3) :: dims
-      INTEGER, OPTIONAL, INTENT(IN) :: io_unit
-      INTEGER :: max_mm_dim
-      CHARACTER(LEN=1) :: tr_case
-      INTEGER :: data_type
-      INTEGER :: numnodes
-      INTEGER :: mp_comm, comm_tmp
+      CHARACTER(LEN=1), INTENT(IN)               :: transa, transb, transc
+      TYPE(dbcsr_scalar_type), INTENT(IN)        :: alpha, beta
+      TYPE(dbcsr_r_type), TARGET, INTENT(INOUT)  :: matrix_a, matrix_b, matrix_c
+      LOGICAL, INTENT(IN), OPTIONAL              :: optimize_dist
+      REAL(KIND=real_8), INTENT(IN), OPTIONAL    :: filter_eps
+      INTEGER(KIND=int_8), INTENT(OUT), OPTIONAL :: flop
+      LOGICAL, INTENT(IN), OPTIONAL              :: move_data
+      INTEGER, OPTIONAL, INTENT(IN)              :: io_unit
+
+      TYPE(dbcsr_r_type), POINTER                :: matrix_b_rs => NULL(), matrix_a_rs => NULL(), matrix_c_rs => NULL()
+      TYPE(dbcsr_r_type)                         :: matrix_c_rep, matrix_b_rep, matrix_a_rep
+
+      REAL(KIND=real_8)                          :: filter_eps_prv
+      INTEGER(KIND=int_8), DIMENSION(2)          :: dims_a, dims_b, dims_c
       INTEGER, DIMENSION(2) :: pdims, pcoord
-      CHARACTER(LEN=1) :: transa_prv, transb_prv, transc_prv
-      TYPE(dbcsr_scalar_type) :: zero
-      LOGICAL :: new_a, new_b, new_c, move_prv
-      TYPE(dbcsr_r_split_info) :: info
-      CHARACTER(LEN=*), PARAMETER :: routineN = 'dbcsr_r_multiply', &
-                                     routineP = moduleN//':'//routineN
-      INTEGER :: handle, handle2, io_unit_prv, nsplit
-      LOGICAL :: debug=.FALSE.
+      INTEGER(KIND=int_8), DIMENSION(3)          :: dims
+      INTEGER                                    :: max_mm_dim, data_type, numnodes, mp_comm, comm_tmp, &
+                                                    handle, handle2, io_unit_prv, nsplit
+      CHARACTER(LEN=1)                           :: tr_case, transa_prv, transb_prv, transc_prv
+      TYPE(dbcsr_scalar_type)                    :: zero
+      LOGICAL                                    :: new_a, new_b, new_c, move_prv
+      TYPE(dbcsr_r_split_info)                   :: info
+      CHARACTER(LEN=*), PARAMETER                :: routineN = 'dbcsr_r_multiply', &
+                                                    routineP = moduleN//':'//routineN
+      LOGICAL                                    :: debug=.FALSE.
+
+      CALL timeset(routineN, handle)
 
       IF (PRESENT(io_unit)) THEN
          io_unit_prv = io_unit
@@ -115,8 +123,6 @@ CONTAINS
       ELSE
          move_prv = .FALSE.
       ENDIF
-
-      CALL timeset(routineN, handle)
 
       IF (.NOT. dbcsr_r_get_data_type(matrix_a) .EQ. dbcsr_r_get_data_type(matrix_b)) THEN
          DBCSR_ABORT("matrices must have same datatype")
@@ -236,10 +242,6 @@ CONTAINS
 
       END SELECT
 
-      !IF (io_unit_prv > 0) THEN
-      !   WRITE (io_unit_prv, "(A, 1X, A, 1X, A, 1X, A)") "new trans flags:", transa_prv, transb_prv, transc
-      !ENDIF
-
       info = dbcsr_r_info(matrix_a_rs)
       CALL dbcsr_r_get_split_info(info, nsplit=nsplit, mp_comm=mp_comm)
       CALL mp_environ(numnodes, pdims, pcoord, mp_comm)
@@ -358,31 +360,33 @@ CONTAINS
    END SUBROUTINE
 
 ! **************************************************************************************************
-!> \brief ...
-!> \param mp_comm ...
+!> \brief Make sure that smallest matrix involved in a multiplication is not split and bring it to
+!>        the same process grid as the other 2 matrices.
+!> \param mp_comm communicator that defines Cartesian topology
 !> \param matrix_in ...
 !> \param matrix_out ...
-!> \param transposed ...
-!> \param trans ...
-!> \param nodata ...
-!> \param move_data ...
+!> \param transposed Whether matrix_out should be transposed
+!> \param trans update transpose flag for DBCSR mm according to 'transposed' argument
+!> \param nodata Data of matrix_in should not be copied to matrix_out
+!> \param move_data memory optimization: move data such that matrix_in is empty on return.
 ! **************************************************************************************************
    SUBROUTINE reshape_mm_small(mp_comm, matrix_in, matrix_out, transposed, trans, nodata, move_data)
-      INTEGER, INTENT(IN) :: mp_comm
+      INTEGER, INTENT(IN)               :: mp_comm
       TYPE(dbcsr_r_type), INTENT(INOUT) :: matrix_in
-      TYPE(dbcsr_r_type), INTENT(OUT) :: matrix_out
-      LOGICAL, INTENT(IN) :: transposed
-      CHARACTER(LEN=1), INTENT(OUT) :: trans
-      LOGICAL, INTENT(IN), OPTIONAL :: nodata, move_data
-      INTEGER :: numnodes
+      TYPE(dbcsr_r_type), INTENT(OUT)   :: matrix_out
+      LOGICAL, INTENT(IN)               :: transposed
+      CHARACTER(LEN=1), INTENT(INOUT)   :: trans
+      LOGICAL, INTENT(IN), OPTIONAL     :: nodata, move_data
+
+      INTEGER                           :: numnodes
       INTEGER(KIND=int_8), DIMENSION(2) :: dims
-      INTEGER, DIMENSION(2) :: pdims, pcoord
-      TYPE(dbcsr_r_dist_arb) :: new_row_dist, new_col_dist
-      TYPE(dbcsr_r_distribution_type) :: dist
-      LOGICAL :: nodata_prv
-      CHARACTER(LEN=*), PARAMETER :: routineN = 'reshape_mm_small', &
-                                     routineP = moduleN//':'//routineN
-      INTEGER :: handle
+      INTEGER, DIMENSION(2)             :: pdims, pcoord
+      TYPE(dbcsr_r_dist_arb)            :: new_row_dist, new_col_dist
+      TYPE(dbcsr_r_distribution_type)   :: dist
+      LOGICAL                           :: nodata_prv
+      CHARACTER(LEN=*), PARAMETER       :: routineN = 'reshape_mm_small', &
+                                           routineP = moduleN//':'//routineN
+      INTEGER                           :: handle
 
       CALL timeset(routineN, handle)
 
@@ -428,21 +432,22 @@ CONTAINS
    END SUBROUTINE
 
 ! **************************************************************************************************
-!> \brief ...
+!> \brief Reshape either matrix1 or matrix2 to make sure that their process grids are compatible with
+!> the same split factor.
 !> \param matrix1_in ...
 !> \param matrix2_in ...
 !> \param matrix1_out ...
 !> \param matrix2_out ...
-!> \param new1 ...
-!> \param new2 ...
-!> \param trans1 ...
-!> \param trans2 ...
+!> \param new1 Whether matrix1_out is a new matrix or simply pointing to matrix1_in
+!> \param new2 Whether matrix2_out is a new matrix or simply pointing to matrix2_in
+!> \param trans1 transpose flag of matrix1_in for multiplication
+!> \param trans2 transpose flag of matrix2_in for multiplication
 !> \param optimize_dist experimental: optimize matrix splitting and distribution
-!> \param nodata1 ...
-!> \param nodata2 ...
-!> \param move_data ...
-!> \param comm_new ...
-!> \param unit_nr ...
+!> \param nodata1 Don't copy matrix data from matrix1_in to matrix1_out
+!> \param nodata2 Don't copy matrix data from matrix2_in to matrix2_out
+!> \param move_data memory optimization: move data such that matrix*_in are empty on return.
+!> \param comm_new returns the new communicator only if optimize_dist
+!> \param unit_nr output unit
 ! **************************************************************************************************
    SUBROUTINE reshape_mm_compatible(matrix1_in, matrix2_in, matrix1_out, matrix2_out, new1, new2, trans1, trans2, &
                                     optimize_dist, nodata1, nodata2, move_data, comm_new, unit_nr)
@@ -589,39 +594,10 @@ CONTAINS
 
       CALL timestop(handle)
 
-   CONTAINS
+   END SUBROUTINE
 
 ! **************************************************************************************************
-!> \brief ...
-!> \param trans_flag ...
-! **************************************************************************************************
-      SUBROUTINE invert_transpose_flag(trans_flag)
-         CHARACTER(LEN=1), INTENT(INOUT)                    :: trans_flag
-
-         IF (trans_flag == dbcsr_transpose) THEN
-            trans_flag = dbcsr_no_transpose
-         ELSEIF (trans_flag == dbcsr_no_transpose) THEN
-            trans_flag = dbcsr_transpose
-         ENDIF
-      END SUBROUTINE
-
-! **************************************************************************************************
-!> \brief ...
-!> \param arr1 ...
-!> \param arr2 ...
-!> \return ...
-! **************************************************************************************************
-      PURE FUNCTION array_eq_i8(arr1, arr2)
-         INTEGER(KIND=int_8), DIMENSION(:), INTENT(IN)      :: arr1, arr2
-         LOGICAL                                            :: array_eq_i8
-
-         array_eq_i8 = .FALSE.
-         IF (SIZE(arr1) .EQ. SIZE(arr2)) array_eq_i8 = ALL(arr1 == arr2)
-
-      END FUNCTION
-
-! **************************************************************************************************
-!> \brief ...
+!> \brief Check whether matrices have same distribution and same split.
 !> \param mat_a ...
 !> \param mat_b ...
 !> \param io_unit ...
@@ -687,7 +663,7 @@ CONTAINS
       END FUNCTION
 
 ! **************************************************************************************************
-!> \brief ...
+!> \brief Reshape matrix_in s.t. it has same process grid, distribution and split as matrix_in
 !> \param template ...
 !> \param matrix_in ...
 !> \param matrix_out ...
@@ -775,5 +751,4 @@ CONTAINS
 
       END SUBROUTINE
 
-   END SUBROUTINE
 END MODULE

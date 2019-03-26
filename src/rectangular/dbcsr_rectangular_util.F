@@ -11,11 +11,13 @@
 MODULE dbcsr_rectangular_util
 
    USE dbcsr_mp_methods,                ONLY: dbcsr_mp_new
-   USE dbcsr_types,                     ONLY: dbcsr_mp_obj
-   USE dbcsr_kinds,                           ONLY: int_8
-   USE dbcsr_mpiwrap,                 ONLY: mp_cart_rank,&
-                                            mp_environ
-   USE dbcsr_index_operations, ONLY: dbcsr_sort_indices
+   USE dbcsr_types,                     ONLY: dbcsr_mp_obj,&
+                                              dbcsr_transpose,&
+                                              dbcsr_no_transpose
+   USE dbcsr_kinds,                     ONLY: int_8
+   USE dbcsr_mpiwrap,                   ONLY: mp_cart_rank,&
+                                              mp_environ
+   USE dbcsr_index_operations,          ONLY: dbcsr_sort_indices
 #include "../base/dbcsr_base_uses.f90"
 
    IMPLICIT NONE
@@ -23,7 +25,12 @@ MODULE dbcsr_rectangular_util
 
    CHARACTER(len=*), PARAMETER, PRIVATE :: moduleN = 'dbcsr_rectangular_util'
 
-   PUBLIC :: dbcsr_mp_environ, swap, index_unique
+   PUBLIC :: &
+      array_eq_i8, &
+      dbcsr_mp_environ, &
+      index_unique, &
+      invert_transpose_flag, &
+      swap
 
    INTERFACE swap
       MODULE PROCEDURE swap_i8
@@ -32,11 +39,11 @@ MODULE dbcsr_rectangular_util
 
 CONTAINS
 ! **************************************************************************************************
-!> \brief ...
+!> \brief Create a dbcsr mp environment from communicator
 !> \param mp_comm ...
 !> \return ...
 ! **************************************************************************************************
-   FUNCTION dbcsr_mp_environ(mp_comm) ! hack, to be avoided
+   FUNCTION dbcsr_mp_environ(mp_comm)
       INTEGER, INTENT(IN)                                :: mp_comm
       TYPE(dbcsr_mp_obj)                                 :: dbcsr_mp_environ
 
@@ -88,7 +95,7 @@ CONTAINS
    END SUBROUTINE
 
 ! **************************************************************************************************
-!> \brief ...
+!> \brief Get all unique elements in index_in
 !> \param index_in ...
 !> \param index_out ...
 ! **************************************************************************************************
@@ -122,5 +129,36 @@ CONTAINS
 
    END SUBROUTINE
 
+! **************************************************************************************************
+!> \brief ...
+!> \param trans_flag ...
+! **************************************************************************************************
+   SUBROUTINE invert_transpose_flag(trans_flag)
+      CHARACTER(LEN=1), INTENT(INOUT)                    :: trans_flag
+
+      IF (trans_flag == dbcsr_transpose) THEN
+         trans_flag = dbcsr_no_transpose
+      ELSEIF (trans_flag == dbcsr_no_transpose) THEN
+         trans_flag = dbcsr_transpose
+      ENDIF
+   END SUBROUTINE
+
+! **************************************************************************************************
+!> \brief ...
+!> \param arr1 ...
+!> \param arr2 ...
+!> \return ...
+! **************************************************************************************************
+   PURE FUNCTION array_eq_i8(arr1, arr2)
+      INTEGER(KIND=int_8), DIMENSION(:), INTENT(IN)      :: arr1, arr2
+      LOGICAL                                            :: array_eq_i8
+
+      array_eq_i8 = .FALSE.
+      IF (SIZE(arr1) .EQ. SIZE(arr2)) array_eq_i8 = ALL(arr1 == arr2)
+
+   END FUNCTION
+
 
 END MODULE
+
+

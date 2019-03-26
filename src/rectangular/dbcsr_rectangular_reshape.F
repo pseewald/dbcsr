@@ -108,51 +108,6 @@ MODULE dbcsr_rectangular_reshape
 CONTAINS
 
 ! **************************************************************************************************
-!> \brief get all indices from buffer
-!> \param buffer ...
-!> \param index ...
-! **************************************************************************************************
-   SUBROUTINE block_buffer_get_index(buffer, index)
-      TYPE(block_buffer_type), INTENT(IN)                :: buffer
-      INTEGER(KIND=int_8), ALLOCATABLE, &
-         DIMENSION(:, :), INTENT(OUT)                    :: index
-
-      INTEGER, DIMENSION(2)                              :: indx_shape
-      CHARACTER(LEN=*), PARAMETER :: routineN = 'block_buffer_get_index', &
-                                     routineP = moduleN//':'//routineN
-      INTEGER :: handle
-
-      CALL timeset(routineN, handle)
-
-      indx_shape = SHAPE(buffer%indx)-[0, 1]
-      ALLOCATE (INDEX(indx_shape(1), indx_shape(2)))
-      INDEX(:, :) = buffer%indx(1:indx_shape(1), 1:indx_shape(2))
-      CALL timestop(handle)
-   END SUBROUTINE
-
-! **************************************************************************************************
-!> \brief Reset buffer block iterator
-!> \param buffer ...
-! **************************************************************************************************
-   SUBROUTINE block_buffer_iterator_reset(buffer)
-      TYPE(block_buffer_type), INTENT(INOUT)             :: buffer
-
-      buffer%endpos = 0
-   END SUBROUTINE
-
-! **************************************************************************************************
-!> \brief how many blocks left in iterator
-!> \param buffer ...
-!> \return ...
-! **************************************************************************************************
-   PURE FUNCTION block_buffer_blocks_left(buffer)
-      TYPE(block_buffer_type), INTENT(IN)                :: buffer
-      LOGICAL                                            :: block_buffer_blocks_left
-
-      block_buffer_blocks_left = buffer%endpos .LT. buffer%nblock
-   END FUNCTION
-
-! **************************************************************************************************
 !> \brief copy data (involves reshape)
 !> \param matrix_in ...
 !> \param matrix_out ...
@@ -683,6 +638,51 @@ CONTAINS
 
       CALL timestop(handle)
    END SUBROUTINE
+
+! **************************************************************************************************
+!> \brief get all indices from buffer
+!> \param buffer ...
+!> \param index ...
+! **************************************************************************************************
+   SUBROUTINE block_buffer_get_index(buffer, index)
+      TYPE(block_buffer_type), INTENT(IN)                :: buffer
+      INTEGER(KIND=int_8), ALLOCATABLE, &
+         DIMENSION(:, :), INTENT(OUT)                    :: index
+
+      INTEGER, DIMENSION(2)                              :: indx_shape
+      CHARACTER(LEN=*), PARAMETER :: routineN = 'block_buffer_get_index', &
+                                     routineP = moduleN//':'//routineN
+      INTEGER :: handle
+
+      CALL timeset(routineN, handle)
+
+      indx_shape = SHAPE(buffer%indx)-[0, 1]
+      ALLOCATE (INDEX(indx_shape(1), indx_shape(2)))
+      INDEX(:, :) = buffer%indx(1:indx_shape(1), 1:indx_shape(2))
+      CALL timestop(handle)
+   END SUBROUTINE
+
+! **************************************************************************************************
+!> \brief Reset buffer block iterator
+!> \param buffer ...
+! **************************************************************************************************
+   SUBROUTINE block_buffer_iterator_reset(buffer)
+      TYPE(block_buffer_type), INTENT(INOUT)             :: buffer
+
+      buffer%endpos = 0
+   END SUBROUTINE
+
+! **************************************************************************************************
+!> \brief how many blocks left in iterator
+!> \param buffer ...
+!> \return ...
+! **************************************************************************************************
+   PURE FUNCTION block_buffer_blocks_left(buffer)
+      TYPE(block_buffer_type), INTENT(IN)                :: buffer
+      LOGICAL                                            :: block_buffer_blocks_left
+
+      block_buffer_blocks_left = buffer%endpos .LT. buffer%nblock
+   END FUNCTION
 
 ! **************************************************************************************************
 !> \brief Create block buffer for MPI communication.
