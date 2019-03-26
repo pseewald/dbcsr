@@ -8,44 +8,55 @@
 ! **************************************************************************************************
 
 MODULE dbcsr_rectangular_test
-   USE dbcsr_types,                       ONLY: dbcsr_type_real_8
-   USE dbcsr_data_methods,              ONLY: dbcsr_scalar
-   USE dbcsr_methods,                   ONLY: dbcsr_release, dbcsr_nblkcols_total, dbcsr_nblkrows_total,&
-                                              dbcsr_row_block_sizes, dbcsr_col_block_sizes, &
-                                              dbcsr_get_nze, dbcsr_mp_release, dbcsr_distribution_release
-   USE dbcsr_multiply_api,              ONLY: dbcsr_multiply
-   USE dbcsr_rectangular_base,          ONLY: &
-      dbcsr_r_convert_to_dbcsr, dbcsr_r_create, dbcsr_r_destroy, dbcsr_r_distribution_new, &
+   USE dbcsr_types,                                      ONLY: dbcsr_type_real_8
+   USE dbcsr_data_methods,                               ONLY: dbcsr_scalar
+   USE dbcsr_methods,                                    ONLY: &
+      dbcsr_release, dbcsr_nblkcols_total, dbcsr_nblkrows_total, dbcsr_row_block_sizes, dbcsr_col_block_sizes, &
+      dbcsr_mp_release, dbcsr_distribution_release
+   USE dbcsr_multiply_api,                               ONLY: dbcsr_multiply
+   USE dbcsr_rectangular_base,                           ONLY: &
+      dbcsr_r_convert_to_dbcsr, dbcsr_r_create, dbcsr_r_distribution_new, &
       dbcsr_r_finalize, dbcsr_r_get_stored_coordinates, dbcsr_r_nblkcols_total, &
       dbcsr_r_nblkrows_total, dbcsr_r_put_block, dbcsr_r_info
-   USE dbcsr_rectangular_types,    ONLY: dbcsr_r_distribution_type,&
-                                              dbcsr_r_type
-   USE dbcsr_rectangular_global,        ONLY: dbcsr_r_blk_size_arb,&
-                                              dbcsr_r_dist_cyclic
-   USE dbcsr_rectangular_mm,            ONLY: dbcsr_r_multiply
-   USE dbcsr_rectangular_split,         ONLY: dbcsr_r_mp_comm, dbcsr_r_get_split_info
-   USE dbcsr_rectangular_util,          ONLY: dbcsr_mp_environ
-   USE dbcsr_types,                     ONLY: dbcsr_type, dbcsr_distribution_obj, dbcsr_mp_obj, &
-                                              dbcsr_no_transpose, dbcsr_transpose, dbcsr_type_no_symmetry
-   USE dbcsr_kinds,                           ONLY: int_8,&
-                                                    real_8
-   USE dbcsr_mpiwrap,                 ONLY: mp_environ, mp_cart_create, mp_comm_free
-   USE dbcsr_dist_methods,            ONLY: dbcsr_distribution_new
-   USE dbcsr_work_operations,         ONLY: dbcsr_create, dbcsr_finalize
-   USE dbcsr_dist_util,             ONLY: dbcsr_checksum
-   USE dbcsr_operations,            ONLY: dbcsr_maxabs, dbcsr_add
-   USE dbcsr_transformations,       ONLY: dbcsr_complete_redistribute
+   USE dbcsr_rectangular_types,                          ONLY: dbcsr_r_distribution_type,&
+                                                               dbcsr_r_type
+   USE dbcsr_rectangular_global,                         ONLY: dbcsr_r_blk_size_arb,&
+                                                               dbcsr_r_dist_cyclic
+   USE dbcsr_rectangular_mm,                             ONLY: dbcsr_r_multiply
+   USE dbcsr_rectangular_split,                          ONLY: dbcsr_r_mp_comm, &
+                                                               dbcsr_r_get_split_info
+   USE dbcsr_rectangular_util,                           ONLY: dbcsr_mp_environ,&
+                                                               invert_transpose_flag
+   USE dbcsr_types,                                      ONLY: &
+      dbcsr_type, dbcsr_distribution_obj, dbcsr_mp_obj, dbcsr_no_transpose, dbcsr_transpose, &
+      dbcsr_type_no_symmetry
+   USE dbcsr_kinds,                                      ONLY: int_8,&
+                                                               real_8
+   USE dbcsr_mpiwrap,                                    ONLY: mp_environ, &
+                                                               mp_cart_create, &
+                                                               mp_comm_free
+   USE dbcsr_dist_methods,                               ONLY: dbcsr_distribution_new
+   USE dbcsr_work_operations,                            ONLY: dbcsr_create, &
+                                                               dbcsr_finalize
+   USE dbcsr_dist_util,                                  ONLY: dbcsr_checksum
+   USE dbcsr_operations,                                 ONLY: dbcsr_maxabs, &
+                                                               dbcsr_add
+   USE dbcsr_transformations,                            ONLY: dbcsr_complete_redistribute
 #include "../base/dbcsr_base_uses.f90"
 
    IMPLICIT NONE
    PRIVATE
 
-   PUBLIC :: dbcsr_r_setup_test_matrix, dbcsr_r_random_bsizes, dbcsr_r_benchmark_mm, dbcsr_r_test_mm,&
-             dbcsr_r_checksum
+   PUBLIC :: &
+      dbcsr_r_benchmark_mm, &
+      dbcsr_r_checksum,&
+      dbcsr_r_random_bsizes, &
+      dbcsr_r_setup_test_matrix, &
+      dbcsr_r_test_mm
 
 CONTAINS
 ! **************************************************************************************************
-!> \brief ...
+!> \brief Setup rectangular matrix for testing
 !> \param matrix ...
 !> \param mp_comm_out ...
 !> \param mp_comm ...
@@ -147,7 +158,8 @@ CONTAINS
    END SUBROUTINE
 
 ! **************************************************************************************************
-!> \brief ...
+!> \brief Benchmark routine. Due to random sparsity (as opposed to structured sparsity pattern), this
+!> may not be representative for actual applications.
 !> \param transa ...
 !> \param transb ...
 !> \param transc ...
@@ -260,7 +272,7 @@ CONTAINS
    END SUBROUTINE
 
 ! **************************************************************************************************
-!> \brief ...
+!> \brief Test rectangular matrix multiplication for accuracy
 !> \param transa ...
 !> \param transb ...
 !> \param transc ...
@@ -288,29 +300,15 @@ CONTAINS
                                                             dbcsr_b_mm, dbcsr_c, dbcsr_c_mm, &
                                                             dbcsr_c_mm_check
       REAL(KIND=real_8), PARAMETER :: test_tol = 1.0E-10_real_8
-      REAL(KIND=real_8) :: cs_a, cs_b, cs_c
 
       CALL dbcsr_r_get_split_info(dbcsr_r_info(matrix_a), mp_comm=mp_comm)
       CALL mp_environ(numnodes, mynode, mp_comm)
       io_unit = 0
       IF (mynode .EQ. 0) io_unit = unit_nr
 
-      cs_a = dbcsr_r_checksum(matrix_a)
-      cs_b = dbcsr_r_checksum(matrix_b)
-      IF(io_unit > 0) THEN
-         WRITE(io_unit, *) "checksum r", TRIM(matrix_a%matrix%name), cs_a ! checksum ok
-         WRITE(io_unit, *) "checksum r", TRIM(matrix_b%matrix%name), cs_b ! checksum ok
-      ENDIF
-
       CALL dbcsr_r_multiply(transa, transb, transc, dbcsr_scalar(1.0_real_8), matrix_a, matrix_b, &
                             dbcsr_scalar(0.0_real_8), matrix_c, &
                             filter_eps=filter_eps, io_unit=io_unit, optimize_dist=.TRUE.)
-
-      cs_c = dbcsr_r_checksum(matrix_c)
-
-      IF(io_unit > 0) THEN
-         WRITE(io_unit, *) "checksum r", TRIM(matrix_c%matrix%name), cs_c ! checksum bad
-      ENDIF
 
       CALL dbcsr_r_convert_to_dbcsr(matrix_a, dbcsr_a)
       CALL dbcsr_r_convert_to_dbcsr(matrix_b, dbcsr_b)
@@ -358,7 +356,6 @@ CONTAINS
       CALL dbcsr_complete_redistribute(dbcsr_c, dbcsr_c_mm_check)
 
       transa_prv = transa; transb_prv = transb
-      !CALL invert_transpose_flag(transb_prv)
 
       IF (transc == dbcsr_no_transpose) THEN
          CALL dbcsr_multiply(transa_prv, transb_prv, dbcsr_scalar(1.0_real_8), &
@@ -407,7 +404,7 @@ CONTAINS
    END SUBROUTINE
 
 ! **************************************************************************************************
-!> \brief ...
+!> \brief Calculate checksum of rectangular matrix consistent with dbcsr_checksum
 !> \param matrix ...
 !> \param local ...
 !> \param pos ...
@@ -415,9 +412,9 @@ CONTAINS
 ! **************************************************************************************************
    FUNCTION dbcsr_r_checksum(matrix, local, pos)
       TYPE(dbcsr_r_type), INTENT(IN) :: matrix
-      LOGICAL, INTENT(IN), OPTIONAL     :: local, pos
-      TYPE(dbcsr_type)                  :: dbcsr_m
-      REAL(KIND=real_8)                 :: dbcsr_r_checksum
+      LOGICAL, INTENT(IN), OPTIONAL  :: local, pos
+      TYPE(dbcsr_type)               :: dbcsr_m
+      REAL(KIND=real_8)              :: dbcsr_r_checksum
 
       CALL dbcsr_r_convert_to_dbcsr(matrix, dbcsr_m)
       dbcsr_r_checksum = dbcsr_checksum(dbcsr_m, local, pos)
@@ -425,7 +422,7 @@ CONTAINS
    END FUNCTION
 
 ! **************************************************************************************************
-!> \brief ...
+!> \brief Create random block sizes
 !> \param sizes ...
 !> \param repeat ...
 !> \param block_sizes ...
@@ -444,7 +441,7 @@ CONTAINS
    END SUBROUTINE
 
 ! **************************************************************************************************
-!> \brief ...
+!> \brief Create random distribution
 !> \param dist_array ...
 !> \param dist_size ...
 !> \param nbins ...
@@ -461,19 +458,5 @@ CONTAINS
       END DO
 
    END SUBROUTINE random_dist
-
-! **************************************************************************************************
-!> \brief ...
-!> \param trans_flag ...
-! **************************************************************************************************
-   SUBROUTINE invert_transpose_flag(trans_flag)
-      CHARACTER(LEN=1), INTENT(INOUT)                    :: trans_flag
-
-      IF (trans_flag == dbcsr_transpose) THEN
-         trans_flag = dbcsr_no_transpose
-      ELSEIF (trans_flag == dbcsr_no_transpose) THEN
-         trans_flag = dbcsr_transpose
-      ENDIF
-   END SUBROUTINE
 
 END MODULE
