@@ -9,66 +9,37 @@
 
 PROGRAM dbcsr_rectangular_unittest
    USE dbcsr_api,                       ONLY: dbcsr_finalize_lib,&
-                                              dbcsr_init_lib,&
-                                              dbcsr_type_no_symmetry,&
-                                              dbcsr_type_real_8
-   USE dbcsr_dist_methods,              ONLY: dbcsr_distribution_new,&
-                                              dbcsr_distribution_release
-   USE dbcsr_methods,                   ONLY: dbcsr_col_block_sizes,&
-                                              dbcsr_get_nze,&
-                                              dbcsr_nblkcols_total,&
-                                              dbcsr_nblkrows_total,&
-                                              dbcsr_release,&
-                                              dbcsr_row_block_sizes
-   USE dbcsr_mp_methods,                ONLY: dbcsr_mp_release
-   USE dbcsr_multiply_api,              ONLY: dbcsr_multiply
-   USE dbcsr_operations,                ONLY: dbcsr_add
-   USE dbcsr_rectangular_base,          ONLY: dbcsr_r_convert_to_dbcsr,&
-                                              dbcsr_r_destroy,&
+                                              dbcsr_init_lib
+   USE dbcsr_rectangular_base,          ONLY: dbcsr_r_destroy,&
                                               dbcsr_r_info,&
                                               dbcsr_r_nblkcols_total,&
                                               dbcsr_r_nblkrows_total,&
                                               dbcsr_r_create
-   USE dbcsr_rectangular_types,    ONLY: dbcsr_r_type
-   USE dbcsr_rectangular_mm,            ONLY: dbcsr_r_multiply
-   USE dbcsr_rectangular_split,         ONLY: dbcsr_r_get_split_info,&
-                                              dbcsr_r_print_split_info
+   USE dbcsr_rectangular_types,         ONLY: dbcsr_r_type
+   USE dbcsr_rectangular_split,         ONLY: dbcsr_r_print_split_info
    USE dbcsr_rectangular_test,          ONLY: dbcsr_r_random_bsizes,&
                                               dbcsr_r_setup_test_matrix, &
                                               dbcsr_r_test_mm
-   USE dbcsr_rectangular_util,          ONLY: dbcsr_mp_environ
-   USE dbcsr_transformations,           ONLY: dbcsr_complete_redistribute
-   USE dbcsr_types,                     ONLY: dbcsr_distribution_obj,&
-                                              dbcsr_mp_obj,&
-                                              dbcsr_no_transpose,&
-                                              dbcsr_transpose,&
-                                              dbcsr_type
-   USE dbcsr_dist_util,                      ONLY: dbcsr_checksum
-   USE dbcsr_work_operations,           ONLY: dbcsr_create,&
-                                              dbcsr_finalize
-   USE dbcsr_kinds,                           ONLY: int_8,&
-                                                    real_8
-   USE dbcsr_machine,                         ONLY: default_output_unit
-   USE dbcsr_mpiwrap,                 ONLY: mp_cart_create,&
-                                            mp_comm_free,&
-                                            mp_environ,&
-                                            mp_world_finalize,&
-                                            mp_world_init
+   USE dbcsr_kinds,                     ONLY: int_8,&
+                                              real_8
+   USE dbcsr_machine,                   ONLY: default_output_unit
+   USE dbcsr_mpiwrap,                   ONLY: mp_comm_free,&
+                                              mp_environ,&
+                                              mp_world_finalize,&
+                                              mp_world_init
 #include "base/dbcsr_base_uses.f90"
 
    IMPLICIT NONE
 
    INTEGER(KIND=int_8), PARAMETER :: m = 100, k = 20, n = 10
-   TYPE(dbcsr_r_type) :: A, B, C, At, Bt, Ct, A_out, B_out, C_out, At_out, Bt_out, Ct_out
-   INTEGER, DIMENSION(m) :: bsize_m
-   INTEGER, DIMENSION(n) :: bsize_n
-   INTEGER, DIMENSION(k) :: bsize_k
-   REAL(KIND=real_8), PARAMETER :: sparsity = 0.1
-   INTEGER :: mp_comm
-   INTEGER :: numnodes, mynode
-   INTEGER :: io_unit
-   INTEGER :: mp_comm_A, mp_comm_At, mp_comm_B, mp_comm_Bt, mp_comm_C, mp_comm_Ct
-   REAL(KIND=real_8), PARAMETER :: filter_eps = 1.0E-08
+   TYPE(dbcsr_r_type)             :: A, B, C, At, Bt, Ct, A_out, B_out, C_out, At_out, Bt_out, Ct_out
+   INTEGER, DIMENSION(m)          :: bsize_m
+   INTEGER, DIMENSION(n)          :: bsize_n
+   INTEGER, DIMENSION(k)          :: bsize_k
+   REAL(KIND=real_8), PARAMETER   :: sparsity = 0.1
+   INTEGER                        :: mp_comm, numnodes, mynode, io_unit
+   INTEGER                        :: mp_comm_A, mp_comm_At, mp_comm_B, mp_comm_Bt, mp_comm_C, mp_comm_Ct
+   REAL(KIND=real_8), PARAMETER   :: filter_eps = 1.0E-08
 
    CALL mp_world_init(mp_comm)
 
