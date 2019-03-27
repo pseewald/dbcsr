@@ -19,9 +19,14 @@ MODULE dbcsr_tensor_io
 
    USE dbcsr_tensor_types, ONLY: &
       dbcsr_t_get_info, dbcsr_t_type, ndims_tensor, dbcsr_t_get_num_blocks, dbcsr_t_get_data_size,&
-      blk_dims_tensor
+      blk_dims_tensor, dbcsr_t_get_stored_coordinates
    USE dbcsr_kinds, ONLY: default_string_length, int_8, real_8
    USE dbcsr_mpiwrap, ONLY: mp_environ, mp_sum, mp_max
+   USE dbcsr_tensor_block, ONLY: &
+      dbcsr_t_iterator_type, dbcsr_t_iterator_next_block, dbcsr_t_iterator_start, &
+      dbcsr_t_iterator_blocks_left, dbcsr_t_iterator_stop, dbcsr_t_get_block
+
+#include "base/dbcsr_base_uses.f90"
 
    IMPLICIT NONE
    PRIVATE
@@ -29,7 +34,10 @@ MODULE dbcsr_tensor_io
 
    PUBLIC :: &
       dbcsr_t_write_tensor_info, &
-      dbcsr_t_write_tensor_dist
+      dbcsr_t_write_tensor_dist, &
+      dbcsr_t_write_blocks, &
+      dbcsr_t_write_block, &
+      dbcsr_t_write_block_indices
 
 CONTAINS
 
@@ -156,5 +164,137 @@ CONTAINS
       ENDIF
 
    END SUBROUTINE
+
+! **************************************************************************************************
+!> \brief Write all tensor blocks
+!> \param tensor ...
+!> \param io_unit_master for global output
+!> \param io_unit_all for local output
+!> \param write_int convert to integers (useful for testing with integer tensors)
+! **************************************************************************************************
+   SUBROUTINE dbcsr_t_write_blocks(tensor, io_unit_master, io_unit_all, write_int)
+      TYPE(dbcsr_t_type), INTENT(INOUT)                  :: tensor
+      INTEGER, INTENT(IN)                                :: io_unit_master, io_unit_all
+      LOGICAL, INTENT(IN), OPTIONAL                      :: write_int
+      INTEGER                                            :: blk
+      INTEGER, DIMENSION(ndims_tensor(tensor))          :: blk_index, blk_size
+#:for ndim in ndims
+      REAL(KIND=real_8), ALLOCATABLE, &
+         DIMENSION(${shape_colon(ndim)}$)                :: blk_values_${ndim}$
+#:endfor
+      TYPE(dbcsr_t_iterator_type)                        :: iterator
+      INTEGER                                            :: proc, mynode, numnodes
+      LOGICAL                                            :: found
+
+      IF (io_unit_master > 0) THEN
+         WRITE (io_unit_master, '(T7,A)') "(block index) @ process: (array index) value"
+      ENDIF
+      CALL dbcsr_t_iterator_start(iterator, tensor)
+      DO WHILE (dbcsr_t_iterator_blocks_left(iterator))
+         CALL dbcsr_t_iterator_next_block(iterator, blk_index, blk, blk_size=blk_size)
+         CALL dbcsr_t_get_stored_coordinates(tensor, blk_index, proc)
+         CALL mp_environ(numnodes, mynode, tensor%pgrid%mp_comm_2d)
+         DBCSR_ASSERT(proc .EQ. mynode)
+#:for ndim in ndims
+         IF (ndims_tensor(tensor) == ${ndim}$) THEN
+            CALL dbcsr_t_get_block(tensor, blk_index, blk_values_${ndim}$, found)
+            DBCSR_ASSERT(found)
+            CALL dbcsr_t_write_block(tensor%name, blk_size, blk_index, proc, io_unit_all, &
+                             blk_values_${ndim}$=blk_values_${ndim}$, write_int=write_int)
+            DEALLOCATE (blk_values_${ndim}$)
+         ENDIF
+#:endfor
+      ENDDO
+      CALL dbcsr_t_iterator_stop(iterator)
+   END SUBROUTINE
+
+! **************************************************************************************************
+!> \brief Write a tensor block
+!> \param name tensor name
+!> \param blk_size block size
+!> \param blk_index block index
+!> \param proc which process am I
+!> \param unit_nr unit number
+!> \param blk_values_2 block values for 2 dimensions
+!> \param blk_values_3 block values for 3 dimensions ...
+!> \param write_int convert values to integers
+! **************************************************************************************************
+   SUBROUTINE dbcsr_t_write_block(name, blk_size, blk_index, proc, unit_nr, &
+                          ${varlist("blk_values",nmin=2)}$, write_int)
+
+      CHARACTER(LEN=*), INTENT(IN)                       :: name
+      INTEGER, DIMENSION(:), INTENT(IN)                  :: blk_size, blk_index
+#:for ndim in ndims
+      REAL(KIND=real_8), &
+         DIMENSION(${arrlist("blk_size", nmax=ndim)}$), &
+         INTENT(IN), OPTIONAL                            :: blk_values_${ndim}$
+#:endfor
+      LOGICAL, INTENT(IN), OPTIONAL                      :: write_int
+      LOGICAL                                            :: write_int_prv
+      INTEGER, INTENT(IN)                                :: unit_nr, proc
+      INTEGER                                            :: ${varlist("i")}$
+      INTEGER                                            :: ndim
+
+      IF (PRESENT(write_int)) THEN
+         write_int_prv = write_int
+      ELSE
+         write_int_prv = .FALSE.
+      ENDIF
+
+      ndim = SIZE(blk_size)
+
+      IF (unit_nr > 0) THEN
+#:for ndim in ndims
+         IF (ndim == ${ndim}$) THEN
+#:for idim in range(ndim,0,-1)
+            DO i_${idim}$ = 1, blk_size(${idim}$)
+#:endfor
+               IF (write_int_prv) THEN
+                  WRITE (unit_nr, '(T7,A,T16,A,${ndim}$I3,1X,A,1X,I3,A,1X,A,${ndim}$I3,1X,A,1X,I20)') &
+                     TRIM(name), "(", blk_index, ") @", proc, ':', &
+                     "(", ${varlist("i", nmax=ndim)}$, ")", &
+                     INT(blk_values_${ndim}$ (${varlist("i", nmax=ndim)}$), KIND=int_8)
+               ELSE
+                  WRITE (unit_nr, '(T7,A,T16,A,${ndim}$I3,1X,A,1X,I3,A,1X,A,${ndim}$I3,1X,A,1X,F10.5)') &
+                     TRIM(name), "(", blk_index, ") @", proc, ':', &
+                     "(", ${varlist("i", nmax=ndim)}$, ")", &
+                     blk_values_${ndim}$ (${varlist("i", nmax=ndim)}$)
+               ENDIF
+#:for idim in range(ndim,0,-1)
+            ENDDO
+#:endfor
+         ENDIF
+#:endfor
+      ENDIF
+   END SUBROUTINE
+
+   SUBROUTINE dbcsr_t_write_block_indices(tensor, io_unit_master, io_unit_all)
+      TYPE(dbcsr_t_type), INTENT(INOUT)                  :: tensor
+      INTEGER, INTENT(IN)                                :: io_unit_master, io_unit_all
+      TYPE(dbcsr_t_iterator_type)                        :: iterator
+      INTEGER, DIMENSION(ndims_tensor(tensor))          :: blk_index, blk_size
+      INTEGER                                            :: blk, mynode, numnodes, proc
+
+      IF (io_unit_master > 0) THEN
+         WRITE (io_unit_master, '(T7,A)') "(block index) @ process: size"
+      ENDIF
+
+      CALL dbcsr_t_iterator_start(iterator, tensor)
+      DO WHILE (dbcsr_t_iterator_blocks_left(iterator))
+         CALL dbcsr_t_iterator_next_block(iterator, blk_index, blk, blk_size=blk_size)
+         CALL dbcsr_t_get_stored_coordinates(tensor, blk_index, proc)
+         CALL mp_environ(numnodes, mynode, tensor%pgrid%mp_comm_2d)
+         DBCSR_ASSERT(proc .EQ. mynode)
+#:for ndim in ndims
+         IF (ndims_tensor(tensor) == ${ndim}$) THEN
+            WRITE (io_unit_all, '(T7,A,T16,A,${ndim}$I3,1X,A,1X,I3,A2,${ndim}$I3)') &
+               TRIM(tensor%name), "blk index (", blk_index, ") @", proc, ":", blk_size
+         ENDIF
+#:endfor
+      ENDDO
+      CALL dbcsr_t_iterator_stop(iterator)
+   END SUBROUTINE
+
+
 
 END MODULE
