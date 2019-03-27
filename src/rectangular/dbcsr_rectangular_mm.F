@@ -23,7 +23,7 @@ MODULE dbcsr_rectangular_mm
    USE dbcsr_rectangular_base, ONLY: &
       dbcsr_r_create, dbcsr_r_destroy, dbcsr_r_distribution_destroy, dbcsr_r_distribution_new, &
       dbcsr_r_get_data_type, dbcsr_r_info, dbcsr_r_nblkcols_total, &
-      dbcsr_r_nblkrows_total, dbcsr_r_write_matrix_info, dbcsr_r_filter, dbcsr_r_write_dist
+      dbcsr_r_nblkrows_total, dbcsr_r_filter
    USE dbcsr_rectangular_types, ONLY: dbcsr_r_distribution_type, &
                                       dbcsr_r_split_info, &
                                       dbcsr_r_type
@@ -52,6 +52,8 @@ MODULE dbcsr_rectangular_mm
                             mp_sum, &
                             mp_comm_free
    USE dbcsr_operations, ONLY: dbcsr_scale
+   USE dbcsr_rectangular_io, ONLY: dbcsr_r_write_dist, &
+                                   dbcsr_r_write_matrix_info
 #include "../base/dbcsr_base_uses.f90"
 
    IMPLICIT NONE

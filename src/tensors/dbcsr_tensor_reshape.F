@@ -71,6 +71,9 @@ CONTAINS
 !> \brief copy data (involves reshape)
 !> \param tensor_in ...
 !> \param tensor_out ...
+!> \param summation tensor_out = tensor_out + tensor_in
+!> move_data memory optimization: transfer data from tensor_in to tensor_out s.t. tensor_in is empty
+!> on return
 ! **************************************************************************************************
    SUBROUTINE dbcsr_t_reshape(tensor_in, tensor_out, summation, move_data)
 

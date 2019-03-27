@@ -32,7 +32,6 @@ MODULE dbcsr_tensor_block
    USE dbcsr_rectangular_types, ONLY: dbcsr_r_iterator
    USE dbcsr_rectangular_base, ONLY: dbcsr_r_iterator_next_block, &
                                      dbcsr_r_iterator_blocks_left, &
-                                     dbcsr_r_iterator_next_block, &
                                      dbcsr_r_iterator_start, &
                                      dbcsr_r_iterator_stop, &
                                      dbcsr_r_get_block_p, &
@@ -82,7 +81,7 @@ MODULE dbcsr_tensor_block
       reshape_nd_to_2d_block
 
    TYPE dbcsr_t_iterator_type
-      TYPE(dbcsr_r_iterator)   :: iter
+      TYPE(dbcsr_r_iterator)      :: iter
       TYPE(nd_to_2d_mapping)      :: nd_index_blk
       TYPE(nd_to_2d_mapping)      :: nd_index
       TYPE(array_list)            :: blk_sizes, blk_offsets
@@ -325,6 +324,11 @@ CONTAINS
       CALL timestop(handle)
    END FUNCTION
 
+! **************************************************************************************************
+!> \brief reserve blocks from indices as array_list object
+!> \param tensor ...
+!> \param blk_ind ...
+! **************************************************************************************************
    SUBROUTINE dbcsr_t_reserve_blocks_index_list(tensor, blk_ind)
       TYPE(dbcsr_t_type), INTENT(INOUT)  :: tensor
       TYPE(array_list), INTENT(IN)       :: blk_ind
@@ -343,6 +347,11 @@ CONTAINS
       CALL timestop(handle)
    END SUBROUTINE
 
+! **************************************************************************************************
+!> \brief reserve blocks from indices as array object
+!> \param tensor ...
+!> \param blk_ind ...
+! **************************************************************************************************
    SUBROUTINE dbcsr_t_reserve_blocks_index_array(tensor, blk_ind)
       TYPE(dbcsr_t_type), INTENT(INOUT)   :: tensor
       INTEGER, DIMENSION(:, :), INTENT(IN) :: blk_ind
@@ -453,6 +462,11 @@ CONTAINS
       CALL timestop(handle)
    END SUBROUTINE
 
+! **************************************************************************************************
+!> \brief reserve matrix blocks using tensor template
+!> \param tensor_in
+!> \param matrix_out
+! **************************************************************************************************
    SUBROUTINE dbcsr_t_reserve_blocks_tensor_to_matrix(tensor_in, matrix_out)
       TYPE(dbcsr_t_type), INTENT(IN)        :: tensor_in
       TYPE(dbcsr_type), INTENT(INOUT)       :: matrix_out
@@ -484,9 +498,7 @@ CONTAINS
 ! **************************************************************************************************
 !> \brief indices of non-zero blocks
 !> \param tensor ...
-!> \param blk_ind_1 ...
-!> \param blk_ind_2 ...
-!> \param blk_ind_3 ...
+!> \param blk_ind ...
 ! **************************************************************************************************
    SUBROUTINE dbcsr_t_reserved_block_indices(tensor, blk_ind)
       TYPE(dbcsr_t_type), INTENT(IN)            :: tensor
@@ -572,6 +584,7 @@ CONTAINS
 !> \param tensor ...
 !> \param ind block index
 !> \param block block to get
+!> \param found whether block was found
 ! **************************************************************************************************
    SUBROUTINE dbcsr_t_get_anyd_block(tensor, ind, block, found)
       TYPE(dbcsr_t_type), INTENT(INOUT)            :: tensor
@@ -598,6 +611,8 @@ CONTAINS
 !> \param tensor ...
 !> \param ind block index
 !> \param block block to put
+!> \param summation whether block should be summed to existing block
+!> \param scale scaling factor
 ! **************************************************************************************************
    SUBROUTINE dbcsr_t_put_anyd_block(tensor, ind, block, summation, scale)
       TYPE(dbcsr_t_type), INTENT(INOUT)            :: tensor
@@ -631,6 +646,8 @@ CONTAINS
 !> \param tensor ...
 !> \param ind block index
 !> \param block block to put
+!> \param summation whether block should be summed to existing block
+!> \param scale scaling factor
 ! **************************************************************************************************
    SUBROUTINE dbcsr_t_put_anyd_block_${dsuffix}$ (tensor, ind, block, summation, scale)
       TYPE(block_nd_${dsuffix}$), INTENT(IN)       :: block
@@ -655,6 +672,7 @@ CONTAINS
 !> \param tensor ...
 !> \param ind block index
 !> \param block block to get
+!> \param found whether block was found
 ! **************************************************************************************************
    SUBROUTINE dbcsr_t_get_anyd_block_${dsuffix}$ (tensor, ind, block, found)
       TYPE(block_nd), INTENT(OUT)                  :: block
@@ -686,6 +704,8 @@ CONTAINS
 !> \param ind block index
 !> \param sizes block size
 !> \param block block to put
+!> \param summation whether block should be summed to existing block
+!> \param scale scaling factor
 ! **************************************************************************************************
    SUBROUTINE dbcsr_t_put_${ndim}$d_block_${dsuffix}$ (tensor, ind, sizes, block, summation, scale)
       TYPE(dbcsr_t_type), INTENT(INOUT)                     :: tensor
@@ -735,6 +755,13 @@ CONTAINS
 
 #:for dparam, dtype, dsuffix in dtype_float_list
 #:for ndim in ndims
+! **************************************************************************************************
+!> \brief allocate and get block
+!> \param tensor ...
+!> \param ind block index
+!> \param block block to get
+!> \param found whether block was found
+! **************************************************************************************************
    SUBROUTINE dbcsr_t_allocate_and_get_${ndim}$d_block_${dsuffix}$ (tensor, ind, block, found)
       TYPE(dbcsr_t_type), INTENT(INOUT)                     :: tensor
       INTEGER, DIMENSION(ndims_tensor(tensor)), INTENT(IN)  :: ind
@@ -759,6 +786,7 @@ CONTAINS
 !> \param ind block index
 !> \param sizes block size
 !> \param block block to get
+!> \param found whether block was found
 ! **************************************************************************************************
    SUBROUTINE dbcsr_t_get_${ndim}$d_block_${dsuffix}$ (tensor, ind, sizes, block, found)
       TYPE(dbcsr_t_type), INTENT(INOUT)                     :: tensor
@@ -805,7 +833,7 @@ CONTAINS
 #:for ndim in ndims
 
 ! **************************************************************************************************
-!> \brief ...
+!> \brief reshape matrix to tensor block
 !> \param map ...
 !> \param block_2d ...
 !> \param block ...
@@ -826,10 +854,10 @@ CONTAINS
 #:for dparam, dtype, dsuffix in dtype_float_list
 #:for ndim in ndims
 ! **************************************************************************************************
-!> \brief ...
+!> \brief reshape tensor to matrix block
 !> \param map ...
-!> \param block_2d ...
 !> \param block ...
+!> \param block_2d ...
 ! **************************************************************************************************
    SUBROUTINE reshape_block_t2m_${ndim}$d_${dsuffix}$ (map, block, block_2d)
       TYPE(nd_to_2d_mapping), INTENT(IN)                                 :: map

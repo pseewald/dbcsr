@@ -958,6 +958,12 @@ CONTAINS
       sizes_2d(2) = PRODUCT(nd_sizes(map2))
    END FUNCTION
 
+! **************************************************************************************************
+!> \brief checksum of a tensor consistent with dbcsr_checksum
+!> \param tensor ...
+!> \param local ...
+!> \param pos ...
+! **************************************************************************************************
    FUNCTION dbcsr_t_checksum(tensor, local, pos)
       TYPE(dbcsr_t_type), INTENT(IN) :: tensor
       REAL(KIND=real_8) :: dbcsr_t_checksum

@@ -83,6 +83,7 @@ MODULE dbcsr_tensor_types
       dbcsr_t_distribution_type, &
       dbcsr_t_filter, &
       dbcsr_t_finalize, &
+      dbcsr_t_get_data_size, &
       dbcsr_t_get_data_type, &
       dbcsr_t_get_info, &
       dbcsr_t_get_num_blocks, &
@@ -98,8 +99,6 @@ MODULE dbcsr_tensor_types
       dbcsr_t_scale, &
       dbcsr_t_set, &
       dbcsr_t_type, &
-      dbcsr_t_write_tensor_dist, &
-      dbcsr_t_write_tensor_info, &
       dims_tensor, &
       mp_environ_pgrid, &
       ndims_tensor
@@ -110,46 +109,51 @@ MODULE dbcsr_tensor_types
    END TYPE
 
    TYPE dbcsr_t_type
-      TYPE(dbcsr_r_type), POINTER            :: matrix_rep => NULL()
-      TYPE(nd_to_2d_mapping)                 :: nd_index_blk
-      TYPE(nd_to_2d_mapping)                 :: nd_index
-      !TYPE(nd_to_2d_mapping)                 :: nd_index_grid
-      TYPE(array_list)                       :: blk_sizes
-      TYPE(array_list)                       :: blk_offsets
-      TYPE(array_list)                       :: nd_dist
-      !INTEGER                                :: comm_nd
-      !INTEGER                                :: comm_2d
-      TYPE(dbcsr_t_pgrid_type)               :: pgrid
-      TYPE(array_list)                       :: blks_local
-      INTEGER, DIMENSION(:), ALLOCATABLE     :: nblks_local
-      INTEGER, DIMENSION(:), ALLOCATABLE     :: nfull_local
-      LOGICAL                                :: valid = .FALSE.
-      LOGICAL                                :: owns_matrix = .FALSE.
-      CHARACTER(LEN=default_string_length)   :: name
-      INTEGER, POINTER :: refcount => NULL() ! lightweight reference counting for communicators
+      TYPE(dbcsr_r_type), POINTER          :: matrix_rep => NULL()
+      TYPE(nd_to_2d_mapping)               :: nd_index_blk
+      TYPE(nd_to_2d_mapping)               :: nd_index
+      TYPE(array_list)                     :: blk_sizes
+      TYPE(array_list)                     :: blk_offsets
+      TYPE(array_list)                     :: nd_dist
+      TYPE(dbcsr_t_pgrid_type)             :: pgrid
+      TYPE(array_list)                     :: blks_local
+      INTEGER, DIMENSION(:), ALLOCATABLE   :: nblks_local
+      INTEGER, DIMENSION(:), ALLOCATABLE   :: nfull_local
+      LOGICAL                              :: valid = .FALSE.
+      LOGICAL                              :: owns_matrix = .FALSE.
+      CHARACTER(LEN=default_string_length) :: name
+      ! lightweight reference counting for communicators:
+      INTEGER, POINTER                     :: refcount => NULL()
    END TYPE dbcsr_t_type
 
    TYPE dbcsr_t_distribution_type
       TYPE(dbcsr_r_distribution_type) :: dist
-      !INTEGER                       :: comm_nd
-      !INTEGER                       :: comm_2d
       TYPE(dbcsr_t_pgrid_type)      :: pgrid
       TYPE(array_list)              :: nd_dist
-      !TYPE(nd_to_2d_mapping)        :: nd_index_grid
-      INTEGER, POINTER :: refcount => NULL() ! lightweight reference counting for communicators
+      ! lightweight reference counting for communicators:
+      INTEGER, POINTER :: refcount => NULL()
    END TYPE
 
+   ! rectangular matrix distribution function object for one matrix index
    TYPE, EXTENDS(dbcsr_r_distribution) :: dbcsr_r_dist_t
-      INTEGER, DIMENSION(:), ALLOCATABLE :: dims ! tensor dimensions only for this matrix dimensions
-      INTEGER, DIMENSION(:), ALLOCATABLE :: dims_grid ! grid dimensions only for this matrix dimension
-      TYPE(array_list)       :: nd_dist ! dist only for tensor dimensions belonging to this matrix dimension
+      ! tensor dimensions only for this matrix dimension:
+      INTEGER, DIMENSION(:), ALLOCATABLE :: dims
+      ! grid dimensions only for this matrix dimension:
+      INTEGER, DIMENSION(:), ALLOCATABLE :: dims_grid
+      ! dist only for tensor dimensions belonging to this matrix dimension:
+      TYPE(array_list)       :: nd_dist
    CONTAINS
+      ! map matrix index to process grid:
       PROCEDURE :: dist => r_dist_t
+      ! map process grid to matrix index:
       PROCEDURE :: rowcols => r_rowcols_t
    END TYPE
 
+   ! block size object for one matrix index
    TYPE, EXTENDS(dbcsr_r_rowcol_data) :: dbcsr_r_blk_size_t
-      INTEGER, DIMENSION(:), ALLOCATABLE :: dims ! tensor dimensions only for this matrix dimensions
+      ! tensor dimensions only for this matrix dimension:
+      INTEGER, DIMENSION(:), ALLOCATABLE :: dims
+      ! block size only for this matrix dimension:
       TYPE(array_list) :: blk_size
    CONTAINS
       PROCEDURE :: data => r_blk_size_t
@@ -183,13 +187,22 @@ MODULE dbcsr_tensor_types
 
 CONTAINS
 
+! **************************************************************************************************
+!> \brief Create distribution object for one matrix dimension
+!> \param nd_dist arrays for distribution vectors along all dimensions
+!> \param map_blks tensor to matrix mapping object for blocks
+!> \param map_grid tensor to matrix mapping object for process grid
+!> \param which_dim for which dimension (1 or 2) distribution should be created
+!> \return distribution object
+! **************************************************************************************************
    FUNCTION new_dbcsr_r_dist_t(nd_dist, map_blks, map_grid, which_dim)
-      TYPE(array_list), INTENT(IN)                   :: nd_dist
-      TYPE(nd_to_2d_mapping), INTENT(IN)             :: map_blks, map_grid
-      INTEGER, INTENT(IN) :: which_dim
-      TYPE(dbcsr_r_dist_t) :: new_dbcsr_r_dist_t
-      INTEGER, DIMENSION(2) :: grid_dims
-      INTEGER(KIND=int_8), DIMENSION(2) :: matrix_dims
+      TYPE(array_list), INTENT(IN)       :: nd_dist
+      TYPE(nd_to_2d_mapping), INTENT(IN) :: map_blks, map_grid
+      INTEGER, INTENT(IN)                :: which_dim
+
+      TYPE(dbcsr_r_dist_t)               :: new_dbcsr_r_dist_t
+      INTEGER, DIMENSION(2)              :: grid_dims
+      INTEGER(KIND=int_8), DIMENSION(2)  :: matrix_dims
       INTEGER, DIMENSION(:), ALLOCATABLE :: index_map
 
       IF (which_dim == 1) THEN
@@ -292,6 +305,14 @@ CONTAINS
 
    END FUNCTION
 
+! **************************************************************************************************
+!> \brief Create block size object for one matrix dimension
+!> \param blk_size arrays for block sizes along all dimensions
+!> \param map_blks tensor to matrix mapping object for blocks
+!> \param map_grid tensor to matrix mapping object for process grid
+!> \param which_dim for which dimension (1 or 2) distribution should be created
+!> \return block size object
+! **************************************************************************************************
    FUNCTION new_dbcsr_r_blk_size_t(blk_size, map_blks, which_dim)
       TYPE(array_list), INTENT(IN)                   :: blk_size
       TYPE(nd_to_2d_mapping), INTENT(IN)             :: map_blks
@@ -346,7 +367,7 @@ CONTAINS
 !> \param dims1_nd
 !> \param dims2_nd
 !> \param pdims_2d if comm_2d does not have a cartesian topology associated, can input dimensions with
-!>                 pdims_2d (hack)
+!>                 pdims_2d
 !> \return with nd cartesian grid
 ! **************************************************************************************************
    FUNCTION dbcsr_t_nd_mp_comm(comm_2d, map1_2d, map2_2d, dims_nd, dims1_nd, dims2_nd, pdims_2d)
@@ -406,31 +427,9 @@ CONTAINS
 
    END FUNCTION
 
-   !FUNCTION dbcsr_t_2d_mp_comm(comm_nd, map1_2d, map2_2d)
-   !   INTEGER, INTENT(IN) :: comm_nd
-   !   INTEGER, DIMENSION(:), INTENT(IN) :: map1_2d, map2_2d
-   !   INTEGER, DIMENSION(2) :: pos, dims_2d
-   !   INTEGER :: dbcsr_t_2d_mp_comm, handle
-   !   INTEGER, DIMENSION(SIZE(map1_2d) + SIZE(map2_2d)) :: dims_nd, pcoord
-   !   LOGICAL, DIMENSION(SIZE(map1_2d) + SIZE(map2_2d)) :: periods
-   !   CHARACTER(LEN=*), PARAMETER :: routineN = 'dbcsr_t_2d_mp_comm', &
-   !      routineP = moduleN//':'//routineN
-
-   !   CALL timeset(routineN, handle)
-
-   !   CALL mp_environ(comm_nd, SIZE(dims_nd), dims_nd, pcoord, periods)
-
-   !   dims_2d = [PRODUCT(dims_nd(map1_2d)), PRODUCT(dims_nd(map2_2d))]
-
-   !   CALL mp_cart_create(comm_nd, 2, dims_2d, pos, dbcsr_t_2d_mp_comm)
-
-   !   CALL timestop(handle)
-
-   !END FUNCTION
-
 ! **************************************************************************************************
 !> \brief Release the MPI communicator.
-!>
+!> \param mp_comm ...
 ! **************************************************************************************************
    SUBROUTINE dbcsr_t_nd_mp_free(mp_comm)
       INTEGER, INTENT(INOUT)                               :: mp_comm
@@ -441,13 +440,8 @@ CONTAINS
 ! **************************************************************************************************
 !> \brief Create a tensor distribution.
 !>
-!> comm_nd and comm_2d must be consistent (the nd process grid must map to the 2d process grid
-!> according to map1_2d and map2_2d).
-!> comm_2d is only needed for an early testing phase of tensor contraction and in the future,
-!> comm_2d should not be an input.
 !> \param dist ...
-!> \param comm_nd communicator with n-dimensional Cartesian topology
-!> \param comm_2d communicator with 2-dimensional topology
+!> \param pgrid process grid
 !> \param map1_2d which nd-indices map to first matrix index and in which order
 !> \param map2_2d which nd-indices map to second matrix index and in which order
 !> \param nd_dist_1 distribution vector for first dimension
@@ -524,7 +518,6 @@ CONTAINS
 
       CALL mp_environ(comm_2d, 2, pdims_2d_check, task_coor_2d, periods_2d)
       IF (ANY(pdims_2d_check .NE. pdims_2d)) THEN
-         PRINT *, pdims_2d, pdims_2d_check
          DBCSR_ABORT("inconsistent process grid dimensions")
       ENDIF
 
@@ -549,17 +542,7 @@ CONTAINS
       ENDIF
 
       dist%nd_dist = nd_dist
-      !dist%comm_2d = comm_2d
       dist%pgrid = pgrid_prv
-      !IF(PRESENT(own_comm)) THEN
-      !   IF(.NOT. own_comm) THEN
-      !      CALL mp_comm_dup(comm_2d, dist%pgrid_prv%mp_comm_2d)
-      !   ENDIF
-      !ELSE
-      !   CALL mp_comm_dup(comm_2d, dist%pgrid_prv%mp_comm_2d)
-      !ENDIF
-
-      !dist%nd_index_grid = map_grid
 
       ALLOCATE (dist%refcount)
       dist%refcount = 1
@@ -592,7 +575,6 @@ CONTAINS
       CALL timeset(routineN, handle)
       CALL dbcsr_r_distribution_destroy(dist%dist)
       CALL destroy_array_list(dist%nd_dist)
-      !CALL destroy_nd_to_2d_mapping(dist%nd_index_grid)
 
       abort = .FALSE.
       IF (.NOT. ASSOCIATED(dist%refcount)) THEN
@@ -609,14 +591,17 @@ CONTAINS
 
       IF (dist%refcount == 0) THEN
          CALL dbcsr_t_pgrid_destroy(dist%pgrid)
-         !CALL mp_comm_free(dist%comm_2d)
-         !CALL mp_comm_free(dist%comm_nd)
          DEALLOCATE (dist%refcount)
       ENDIF
 
       CALL timestop(handle)
    END SUBROUTINE
 
+! **************************************************************************************************
+!> \brief reference counting for distribution (only needed for communicator handle that must be freed
+!> when no longer needed)
+!> \param dist ...
+! **************************************************************************************************
    SUBROUTINE dbcsr_t_distribution_hold(dist)
       TYPE(dbcsr_t_distribution_type), INTENT(IN) :: dist
       INTEGER, POINTER                            :: ref
@@ -628,16 +613,18 @@ CONTAINS
       ref = ref + 1
    END SUBROUTINE
 
+! **************************************************************************************************
+!> \brief get distribution from tensor
+!> \param tensor ...
+!> \return distribution
+! **************************************************************************************************
    FUNCTION dbcsr_t_distribution(tensor)
       TYPE(dbcsr_t_type), INTENT(IN)  :: tensor
       TYPE(dbcsr_t_distribution_type) :: dbcsr_t_distribution
 
       CALL dbcsr_r_get_info(tensor%matrix_rep, distribution=dbcsr_t_distribution%dist)
-      !dbcsr_t_distribution%comm_nd = tensor%comm_nd
-      !dbcsr_t_distribution%comm_2d = tensor%comm_2d
       dbcsr_t_distribution%pgrid = tensor%pgrid
       dbcsr_t_distribution%nd_dist = tensor%nd_dist
-      !dbcsr_t_distribution%nd_index_grid = tensor%nd_index_grid
       dbcsr_t_distribution%refcount => dbcsr_t_distribution%refcount
    END FUNCTION
 
@@ -710,7 +697,6 @@ CONTAINS
 #:for ndim in range(1, maxdim+1)
       IF (ndims == ${ndim}$) THEN
          CALL get_arrays(dist%nd_dist, ${varlist("dist", nmax=ndim)}$)
-         !CALL get_arrays(dist%blk_sizes, ${varlist("blk_sizes", nmax=ndim)}$)
       ENDIF
 #:endfor
 
@@ -745,11 +731,8 @@ CONTAINS
 
       tensor%blks_local = blks_local
 
-      !tensor%nd_index_grid = dist%nd_index_grid
       tensor%nd_dist = dist%nd_dist
       tensor%pgrid = dist%pgrid
-      !tensor%comm_nd = dist%comm_nd
-      !tensor%comm_2d = dist%comm_2d
 
       CALL dbcsr_t_distribution_hold(dist)
       tensor%refcount => dist%refcount
@@ -760,6 +743,11 @@ CONTAINS
       CALL timestop(handle)
    END SUBROUTINE
 
+! **************************************************************************************************
+!> \brief reference counting for tensors (only needed for communicator handle that must be freed
+!> when no longer needed)
+!> \param dist ...
+! **************************************************************************************************
    SUBROUTINE dbcsr_t_hold(tensor)
       TYPE(dbcsr_t_type), INTENT(IN) :: tensor
       INTEGER, POINTER :: ref
@@ -798,7 +786,6 @@ CONTAINS
 
       tensor%nd_index_blk = tensor_in%nd_index_blk
       tensor%nd_index = tensor_in%nd_index
-      !tensor%nd_index_grid = tensor_in%nd_index_grid
       tensor%blk_sizes = tensor_in%blk_sizes
       tensor%blk_offsets = tensor_in%blk_offsets
       tensor%nd_dist = tensor_in%nd_dist
@@ -807,8 +794,6 @@ CONTAINS
       tensor%nblks_local(:) = tensor_in%nblks_local
       ALLOCATE (tensor%nfull_local(ndims_tensor(tensor_in)))
       tensor%nfull_local(:) = tensor_in%nfull_local
-      !tensor%comm_nd = tensor_in%comm_nd
-      !tensor%comm_2d = tensor_in%comm_2d
       tensor%pgrid = tensor_in%pgrid
 
       tensor%refcount => tensor_in%refcount
@@ -971,6 +956,11 @@ CONTAINS
       dims = tensor%nd_index%dims_nd
    END SUBROUTINE
 
+! **************************************************************************************************
+!> \brief tensor block dimensions
+!> \param tensor ...
+!> \param dims ...
+! **************************************************************************************************
    SUBROUTINE blk_dims_tensor(tensor, dims)
       TYPE(dbcsr_t_type), INTENT(IN)              :: tensor
       INTEGER, DIMENSION(ndims_tensor(tensor)), &
@@ -1098,6 +1088,11 @@ CONTAINS
       CALL timestop(handle)
    END SUBROUTINE
 
+! **************************************************************************************************
+!> \brief destroy process grid
+!> \param pgrid ...
+!> \param keep_comm if .TRUE. communicator is not freed
+! **************************************************************************************************
    SUBROUTINE dbcsr_t_pgrid_destroy(pgrid, keep_comm)
       TYPE(dbcsr_t_pgrid_type), INTENT(INOUT) :: pgrid
       LOGICAL, INTENT(IN), OPTIONAL           :: keep_comm
@@ -1111,6 +1106,13 @@ CONTAINS
       CALL destroy_nd_to_2d_mapping(pgrid%nd_index_grid)
    END SUBROUTINE
 
+! **************************************************************************************************
+!> \brief remap a process grid (needed when mapping between tensor and matrix index is changed)
+!> \param pgrid_in ...
+!> \param map1_2d new mapping
+!> \param map2_2d new mapping
+!> \param pgrid_out ...
+! **************************************************************************************************
    SUBROUTINE dbcsr_t_pgrid_remap(pgrid_in, map1_2d, map2_2d, pgrid_out)
       TYPE(dbcsr_t_pgrid_type), INTENT(IN) :: pgrid_in
       INTEGER, DIMENSION(:), INTENT(IN) :: map1_2d, map2_2d
@@ -1122,6 +1124,12 @@ CONTAINS
       CALL dbcsr_t_pgrid_create(pgrid_in%mp_comm_2d, dims, pgrid_out, map1_2d, map2_2d)
    END SUBROUTINE
 
+! **************************************************************************************************
+!> \brief as mp_environ but for special pgrid type
+!> \param pgrid ...
+!> \param dims ...
+!> \param task_coor ...
+! **************************************************************************************************
    SUBROUTINE mp_environ_pgrid(pgrid, dims, task_coor)
       TYPE(dbcsr_t_pgrid_type), INTENT(IN) :: pgrid
       INTEGER, DIMENSION(ndims_mapping(pgrid%nd_index_grid)), INTENT(OUT) :: dims
@@ -1135,6 +1143,11 @@ CONTAINS
    END SUBROUTINE
 
 #:for dparam, dtype, dsuffix in dtype_float_list
+! **************************************************************************************************
+!> \brief As dbcsr_set
+!> \param tensor ...
+!> \param alpha ...
+! **************************************************************************************************
    SUBROUTINE dbcsr_t_set_${dsuffix}$ (tensor, alpha)
       TYPE(dbcsr_t_type), INTENT(INOUT)                   :: tensor
       ${dtype}$, INTENT(IN)                               :: alpha
@@ -1143,6 +1156,13 @@ CONTAINS
 #:endfor
 
 #:for dparam, dtype, dsuffix in dtype_float_list
+! **************************************************************************************************
+!> \brief As dbcsr_filter
+!> \param tensor ...
+!> \param eps ...
+!> \param method ...
+!> \param use_absolute
+! **************************************************************************************************
    SUBROUTINE dbcsr_t_filter_${dsuffix}$ (tensor, eps, method, use_absolute)
       TYPE(dbcsr_t_type), INTENT(INOUT)    :: tensor
       ${dtype}$, INTENT(IN)                :: eps
@@ -1154,6 +1174,31 @@ CONTAINS
    END SUBROUTINE
 #:endfor
 
+! **************************************************************************************************
+!> \brief As dbcsr_get_info but for tensors
+!> \param tensor ...
+!> \param nblks_total number of blocks along each dimension
+!> \param nfull_total number of elements along each dimension
+!> \param nblks_local local number of blocks along each dimension
+!> \param nfull_local local number of elements along each dimension
+!> \param pdims process grid dimensions
+!> \param my_ploc process coordinates in process grid
+!> \param blks_local_1 local blocks along dimension 1
+!> \param blks_local_2 local blocks along dimension 2
+!> \param blks_local_...
+!> \param proc_dist_1 distribution vector along dimension 1
+!> \param proc_dist_2 distribution vector along dimension 2
+!> \param proc_dist_...
+!> \param blk_size_1 block sizes along dimension 1
+!> \param blk_size_2 block sizes along dimension 2
+!> \param blk_size_...
+!> \param blk_offset_1 block offsets along dimension 1
+!> \param blk_offset_2 block offsets along dimension 2
+!> \param blk_offset_...
+!> \param distribution distribution object
+!> \param name name of tensor
+!> \param data_type data type of tensor
+! **************************************************************************************************
    SUBROUTINE dbcsr_t_get_info(tensor, nblks_total, &
                                nfull_total, &
                                nblks_local, &
@@ -1204,85 +1249,57 @@ CONTAINS
 
    END SUBROUTINE
 
+! **************************************************************************************************
+!> \brief As dbcsr_get_num_blocks: get number of local blocks
+!> \param tensor ...
+!> \return ...
+! **************************************************************************************************
    PURE FUNCTION dbcsr_t_get_num_blocks(tensor) RESULT(num_blocks)
       TYPE(dbcsr_t_type), INTENT(IN)    :: tensor
       INTEGER                           :: num_blocks
       num_blocks = dbcsr_r_get_num_blocks(tensor%matrix_rep)
    END FUNCTION
 
+! **************************************************************************************************
+!> \brief As dbcsr_get_data_size
+!> \param tensor ...
+!> \return ...
+! **************************************************************************************************
    FUNCTION dbcsr_t_get_data_size(tensor) RESULT(data_size)
       TYPE(dbcsr_t_type), INTENT(IN)    :: tensor
       INTEGER                           :: data_size
       data_size = dbcsr_r_get_data_size(tensor%matrix_rep)
    END FUNCTION
 
+! **************************************************************************************************
+!> \brief Clear tensor (s.t. it does not contain any blocks)
+!> \param tensor ...
+! **************************************************************************************************
    SUBROUTINE dbcsr_t_clear(tensor)
       TYPE(dbcsr_t_type), INTENT(INOUT) :: tensor
       CALL dbcsr_t_set(tensor, 0.0_real_8)
       CALL dbcsr_t_filter(tensor, 1.0_real_8)
    END SUBROUTINE
 
+! **************************************************************************************************
+!> \brief Finalize tensor, as dbcsr_finalize. This should be taken care of internally in dbcsr tensors,
+!>        there should not be any need to call this routine outside of dbcsr tensors.
+!> \param tensor ...
+! **************************************************************************************************
    SUBROUTINE dbcsr_t_finalize(tensor)
       TYPE(dbcsr_t_type), INTENT(INOUT) :: tensor
       CALL dbcsr_r_finalize(tensor%matrix_rep)
    END SUBROUTINE
 
+! **************************************************************************************************
+!> \brief as dbcsr_scale
+!> \param tensor ...
+!> \param alpha ...
+! **************************************************************************************************
    SUBROUTINE dbcsr_t_scale(tensor, alpha)
       TYPE(dbcsr_t_type), INTENT(INOUT) :: tensor
       TYPE(dbcsr_scalar_type), INTENT(IN) :: alpha
       CALL dbcsr_scale(tensor%matrix_rep%matrix, alpha)
-   END SUBROUTINE
-
-   SUBROUTINE dbcsr_t_write_tensor_dist(tensor, output_unit)
-      TYPE(dbcsr_t_type), INTENT(IN) :: tensor
-      INTEGER, INTENT(IN)            :: output_unit
-      INTEGER                        :: nproc, myproc, nblock_max, nelement_max
-      INTEGER(KIND=int_8)            :: nblock_sum, nelement_sum, nblock_tot
-      INTEGER, ALLOCATABLE, DIMENSION(:) :: nblock, nelement
-      INTEGER                        :: mp_comm
-      INTEGER, DIMENSION(2)          :: tmp
-      INTEGER, DIMENSION(ndims_tensor(tensor)) :: bdims
-      REAL(KIND=real_8)              :: occupation
-
-      mp_comm = tensor%pgrid%mp_comm_2d
-      CALL mp_environ(nproc, myproc, mp_comm)
-
-      ALLOCATE (nblock(0:nproc - 1))
-      nblock(:) = 0
-
-      ALLOCATE (nelement(0:nproc - 1))
-      nelement(:) = 0
-
-      nblock(myproc) = dbcsr_t_get_num_blocks(tensor)
-      nelement(myproc) = dbcsr_t_get_data_size(tensor)
-
-      nblock_sum = nblock(myproc)
-      nblock_max = nblock(myproc)
-      nelement_sum = nelement(myproc)
-      nelement_max = nelement(myproc)
-      CALL mp_sum(nblock_sum, mp_comm)
-      CALL mp_sum(nelement_sum, mp_comm)
-      tmp = (/nblock_max, nelement_max/)
-      CALL mp_max(tmp, mp_comm)
-      nblock_max = tmp(1); nelement_max = tmp(2)
-
-      CALL blk_dims_tensor(tensor, bdims)
-      nblock_tot = PRODUCT(INT(bdims, KIND=int_8))
-
-      occupation = -1.0_real_8
-      IF (nblock_tot .NE. 0) occupation = 100.0_real_8*REAL(nblock_sum, real_8)/REAL(nblock_tot, real_8)
-
-      IF (output_unit > 0) THEN
-         WRITE (output_unit, "(T2,A)") &
-            "DISTRIBUTION OF "//TRIM(tensor%name)
-         WRITE (output_unit, "(T15,A,T68,I13)") "Number of non-zero blocks:", nblock_sum
-         WRITE (output_unit, "(T15,A,T75,F6.2)") "Percentage of non-zero blocks:", occupation
-         WRITE (output_unit, "(T15,A,T68,I13)") "Average number of blocks per CPU:", (nblock_sum + nproc - 1)/nproc
-         WRITE (output_unit, "(T15,A,T68,I13)") "Maximum number of blocks per CPU:", nblock_max
-         WRITE (output_unit, "(T15,A,T68,I13)") "Average number of matrix elements per CPU:", (nelement_sum + nproc - 1)/nproc
-         WRITE (output_unit, "(T15,A,T68,I13)") "Maximum number of matrix elements per CPU:", nelement_max
-      ENDIF
-
    END SUBROUTINE
 
    PURE FUNCTION dbcsr_t_get_nze(tensor)
@@ -1297,64 +1314,4 @@ CONTAINS
       dbcsr_t_get_nze_total = dbcsr_r_get_nze_total(tensor%matrix_rep)
    END FUNCTION
 
-   SUBROUTINE dbcsr_t_write_tensor_info(tensor, output_unit, full_info)
-      TYPE(dbcsr_t_type), INTENT(IN) :: tensor
-      INTEGER, INTENT(IN)            :: output_unit
-      LOGICAL, OPTIONAL, INTENT(IN)  :: full_info
-      INTEGER, DIMENSION(ndims_tensor(tensor)) :: nblks_total, nfull_total, pdims, my_ploc, nblks_local, nfull_local
-      INTEGER, DIMENSION(:), ALLOCATABLE :: ${varlist("blks_local")}$
-      INTEGER, DIMENSION(:), ALLOCATABLE :: ${varlist("proc_dist")}$
-      INTEGER, DIMENSION(:), ALLOCATABLE :: ${varlist("blk_size")}$
-      INTEGER, DIMENSION(:), ALLOCATABLE :: ${varlist("blk_offset")}$
-      CHARACTER(len=default_string_length)                   :: name
-      INTEGER                            :: idim
-      INTEGER                            :: iblk
-
-      CALL dbcsr_t_get_info(tensor, nblks_total, nfull_total, nblks_local, nfull_local, pdims, my_ploc, &
-                            ${varlist("blks_local")}$, ${varlist("proc_dist")}$, ${varlist("blk_size")}$, &
-                            ${varlist("blk_offset")}$, &
-                            name=name)
-
-      IF (output_unit > 0) THEN
-         WRITE (output_unit, "(T2,A)") &
-            "GLOBAL INFO OF "//TRIM(name)
-         WRITE (output_unit, "(T4,A,1X)", advance="no") "block dimensions:"
-         DO idim = 1, ndims_tensor(tensor)
-            WRITE (output_unit, "(I6)", advance="no") nblks_total(idim)
-         ENDDO
-         WRITE (output_unit, "(/T4,A,1X)", advance="no") "full dimensions:"
-         DO idim = 1, ndims_tensor(tensor)
-            WRITE (output_unit, "(I8)", advance="no") nfull_total(idim)
-         ENDDO
-         WRITE (output_unit, "(/T4,A,1X)", advance="no") "process grid dimensions:"
-         DO idim = 1, ndims_tensor(tensor)
-            WRITE (output_unit, "(I6)", advance="no") pdims(idim)
-         ENDDO
-
-         IF (PRESENT(full_info)) THEN
-            IF (full_info) THEN
-               WRITE (output_unit, '(/T4,A)', advance='no') "Block sizes:"
-#:for dim in range(1, maxdim+1)
-               IF (ndims_tensor(tensor) >= ${dim}$) THEN
-                  WRITE (output_unit, '(/T8,A,1X,I1,A,1X)', advance='no') 'Dim', ${dim}$, ':'
-                  DO iblk = 1, SIZE(blk_size_${dim}$)
-                     WRITE (output_unit, '(I2,1X)', advance='no') blk_size_${dim}$ (iblk)
-                  ENDDO
-               ENDIF
-#:endfor
-               WRITE (output_unit, '(/T4,A)', advance='no') "Block distribution:"
-#:for dim in range(1, maxdim+1)
-               IF (ndims_tensor(tensor) >= ${dim}$) THEN
-                  WRITE (output_unit, '(/T8,A,1X,I1,A,1X)', advance='no') 'Dim', ${dim}$, ':'
-                  DO iblk = 1, SIZE(proc_dist_${dim}$)
-                     WRITE (output_unit, '(I3,1X)', advance='no') proc_dist_${dim}$ (iblk)
-                  ENDDO
-               ENDIF
-#:endfor
-            ENDIF
-            WRITE (output_unit, *)
-         ENDIF
-      ENDIF
-
-   END SUBROUTINE
 END MODULE

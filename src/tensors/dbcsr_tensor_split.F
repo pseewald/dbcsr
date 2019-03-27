@@ -8,9 +8,7 @@
 !--------------------------------------------------------------------------------------------------!
 
 ! **************************************************************************************************
-!> \brief DBCSR tensor framework for block-sparse tensor contraction.
-!>
-!> Routines to split blocks and to convert between tensors with different block sizes.
+!> \brief Routines to split blocks and to convert between tensors with different block sizes.
 !> \author Patrick Seewald
 ! **************************************************************************************************
 
@@ -40,8 +38,7 @@ MODULE dbcsr_tensor_split
                                  dbcsr_t_distribution_new, &
                                  dbcsr_t_clear, &
                                  dbcsr_t_finalize, &
-                                 dbcsr_t_get_num_blocks,&
-                                 ndims_tensor
+                                 dbcsr_t_get_num_blocks
    USE dbcsr_api,          ONLY: ${uselist(dtype_float_param)}$
    USE dbcsr_kinds,        ONLY: ${uselist(dtype_float_prec)}$
 
@@ -51,10 +48,10 @@ MODULE dbcsr_tensor_split
    PRIVATE
    CHARACTER(len=*), PARAMETER, PRIVATE :: moduleN = 'dbcsr_tensor_split'
    PUBLIC :: &
-      dbcsr_t_split_blocks_generic, &
+      dbcsr_t_make_compatible_blocks, &
       dbcsr_t_split_blocks, &
-      dbcsr_t_split_copyback, &
-      dbcsr_t_make_compatible_blocks
+      dbcsr_t_split_blocks_generic, &
+      dbcsr_t_split_copyback
 
    CONTAINS
 
@@ -62,7 +59,9 @@ MODULE dbcsr_tensor_split
 !> \brief Split tensor blocks into smaller blocks
 !> \param tensor_in Input tensor
 !> \param tensor_out Output tensor (splitted blocks)
-!> \param block_sizes block sizes for each of the tensor dimensions
+!> \param block_size_1 block sizes for each of the tensor dimensions
+!> \param block_size_2 ...
+!> \param nodata don't copy data from tensor_in to tensor_out
 ! **************************************************************************************************
    SUBROUTINE dbcsr_t_split_blocks_generic(tensor_in, tensor_out, ${varlist("blk_size")}$, nodata)
       TYPE(dbcsr_t_type), INTENT(INOUT)               :: tensor_in
@@ -278,8 +277,9 @@ MODULE dbcsr_tensor_split
 ! **************************************************************************************************
 !> \brief Split tensor blocks into smaller blocks of maximum size PRODUCT(block_sizes).
 !> \param tensor_in Input tensor
-!> \param tensor_out Output tensor (splitted blocks)
+!> \param tensor_out Output tensor (split blocks)
 !> \param block_sizes block sizes for each of the tensor dimensions
+!> \param nodata don't copy data from tensor_in to tensor_out
 ! **************************************************************************************************
    SUBROUTINE dbcsr_t_split_blocks(tensor_in, tensor_out, block_sizes, nodata)
       TYPE(dbcsr_t_type), INTENT(INOUT)               :: tensor_in

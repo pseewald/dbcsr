@@ -68,8 +68,6 @@ MODULE dbcsr_tensor
                                  dbcsr_t_hold, &
                                  dbcsr_t_pgrid_type, &
                                  mp_environ_pgrid, &
-                                 dbcsr_t_write_tensor_dist, &
-                                 dbcsr_t_write_tensor_info, &
                                  dbcsr_t_filter, &
                                  dbcsr_t_clear, &
                                  dbcsr_t_finalize, &
@@ -87,6 +85,8 @@ MODULE dbcsr_tensor
    USE dbcsr_data_types, ONLY: dbcsr_scalar_type
    USE dbcsr_tensor_split, ONLY: dbcsr_t_split_copyback, &
                                  dbcsr_t_make_compatible_blocks
+   USE dbcsr_tensor_io, ONLY: dbcsr_t_write_tensor_info, &
+                              dbcsr_t_write_tensor_dist
 
 #include "base/dbcsr_base_uses.f90"
 

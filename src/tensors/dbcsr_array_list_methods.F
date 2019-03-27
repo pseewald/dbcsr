@@ -123,6 +123,11 @@ CONTAINS
 
    END SUBROUTINE
 
+! **************************************************************************************************
+!> \brief extract a subset of arrays
+!> \param list list of arrays
+!> \param i_selected array numbers to retrieve
+! **************************************************************************************************
    FUNCTION array_sublist(list, i_selected)
       TYPE(array_list), INTENT(IN)                           :: list
       INTEGER, DIMENSION(:), INTENT(IN)                      :: i_selected
@@ -287,6 +292,11 @@ CONTAINS
 
    END SUBROUTINE
 
+! **************************************************************************************************
+!> \brief check whether two array lists are equal
+!> \param list1 ...
+!> \param list2 ...
+! **************************************************************************************************
    FUNCTION check_equal(list1, list2)
       TYPE(array_list), INTENT(IN)  :: list1, list2
       LOGICAL :: check_equal
@@ -294,6 +304,11 @@ CONTAINS
       check_equal = array_eq_i(list1%col_data, list2%col_data) .AND. array_eq_i(list1%ptr, list2%ptr)
    END FUNCTION
 
+! **************************************************************************************************
+!> \brief check whether two arrays are equal
+!> \param arr1 ...
+!> \param arr2 ...
+! **************************************************************************************************
    PURE FUNCTION array_eq_i(arr1, arr2)
       INTEGER, INTENT(IN), DIMENSION(:) :: arr1
       INTEGER, INTENT(IN), DIMENSION(:) :: arr2
@@ -305,4 +320,3 @@ CONTAINS
    END FUNCTION
 
 END MODULE dbcsr_array_list_methods
-
