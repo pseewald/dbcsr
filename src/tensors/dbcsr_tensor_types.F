@@ -500,7 +500,6 @@ CONTAINS
       IF (need_pgrid_remap) CALL dbcsr_t_pgrid_remap(pgrid, map1_2d, map2_2d, pgrid_prv)
 
       ! check that 2d process topology is consistent with nd topology.
-      !CALL mp_environ(comm_nd, ndims, dims, task_coor, periods)
       CALL mp_environ_pgrid(pgrid_prv, dims, task_coor)
 
       ! process grid index mapping

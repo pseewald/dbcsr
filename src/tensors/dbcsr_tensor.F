@@ -1221,10 +1221,6 @@ CONTAINS
 
       tensor_out%nd_index = nd_index_rs
       tensor_out%nd_index_blk = nd_index_blk_rs
-      !tensor_out%nd_index_grid = nd_index_grid_rs
-      !tensor_out%comm_nd = tensor_in%comm_nd
-      !tensor_out%comm_2d = tensor_in%comm_2d
-      !tensor_out%pgrid%mp_comm_nd = tensor_in%mp_comm_nd
       tensor_out%pgrid%mp_comm_2d = tensor_in%pgrid%mp_comm_2d
       tensor_out%refcount => tensor_in%refcount
       CALL dbcsr_t_hold(tensor_out)

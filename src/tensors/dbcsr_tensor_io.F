@@ -294,7 +294,4 @@ CONTAINS
       ENDDO
       CALL dbcsr_t_iterator_stop(iterator)
    END SUBROUTINE
-
-
-
 END MODULE
