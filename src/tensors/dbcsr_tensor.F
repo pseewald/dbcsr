@@ -81,7 +81,6 @@ MODULE dbcsr_tensor
    USE dbcsr_tensor_reshape, ONLY: dbcsr_t_reshape
    USE dbcsr_mpiwrap, ONLY: mp_comm_free
    USE dbcsr_rectangular_split, ONLY: dbcsr_r_mp_comm
-   USE dbcsr_operations, ONLY: dbcsr_scale, dbcsr_add
    USE dbcsr_data_types, ONLY: dbcsr_scalar_type
    USE dbcsr_tensor_split, ONLY: dbcsr_t_split_copyback, &
                                  dbcsr_t_make_compatible_blocks
