@@ -230,8 +230,6 @@ PROGRAM dbcsr_tensor_unittest
       blk_ind_4_3(:) = [1, 3, 4, 4, 5]
 
       pdims_3d(:) = 0; pdims_2d(:) = 0
-      !CALL mp_cart_create(mp_comm, 3, pdims_3d, myploc_3d, mp_comm_3d)
-      !CALL mp_cart_create(mp_comm, 2, pdims_2d, myploc_2d, mp_comm_2d)
       CALL dbcsr_t_pgrid_create(mp_comm, pdims_3d, pgrid_3d)
       CALL dbcsr_t_pgrid_create(mp_comm, pdims_2d, pgrid_2d)
 

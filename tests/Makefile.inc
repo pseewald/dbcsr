@@ -21,9 +21,6 @@ dbcsr_tensor_unittest: BIN_DEPS =
 SRC_TESTS += dbcsr_rectangular_unittest.F
 dbcsr_rectangular_unittest: BIN_DEPS =
 
-SRC_TESTS += dbcsr_rectangular_benchmark.F
-dbcsr_rectangular_benchmark: BIN_DEPS =
-
 ifneq ($(NVCC),)
 UNITTESTS += libcusmm_unittest_multiply libcusmm_unittest_transpose libcusmm_timer_multiply
 
