@@ -537,7 +537,6 @@ CONTAINS
 
    END SUBROUTINE
 
-
 #:for dprec, dparam, dtype, dsuffix in dtype_float_list_prec
 #:for ndim in ndims
 ! **************************************************************************************************

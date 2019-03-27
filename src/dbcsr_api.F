@@ -16,102 +16,102 @@
 !>          Currently, this is work in progress.
 ! **************************************************************************************************
 MODULE dbcsr_api
-   USE dbcsr_array_types,               ONLY: array_data,&
-                                              array_exists,&
-                                              array_size
-   USE dbcsr_block_access,              ONLY: dbcsr_get_block_p_prv         => dbcsr_get_block_p,&
-                                              dbcsr_put_block_prv           => dbcsr_put_block,&
-                                              dbcsr_reserve_all_blocks_prv  => dbcsr_reserve_all_blocks,&
-                                              dbcsr_reserve_block2d_prv     => dbcsr_reserve_block2d,&
-                                              dbcsr_reserve_blocks_prv      => dbcsr_reserve_blocks,&
-                                              dbcsr_reserve_diag_blocks_prv => dbcsr_reserve_diag_blocks
-   USE dbcsr_config,                    ONLY: dbcsr_get_default_config,&
-                                              dbcsr_print_config,&
-                                              dbcsr_set_config
-   USE dbcsr_csr_conversions,           ONLY: &
-      convert_csr_to_dbcsr_prv            => convert_csr_to_dbcsr, &
-      convert_dbcsr_to_csr_prv            => convert_dbcsr_to_csr, &
-      csr_create_from_dbcsr_prv           => csr_create_from_dbcsr, csr_create_new, &
+   USE dbcsr_array_types, ONLY: array_data, &
+                                array_exists, &
+                                array_size
+   USE dbcsr_block_access, ONLY: dbcsr_get_block_p_prv => dbcsr_get_block_p, &
+                                 dbcsr_put_block_prv => dbcsr_put_block, &
+                                 dbcsr_reserve_all_blocks_prv => dbcsr_reserve_all_blocks, &
+                                 dbcsr_reserve_block2d_prv => dbcsr_reserve_block2d, &
+                                 dbcsr_reserve_blocks_prv => dbcsr_reserve_blocks, &
+                                 dbcsr_reserve_diag_blocks_prv => dbcsr_reserve_diag_blocks
+   USE dbcsr_config, ONLY: dbcsr_get_default_config, &
+                           dbcsr_print_config, &
+                           dbcsr_set_config
+   USE dbcsr_csr_conversions, ONLY: &
+      convert_csr_to_dbcsr_prv => convert_csr_to_dbcsr, &
+      convert_dbcsr_to_csr_prv => convert_dbcsr_to_csr, &
+      csr_create_from_dbcsr_prv => csr_create_from_dbcsr, csr_create_new, &
       csr_create_template, csr_dbcsr_blkrow_dist, csr_destroy, csr_eqrow_ceil_dist, &
       csr_eqrow_floor_dist, csr_p_type, csr_print_sparsity, csr_type, csr_write, &
-      dbcsr_to_csr_filter_prv             => dbcsr_to_csr_filter
-   USE dbcsr_data_methods,              ONLY: dbcsr_get_data_p_prv => dbcsr_get_data_p,&
-                                              dbcsr_scalar,&
-                                              dbcsr_scalar_fill_all,&
-                                              dbcsr_scalar_get_type,&
-                                              dbcsr_scalar_get_value,&
-                                              dbcsr_scalar_set_type,&
-                                              dbcsr_scalar_zero
-   USE dbcsr_dist_methods,              ONLY: dbcsr_distribution_get_num_images => dbcsr_distribution_get_num_images_1d,&
-                                              dbcsr_distribution_hold_prv => dbcsr_distribution_hold,&
-                                              dbcsr_distribution_new_prv => dbcsr_distribution_new,&
-                                              dbcsr_distribution_release_prv => dbcsr_distribution_release
-   USE dbcsr_dist_operations,           ONLY: dbcsr_get_stored_coordinates_prv => dbcsr_get_stored_coordinates
-   USE dbcsr_io,                        ONLY: dbcsr_binary_read_prv            => dbcsr_binary_read,&
-                                              dbcsr_binary_write_prv           => dbcsr_binary_write,&
-                                              dbcsr_print_block_sum_prv        => dbcsr_print_block_sum,&
-                                              dbcsr_print_prv                  => dbcsr_print
-   USE dbcsr_iterator_operations,       ONLY: dbcsr_iterator_blocks_left_prv   => dbcsr_iterator_blocks_left,&
-                                              dbcsr_iterator_next_block_prv    => dbcsr_iterator_next_block,&
-                                              dbcsr_iterator_start_prv         => dbcsr_iterator_start,&
-                                              dbcsr_iterator_stop_prv          => dbcsr_iterator_stop
-   USE dbcsr_lib,                       ONLY: dbcsr_clear_mempools,&
-                                              dbcsr_finalize_lib,&
-                                              dbcsr_init_lib
-   USE dbcsr_methods,                   ONLY: &
-      dbcsr_get_data_size_prv             => dbcsr_get_data_size, &
-      dbcsr_get_data_type_prv             => dbcsr_get_data_type, &
-      dbcsr_get_matrix_type_prv           => dbcsr_get_matrix_type, &
-      dbcsr_get_num_blocks_prv            => dbcsr_get_num_blocks, &
-      dbcsr_has_symmetry_prv              => dbcsr_has_symmetry, &
-      dbcsr_nblkcols_total_prv            => dbcsr_nblkcols_total, &
-      dbcsr_nblkrows_total_prv            => dbcsr_nblkrows_total, &
-      dbcsr_nfullcols_total_prv           => dbcsr_nfullcols_total, &
-      dbcsr_nfullrows_total_prv           => dbcsr_nfullrows_total, &
-      dbcsr_release_prv                   => dbcsr_release, &
-      dbcsr_setname_prv                   => dbcsr_setname, &
-      dbcsr_valid_index_prv               => dbcsr_valid_index, dbcsr_wm_use_mutable
-   USE dbcsr_mp_methods,                ONLY: dbcsr_mp_grid_setup_prv => dbcsr_mp_grid_setup,&
-                                              dbcsr_mp_group,&
-                                              dbcsr_mp_new_prv => dbcsr_mp_new,&
-                                              dbcsr_mp_release
-   USE dbcsr_multiply_api,              ONLY: dbcsr_multiply_prv => dbcsr_multiply
-   USE dbcsr_operations,                ONLY: &
-      dbcsr_add_on_diag_prv               => dbcsr_add_on_diag, &
-      dbcsr_add_prv                       => dbcsr_add, &
-      dbcsr_copy_into_existing_prv        => dbcsr_copy_into_existing, &
-      dbcsr_copy_prv                      => dbcsr_copy, &
-      dbcsr_filter_prv                    => dbcsr_filter, &
-      dbcsr_frobenius_norm_prv            => dbcsr_frobenius_norm, &
-      dbcsr_function_of_elements_prv      => dbcsr_function_of_elements, &
-      dbcsr_gershgorin_norm_prv           => dbcsr_gershgorin_norm, &
-      dbcsr_get_block_diag_prv            => dbcsr_get_block_diag, &
-      dbcsr_get_diag_prv                  => dbcsr_get_diag, &
-      dbcsr_get_info_prv                  => dbcsr_get_info, &
-      dbcsr_get_occupation_prv            => dbcsr_get_occupation, &
-      dbcsr_hadamard_product_prv          => dbcsr_hadamard_product, &
-      dbcsr_init_random_prv               => dbcsr_init_random, &
-      dbcsr_maxabs_prv                    => dbcsr_maxabs, &
-      dbcsr_norm_prv                      => dbcsr_norm, &
-      dbcsr_scale_by_vector_prv           => dbcsr_scale_by_vector, &
-      dbcsr_scale_prv                     => dbcsr_scale, &
-      dbcsr_set_diag_prv                  => dbcsr_set_diag, &
-      dbcsr_set_prv                       => dbcsr_set, &
-      dbcsr_sum_replicated_prv            => dbcsr_sum_replicated, &
-      dbcsr_trace_prv                     => dbcsr_trace, &
-      dbcsr_triu_prv                      => dbcsr_triu, &
-      dbcsr_clear_prv                     => dbcsr_clear
-   USE dbcsr_test_methods,              ONLY: dbcsr_reset_randmat_seed
-   USE dbcsr_tests,                     ONLY: dbcsr_run_tests,&
-                                              dbcsr_test_binary_io,&
-                                              dbcsr_test_mm
-   USE dbcsr_string_utilities,                   ONLY: uppercase
-   USE dbcsr_transformations,           ONLY: dbcsr_complete_redistribute_prv => dbcsr_complete_redistribute,&
-                                              dbcsr_desymmetrize_deep_prv     => dbcsr_desymmetrize_deep,&
-                                              dbcsr_distribute_prv            => dbcsr_distribute,&
-                                              dbcsr_new_transposed_prv        => dbcsr_new_transposed,&
-                                              dbcsr_replicate_all_prv         => dbcsr_replicate_all
-   USE dbcsr_types,                     ONLY: &
+      dbcsr_to_csr_filter_prv => dbcsr_to_csr_filter
+   USE dbcsr_data_methods, ONLY: dbcsr_get_data_p_prv => dbcsr_get_data_p, &
+                                 dbcsr_scalar, &
+                                 dbcsr_scalar_fill_all, &
+                                 dbcsr_scalar_get_type, &
+                                 dbcsr_scalar_get_value, &
+                                 dbcsr_scalar_set_type, &
+                                 dbcsr_scalar_zero
+   USE dbcsr_dist_methods, ONLY: dbcsr_distribution_get_num_images => dbcsr_distribution_get_num_images_1d, &
+                                 dbcsr_distribution_hold_prv => dbcsr_distribution_hold, &
+                                 dbcsr_distribution_new_prv => dbcsr_distribution_new, &
+                                 dbcsr_distribution_release_prv => dbcsr_distribution_release
+   USE dbcsr_dist_operations, ONLY: dbcsr_get_stored_coordinates_prv => dbcsr_get_stored_coordinates
+   USE dbcsr_io, ONLY: dbcsr_binary_read_prv => dbcsr_binary_read, &
+                       dbcsr_binary_write_prv => dbcsr_binary_write, &
+                       dbcsr_print_block_sum_prv => dbcsr_print_block_sum, &
+                       dbcsr_print_prv => dbcsr_print
+   USE dbcsr_iterator_operations, ONLY: dbcsr_iterator_blocks_left_prv => dbcsr_iterator_blocks_left, &
+                                        dbcsr_iterator_next_block_prv => dbcsr_iterator_next_block, &
+                                        dbcsr_iterator_start_prv => dbcsr_iterator_start, &
+                                        dbcsr_iterator_stop_prv => dbcsr_iterator_stop
+   USE dbcsr_lib, ONLY: dbcsr_clear_mempools, &
+                        dbcsr_finalize_lib, &
+                        dbcsr_init_lib
+   USE dbcsr_methods, ONLY: &
+      dbcsr_get_data_size_prv => dbcsr_get_data_size, &
+      dbcsr_get_data_type_prv => dbcsr_get_data_type, &
+      dbcsr_get_matrix_type_prv => dbcsr_get_matrix_type, &
+      dbcsr_get_num_blocks_prv => dbcsr_get_num_blocks, &
+      dbcsr_has_symmetry_prv => dbcsr_has_symmetry, &
+      dbcsr_nblkcols_total_prv => dbcsr_nblkcols_total, &
+      dbcsr_nblkrows_total_prv => dbcsr_nblkrows_total, &
+      dbcsr_nfullcols_total_prv => dbcsr_nfullcols_total, &
+      dbcsr_nfullrows_total_prv => dbcsr_nfullrows_total, &
+      dbcsr_release_prv => dbcsr_release, &
+      dbcsr_setname_prv => dbcsr_setname, &
+      dbcsr_valid_index_prv => dbcsr_valid_index, dbcsr_wm_use_mutable
+   USE dbcsr_mp_methods, ONLY: dbcsr_mp_grid_setup_prv => dbcsr_mp_grid_setup, &
+                               dbcsr_mp_group, &
+                               dbcsr_mp_new_prv => dbcsr_mp_new, &
+                               dbcsr_mp_release
+   USE dbcsr_multiply_api, ONLY: dbcsr_multiply_prv => dbcsr_multiply
+   USE dbcsr_operations, ONLY: &
+      dbcsr_add_on_diag_prv => dbcsr_add_on_diag, &
+      dbcsr_add_prv => dbcsr_add, &
+      dbcsr_copy_into_existing_prv => dbcsr_copy_into_existing, &
+      dbcsr_copy_prv => dbcsr_copy, &
+      dbcsr_filter_prv => dbcsr_filter, &
+      dbcsr_frobenius_norm_prv => dbcsr_frobenius_norm, &
+      dbcsr_function_of_elements_prv => dbcsr_function_of_elements, &
+      dbcsr_gershgorin_norm_prv => dbcsr_gershgorin_norm, &
+      dbcsr_get_block_diag_prv => dbcsr_get_block_diag, &
+      dbcsr_get_diag_prv => dbcsr_get_diag, &
+      dbcsr_get_info_prv => dbcsr_get_info, &
+      dbcsr_get_occupation_prv => dbcsr_get_occupation, &
+      dbcsr_hadamard_product_prv => dbcsr_hadamard_product, &
+      dbcsr_init_random_prv => dbcsr_init_random, &
+      dbcsr_maxabs_prv => dbcsr_maxabs, &
+      dbcsr_norm_prv => dbcsr_norm, &
+      dbcsr_scale_by_vector_prv => dbcsr_scale_by_vector, &
+      dbcsr_scale_prv => dbcsr_scale, &
+      dbcsr_set_diag_prv => dbcsr_set_diag, &
+      dbcsr_set_prv => dbcsr_set, &
+      dbcsr_sum_replicated_prv => dbcsr_sum_replicated, &
+      dbcsr_trace_prv => dbcsr_trace, &
+      dbcsr_triu_prv => dbcsr_triu, &
+      dbcsr_clear_prv => dbcsr_clear
+   USE dbcsr_test_methods, ONLY: dbcsr_reset_randmat_seed
+   USE dbcsr_tests, ONLY: dbcsr_run_tests, &
+                          dbcsr_test_binary_io, &
+                          dbcsr_test_mm
+   USE dbcsr_string_utilities, ONLY: uppercase
+   USE dbcsr_transformations, ONLY: dbcsr_complete_redistribute_prv => dbcsr_complete_redistribute, &
+                                    dbcsr_desymmetrize_deep_prv => dbcsr_desymmetrize_deep, &
+                                    dbcsr_distribute_prv => dbcsr_distribute, &
+                                    dbcsr_new_transposed_prv => dbcsr_new_transposed, &
+                                    dbcsr_replicate_all_prv => dbcsr_replicate_all
+   USE dbcsr_types, ONLY: &
       dbcsr_dist_prv_obj => dbcsr_distribution_obj, dbcsr_func_artanh, dbcsr_func_dtanh, &
       dbcsr_func_inverse, dbcsr_func_tanh, dbcsr_iterator_prv => dbcsr_iterator, dbcsr_mp_obj, &
       dbcsr_no_transpose, dbcsr_norm_column, dbcsr_norm_frobenius, dbcsr_norm_maxabsnorm, &
@@ -119,25 +119,25 @@ MODULE dbcsr_api
       dbcsr_type_antisymmetric, dbcsr_type_complex_4, dbcsr_type_complex_8, &
       dbcsr_type_complex_default, dbcsr_type_no_symmetry, dbcsr_type_real_4, dbcsr_type_real_8, &
       dbcsr_type_real_default, dbcsr_type_symmetric
-   USE dbcsr_dist_util,                 ONLY: convert_offsets_to_sizes,&
-                                              convert_sizes_to_offsets,&
-                                              dbcsr_checksum_prv      => dbcsr_checksum,&
-                                              dbcsr_verify_matrix_prv => dbcsr_verify_matrix
-   USE dbcsr_work_operations,           ONLY: add_work_coordinate_prv => add_work_coordinate,&
-                                              dbcsr_create_prv        => dbcsr_create,&
-                                              dbcsr_finalize_prv      => dbcsr_finalize,&
-                                              dbcsr_work_create_prv   => dbcsr_work_create
-   USE dbcsr_kinds,                     ONLY: default_string_length,&
-                                              dp,&
-                                              int_8,&
-                                              real_4,&
-                                              real_8
-   USE dbcsr_base_hooks,                ONLY: timeset_hook, timestop_hook, &
-                                              timeset_interface, timestop_interface,&
-                                              dbcsr_abort_hook, dbcsr_warn_hook,&
-                                              dbcsr_abort_interface, dbcsr_warn_interface
-   USE dbcsr_mpiwrap,                   ONLY: mp_cart_rank,&
-                                              mp_environ
+   USE dbcsr_dist_util, ONLY: convert_offsets_to_sizes, &
+                              convert_sizes_to_offsets, &
+                              dbcsr_checksum_prv => dbcsr_checksum, &
+                              dbcsr_verify_matrix_prv => dbcsr_verify_matrix
+   USE dbcsr_work_operations, ONLY: add_work_coordinate_prv => add_work_coordinate, &
+                                    dbcsr_create_prv => dbcsr_create, &
+                                    dbcsr_finalize_prv => dbcsr_finalize, &
+                                    dbcsr_work_create_prv => dbcsr_work_create
+   USE dbcsr_kinds, ONLY: default_string_length, &
+                          dp, &
+                          int_8, &
+                          real_4, &
+                          real_8
+   USE dbcsr_base_hooks, ONLY: timeset_hook, timestop_hook, &
+                               timeset_interface, timestop_interface, &
+                               dbcsr_abort_hook, dbcsr_warn_hook, &
+                               dbcsr_abort_interface, dbcsr_warn_interface
+   USE dbcsr_mpiwrap, ONLY: mp_cart_rank, &
+                            mp_environ
 
 !$ USE OMP_LIB, ONLY: omp_get_max_threads, omp_get_thread_num, omp_get_num_threads
 #include "base/dbcsr_base_uses.f90"

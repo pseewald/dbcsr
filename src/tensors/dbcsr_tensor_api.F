@@ -47,7 +47,7 @@ MODULE dbcsr_tensor_api
                                  mp_environ_pgrid, &
                                  dbcsr_t_blk_sizes, &
                                  dbcsr_t_get_info, &
-                                 dbcsr_t_finalize,&
+                                 dbcsr_t_finalize, &
                                  dbcsr_t_scale
    USE dbcsr_tensor_test, ONLY: dbcsr_t_contract_test, &
                                 dbcsr_t_checksum

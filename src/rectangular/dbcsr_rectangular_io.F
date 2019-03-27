@@ -35,7 +35,7 @@ MODULE dbcsr_rectangular_io
 
    CHARACTER(len=*), PARAMETER, PRIVATE :: moduleN = 'dbcsr_rectangular_io'
 
-PUBLIC :: &
+   PUBLIC :: &
       dbcsr_r_write_dist, &
       dbcsr_r_write_matrix_info,&
       dbcsr_r_write_split_info

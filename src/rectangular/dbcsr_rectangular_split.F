@@ -347,7 +347,6 @@ CONTAINS
       ref = ref + 1
    END SUBROUTINE
 
-
 ! **************************************************************************************************
 !> \brief map global process info to group
 !> \param iproc global process ID

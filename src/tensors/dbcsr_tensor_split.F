@@ -39,9 +39,8 @@ MODULE dbcsr_tensor_split
                                  dbcsr_t_clear, &
                                  dbcsr_t_finalize, &
                                  dbcsr_t_get_num_blocks
-   USE dbcsr_api,          ONLY: ${uselist(dtype_float_param)}$
-   USE dbcsr_kinds,        ONLY: ${uselist(dtype_float_prec)}$
-
+   USE dbcsr_api, ONLY: ${uselist(dtype_float_param)}$
+   USE dbcsr_kinds, ONLY: ${uselist(dtype_float_prec)}$
 
 #include "base/dbcsr_base_uses.f90"
    IMPLICIT NONE
@@ -53,7 +52,7 @@ MODULE dbcsr_tensor_split
       dbcsr_t_split_blocks_generic, &
       dbcsr_t_split_copyback
 
-   CONTAINS
+CONTAINS
 
 ! **************************************************************************************************
 !> \brief Split tensor blocks into smaller blocks
@@ -82,7 +81,7 @@ MODULE dbcsr_tensor_split
       INTEGER, DIMENSION(:), ALLOCATABLE :: dist_d, blk_size_d, blk_size_split_d, dist_split_d, &
                                             map1_2d, map2_2d
       INTEGER, DIMENSION(ndims_tensor(tensor_in)) :: blk_index, blk_size, blk_offset, &
-                                                      blk_shape
+                                                     blk_shape
       INTEGER, DIMENSION(${maxdim}$) :: bi_split, inblock_offset
       LOGICAL :: found
 

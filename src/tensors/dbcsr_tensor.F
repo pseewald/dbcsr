@@ -28,7 +28,7 @@ MODULE dbcsr_tensor
                                        get_ith_array, &
                                        array_list, &
                                        array_sublist, &
-                                       check_equal,&
+                                       check_equal, &
                                        array_eq_i
    USE dbcsr_api, ONLY: &
       dbcsr_type, dbcsr_iterator_type, dbcsr_iterator_blocks_left, &
@@ -71,7 +71,7 @@ MODULE dbcsr_tensor
                                  dbcsr_t_filter, &
                                  dbcsr_t_clear, &
                                  dbcsr_t_finalize, &
-                                 dbcsr_t_get_num_blocks,&
+                                 dbcsr_t_get_num_blocks, &
                                  dbcsr_t_scale
    USE dbcsr_kinds, ONLY: ${uselist(dtype_float_prec)}$, &
                           default_string_length, &
@@ -1047,7 +1047,7 @@ CONTAINS
       INTEGER                :: iel, ibin
       INTEGER                :: niter
 
-      ALLOCATE(dist(nel))
+      ALLOCATE (dist(nel))
       occup(:) = 0
       ibin = 0
       DO iel = 1, nel

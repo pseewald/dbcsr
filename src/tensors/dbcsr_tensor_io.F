@@ -18,7 +18,7 @@ MODULE dbcsr_tensor_io
 #:set ndims = range(2,maxdim+1)
 
    USE dbcsr_tensor_types, ONLY: &
-      dbcsr_t_get_info, dbcsr_t_type, ndims_tensor, dbcsr_t_get_num_blocks, dbcsr_t_get_data_size,&
+      dbcsr_t_get_info, dbcsr_t_type, ndims_tensor, dbcsr_t_get_num_blocks, dbcsr_t_get_data_size, &
       blk_dims_tensor, dbcsr_t_get_stored_coordinates
    USE dbcsr_kinds, ONLY: default_string_length, int_8, real_8
    USE dbcsr_mpiwrap, ONLY: mp_environ, mp_sum, mp_max
@@ -200,7 +200,7 @@ CONTAINS
             CALL dbcsr_t_get_block(tensor, blk_index, blk_values_${ndim}$, found)
             DBCSR_ASSERT(found)
             CALL dbcsr_t_write_block(tensor%name, blk_size, blk_index, proc, io_unit_all, &
-                             blk_values_${ndim}$=blk_values_${ndim}$, write_int=write_int)
+                                     blk_values_${ndim}$=blk_values_${ndim}$, write_int=write_int)
             DEALLOCATE (blk_values_${ndim}$)
          ENDIF
 #:endfor
@@ -220,7 +220,7 @@ CONTAINS
 !> \param write_int convert values to integers
 ! **************************************************************************************************
    SUBROUTINE dbcsr_t_write_block(name, blk_size, blk_index, proc, unit_nr, &
-                          ${varlist("blk_values",nmin=2)}$, write_int)
+                                  ${varlist("blk_values",nmin=2)}$, write_int)
 
       CHARACTER(LEN=*), INTENT(IN)                       :: name
       INTEGER, DIMENSION(:), INTENT(IN)                  :: blk_size, blk_index

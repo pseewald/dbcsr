@@ -266,7 +266,6 @@ CONTAINS
          CALL dbcsr_r_write_matrix_info(matrix_c_rs, io_unit_prv, full_info=log_verbose)
       ENDIF
 
-
       zero = dbcsr_scalar_zero(data_type)
       SELECT CASE (max_mm_dim)
       CASE (1)

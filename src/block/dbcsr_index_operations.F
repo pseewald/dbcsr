@@ -19,36 +19,6 @@
 !> - Created 2010-02-18
 ! **************************************************************************************************
 MODULE dbcsr_index_operations
-
-   USE dbcsr_array_types,               ONLY: array_data,&
-                                              array_size
-   USE dbcsr_config,                    ONLY: default_resize_factor
-   USE dbcsr_dist_methods,              ONLY: dbcsr_distribution_local_cols,&
-                                              dbcsr_distribution_local_rows,&
-                                              dbcsr_distribution_ncols,&
-                                              dbcsr_distribution_nlocal_cols,&
-                                              dbcsr_distribution_nlocal_rows,&
-                                              dbcsr_distribution_nrows,&
-                                              dbcsr_distribution_thread_dist
-   USE dbcsr_dist_operations,           ONLY: get_stored_canonical
-   USE dbcsr_kinds,                     ONLY: int_4,&
-                                              int_8
-   USE dbcsr_methods,                   ONLY: dbcsr_distribution,&
-                                              dbcsr_get_index_memory_type
-   USE dbcsr_ptr_util,                  ONLY: ensure_array_size,&
-                                              memory_allocate,&
-                                              memory_deallocate
-   USE dbcsr_toollib,                   ONLY: joaat_hash,&
-                                              sort,&
-                                              swap
-   USE dbcsr_types,                     ONLY: &
-      dbcsr_distribution_obj, dbcsr_meta_size, dbcsr_num_slots, dbcsr_slot_blk_p, &
-      dbcsr_slot_col_i, dbcsr_slot_coo_l, dbcsr_slot_home_prow, dbcsr_slot_home_vprow, &
-      dbcsr_slot_nblkcols_local, dbcsr_slot_nblkcols_total, dbcsr_slot_nblkrows_local, &
-      dbcsr_slot_nblkrows_total, dbcsr_slot_nblks, dbcsr_slot_nfullcols_local, dbcsr_slot_nze, &
-      dbcsr_slot_row_p, dbcsr_slot_size, dbcsr_slot_thr_c, dbcsr_type
-   USE dbcsr_kinds,                           ONLY: int_4,&
-                                                    int_8
    USE dbcsr_array_types, ONLY: array_data, &
                                 array_size
    USE dbcsr_config, ONLY: default_resize_factor
@@ -696,7 +666,6 @@ CONTAINS
       !> permutation vector.
       ALLOCATE (sort_keys(n))
       sort_keys(:) = IOR(ISHFT(INT(row_i(1:n), int_8), 32), INT(col_i(1:n), int_8))
-      !IF (PRESENT(blk_p)) col_i(1:n) = (/(i, i=1, n)/) ! this line is useless since col_i is intent(out) in call to sort
       !> Now do a nice quicksort.
       CALL sort(sort_keys, n, ind_perm)
       ! Since blk_d is usually not present we can have two loops that
