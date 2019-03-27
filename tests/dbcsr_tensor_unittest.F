@@ -278,6 +278,7 @@ PROGRAM dbcsr_tensor_unittest
                                  [1], [2], &
                                  [2, 1], [3], &
                                  default_output_unit, &
+                                 log_verbose=verbose,&
                                  write_int=.TRUE.)
 
       DEALLOCATE (map11, map12, map21, map22, map31, map32)
@@ -321,6 +322,7 @@ PROGRAM dbcsr_tensor_unittest
                                  [1], [2], &
                                  [1, 2], [3], &
                                  default_output_unit, &
+                                 log_verbose=verbose,&
                                  write_int=.TRUE.)
 
       DEALLOCATE (map11, map12, map21, map22, map31, map32)
@@ -364,6 +366,7 @@ PROGRAM dbcsr_tensor_unittest
                                  [3], [1, 2], &
                                  [3], [1, 2], &
                                  default_output_unit, &
+                                 log_verbose=verbose,&
                                  write_int=.TRUE.)
 
       DEALLOCATE (map11, map12, map21, map22, map31, map32)
