@@ -634,11 +634,13 @@ CONTAINS
 !> \param map_1 ...
 !> \param map_2 ...
 !> \param unit_nr
+!> \param log_verbose ...
+!> \param write_int ...
 ! **************************************************************************************************
    SUBROUTINE dbcsr_t_contract_test(alpha, tensor_1, tensor_2, beta, tensor_3, &
                                     contract_1, notcontract_1, &
                                     contract_2, notcontract_2, &
-                                    map_1, map_2, unit_nr, write_int)
+                                    map_1, map_2, unit_nr, log_verbose, write_int)
       TYPE(dbcsr_scalar_type), INTENT(IN) :: alpha
       TYPE(dbcsr_t_type), INTENT(INOUT)    :: tensor_1, tensor_2, tensor_3
       TYPE(dbcsr_scalar_type), INTENT(IN) :: beta
@@ -646,6 +648,7 @@ CONTAINS
                                               notcontract_1, notcontract_2, &
                                               map_1, map_2
       INTEGER, INTENT(IN)                  :: unit_nr
+      LOGICAL, INTENT(IN), OPTIONAL        :: log_verbose
       LOGICAL, INTENT(IN), OPTIONAL        :: write_int
       INTEGER                              :: io_unit, mynode, numnodes, mp_comm
       INTEGER, DIMENSION(:), ALLOCATABLE   :: size_1, size_2, size_3, &
@@ -711,7 +714,7 @@ CONTAINS
       CALL dbcsr_t_contract(alpha, tensor_1, tensor_2, beta, tensor_3, &
                             contract_1, notcontract_1, &
                             contract_2, notcontract_2, &
-                            map_1, map_2, unit_nr=io_unit)
+                            map_1, map_2, unit_nr=io_unit, log_verbose=log_verbose)
 
       cs_3 = dbcsr_t_checksum(tensor_3)
 

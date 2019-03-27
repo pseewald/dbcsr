@@ -286,10 +286,11 @@ CONTAINS
 !> \param filter_eps ...
 !> \param unit_nr ...
 ! **************************************************************************************************
-   SUBROUTINE dbcsr_r_test_mm(transa, transb, transc, matrix_a, matrix_b, matrix_c, filter_eps, unit_nr)
+   SUBROUTINE dbcsr_r_test_mm(transa, transb, transc, matrix_a, matrix_b, matrix_c, filter_eps, unit_nr, log_verbose)
       CHARACTER(LEN=1), INTENT(IN)                       :: transa, transb, transc
       TYPE(dbcsr_r_type), INTENT(INOUT)                  :: matrix_a, matrix_b, matrix_c
       INTEGER, INTENT(IN)                                :: unit_nr
+      LOGICAL, INTENT(IN), OPTIONAL                      :: log_verbose
       REAL(KIND=real_8), INTENT(IN), OPTIONAL            :: filter_eps
 
       CHARACTER(LEN=1)                                   :: transa_prv, transb_prv
@@ -312,7 +313,7 @@ CONTAINS
 
       CALL dbcsr_r_multiply(transa, transb, transc, dbcsr_scalar(1.0_real_8), matrix_a, matrix_b, &
                             dbcsr_scalar(0.0_real_8), matrix_c, &
-                            filter_eps=filter_eps, io_unit=io_unit, log_verbose=.FALSE., optimize_dist=.TRUE.)
+                            filter_eps=filter_eps, io_unit=io_unit, log_verbose=log_verbose, optimize_dist=.TRUE.)
 
       CALL dbcsr_r_convert_to_dbcsr(matrix_a, dbcsr_a)
       CALL dbcsr_r_convert_to_dbcsr(matrix_b, dbcsr_b)

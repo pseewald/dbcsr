@@ -288,9 +288,9 @@ CONTAINS
             CALL timestop(handle2)
          END SELECT
          IF (PRESENT(io_unit)) THEN
-            CALL dbcsr_r_write_dist(matrix_a_rs, io_unit, full_info=log_verbose)
+            CALL dbcsr_r_write_dist(matrix_a_rs, io_unit)
             CALL dbcsr_r_write_dist(matrix_b_rep, io_unit, full_info=log_verbose)
-            CALL dbcsr_r_write_dist(matrix_c_rs, io_unit, full_info=log_verbose)
+            CALL dbcsr_r_write_dist(matrix_c_rs, io_unit)
          ENDIF
          CALL dbcsr_r_distribution_destroy(matrix_b_rep%dist)
          CALL dbcsr_r_destroy(matrix_b_rep)
@@ -303,8 +303,8 @@ CONTAINS
                              filter_eps=filter_eps_prv/REAL(nsplit, KIND=real_8), flop=flop)
          CALL timestop(handle2)
          IF (PRESENT(io_unit)) THEN
-            CALL dbcsr_r_write_dist(matrix_a_rs, io_unit, full_info=log_verbose)
-            CALL dbcsr_r_write_dist(matrix_b_rs, io_unit, full_info=log_verbose)
+            CALL dbcsr_r_write_dist(matrix_a_rs, io_unit)
+            CALL dbcsr_r_write_dist(matrix_b_rs, io_unit)
             CALL dbcsr_r_write_dist(matrix_c_rep, io_unit, full_info=log_verbose)
          ENDIF
 
@@ -330,8 +330,8 @@ CONTAINS
          END SELECT
          IF (PRESENT(io_unit)) THEN
             CALL dbcsr_r_write_dist(matrix_a_rep, io_unit, full_info=log_verbose)
-            CALL dbcsr_r_write_dist(matrix_b_rs, io_unit, full_info=log_verbose)
-            CALL dbcsr_r_write_dist(matrix_c_rs, io_unit, full_info=log_verbose)
+            CALL dbcsr_r_write_dist(matrix_b_rs, io_unit)
+            CALL dbcsr_r_write_dist(matrix_c_rs, io_unit)
          ENDIF
          CALL dbcsr_r_distribution_destroy(matrix_a_rep%dist)
          CALL dbcsr_r_destroy(matrix_a_rep)

@@ -323,22 +323,32 @@ CONTAINS
 
 ! **************************************************************************************************
 !> \brief Contract tensors by multiplying matrix representations.
-!>        tensor_3(map_1, map_2) := alpha * tensor_1(notcontract_1, contract_1) * tensor_2(contract_2, notcontract_2) + beta * tensor_3(map_1, map_2)
+!>        tensor_3(map_1, map_2) := alpha * tensor_1(notcontract_1, contract_1)
+!>                                        * tensor_2(contract_2, notcontract_2)
+!>                                 + beta * tensor_3(map_1, map_2)
+!> \param alpha ...
 !> \param tensor_1 first tensor (in)
 !> \param tensor_2 second tensor (in)
+!> \param beta ...
+!> \param tensor_3 contracted tensor (out)
 !> \param contract_1 indices of tensor_1 to contract
 !> \param notcontract_1 indices of tensor_1 not to contract
 !> \param contract_2 indices of tensor_2 to contract (1:1 with contract_1)
 !> \param notcontract_2 indices of tensor_2 not to contract
 !> \param map_1 which indices of tensor_3 map to non-contracted indices of tensor_1 (1:1 with notcontract_1)
 !> \param map_2 which indices of tensor_3 map to non-contracted indices of tensor_2 (1:1 with notcontract_2)
-!> \param tensor_3 contracted tensor (out)
-!> \todo Generate input arguments (contract_*, notcontract_*, map_*) from Einstein notation
+!> \param optimize_dist experimental: optimize distribution of tensors
+!> \param filter_eps As in DBCSR mm
+!> \param flop As in DBCSR mm
+!> \param move_data memory optimization: transfer data such that tensor_1 and tensor_2 may be empty
+!>        on return
+!> \param unit_nr output unit for logging
+!> \param log_verbose verbose logging (for testing only)
 ! **************************************************************************************************
    SUBROUTINE dbcsr_t_contract(alpha, tensor_1, tensor_2, beta, tensor_3, &
                                contract_1, notcontract_1, &
                                contract_2, notcontract_2, &
-                               map_1, map_2, optimize_dist, filter_eps, flop, move_data, unit_nr)
+                               map_1, map_2, optimize_dist, filter_eps, flop, move_data, unit_nr, log_verbose)
       TYPE(dbcsr_scalar_type), INTENT(IN) :: alpha
       TYPE(dbcsr_t_type), INTENT(INOUT)  :: tensor_1, tensor_2
       TYPE(dbcsr_scalar_type), INTENT(IN) :: beta
@@ -350,12 +360,12 @@ CONTAINS
       INTEGER(KIND=int_8), INTENT(OUT), OPTIONAL       :: flop
       LOGICAL, INTENT(IN), OPTIONAL                  :: move_data
       INTEGER, OPTIONAL, INTENT(IN)                  :: unit_nr
+      LOGICAL, INTENT(IN), OPTIONAL                  :: log_verbose
 
       TYPE(dbcsr_t_type), POINTER                    :: tensor_contr_1 => NULL(), tensor_contr_2 => NULL(), tensor_contr_3 => NULL()
       TYPE(dbcsr_t_type)                             :: tensor_tmp_1, tensor_tmp_2, tensor_tmp_3
       LOGICAL                                        :: assert_stmt
       INTEGER                                        :: data_type, handle, max_mm_dim, max_tensor, mp_comm
-      !INTEGER, DIMENSION(:), ALLOCATABLE             :: sort_indices
       INTEGER, DIMENSION(SIZE(contract_1))           :: contract_1_mod
       INTEGER, DIMENSION(SIZE(notcontract_1))        :: notcontract_1_mod
       INTEGER, DIMENSION(SIZE(contract_2))           :: contract_2_mod
@@ -374,7 +384,6 @@ CONTAINS
                                                      indchar2_mod, indchar3_mod
       CHARACTER(LEN=1), DIMENSION(15) :: alph = &
                                          ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o']
-      LOGICAL                         :: debug = .FALSE.
 
       CALL timeset(routineN, handle)
 
@@ -400,9 +409,9 @@ CONTAINS
                TRIM(tensor_1%name), 'x', TRIM(tensor_2%name), '=', TRIM(tensor_3%name)
             WRITE (unit_nr, '(A)') repeat("-", 80)
          ENDIF
-         CALL dbcsr_t_write_tensor_info(tensor_1, unit_nr, full_info=debug)
+         CALL dbcsr_t_write_tensor_info(tensor_1, unit_nr, full_info=log_verbose)
          CALL dbcsr_t_write_tensor_dist(tensor_1, unit_nr)
-         CALL dbcsr_t_write_tensor_info(tensor_2, unit_nr, full_info=debug)
+         CALL dbcsr_t_write_tensor_info(tensor_2, unit_nr, full_info=log_verbose)
          CALL dbcsr_t_write_tensor_dist(tensor_2, unit_nr)
       ENDIF
 
@@ -574,9 +583,9 @@ CONTAINS
                                                                  tensor_contr_2, indchar2_mod, &
                                                                  tensor_contr_3, indchar3_mod, unit_nr)
       IF (PRESENT(unit_nr)) THEN
-         IF (new_1) CALL dbcsr_t_write_tensor_info(tensor_contr_1, unit_nr, full_info=debug)
+         IF (new_1) CALL dbcsr_t_write_tensor_info(tensor_contr_1, unit_nr, full_info=log_verbose)
          IF (new_1) CALL dbcsr_t_write_tensor_dist(tensor_contr_1, unit_nr)
-         IF (new_2) CALL dbcsr_t_write_tensor_info(tensor_contr_2, unit_nr, full_info=debug)
+         IF (new_2) CALL dbcsr_t_write_tensor_info(tensor_contr_2, unit_nr, full_info=log_verbose)
          IF (new_2) CALL dbcsr_t_write_tensor_dist(tensor_contr_2, unit_nr)
          !CALL dbcsr_t_write_tensor_dist(tensor_contr_3, unit_nr)
       ENDIF
@@ -585,10 +594,10 @@ CONTAINS
                             tensor_contr_1%matrix_rep, tensor_contr_2%matrix_rep, &
                             beta, &
                             tensor_contr_3%matrix_rep, filter_eps=filter_eps, flop=flop, &
-                            io_unit=unit_nr)
+                            io_unit=unit_nr, log_verbose=log_verbose)
 
       IF (PRESENT(unit_nr)) THEN
-         CALL dbcsr_t_write_tensor_info(tensor_contr_3, unit_nr, full_info=debug)
+         CALL dbcsr_t_write_tensor_info(tensor_contr_3, unit_nr, full_info=log_verbose)
          CALL dbcsr_t_write_tensor_dist(tensor_contr_3, unit_nr)
       ENDIF
 
@@ -602,7 +611,7 @@ CONTAINS
       ENDIF
 
       IF (PRESENT(unit_nr)) THEN
-         IF (new_3) CALL dbcsr_t_write_tensor_info(tensor_3, unit_nr, full_info=debug)
+         IF (new_3) CALL dbcsr_t_write_tensor_info(tensor_3, unit_nr, full_info=log_verbose)
          IF (new_3) CALL dbcsr_t_write_tensor_dist(tensor_3, unit_nr)
       ENDIF
 
