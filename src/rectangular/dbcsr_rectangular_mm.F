@@ -42,8 +42,7 @@ MODULE dbcsr_rectangular_mm
                                       dbcsr_r_get_split_info, &
                                       dbcsr_r_split, &
                                       dbcsr_r_mp_comm, &
-                                      dbcsr_r_release_info, &
-                                      dbcsr_r_print_split_info
+                                      dbcsr_r_release_info
    USE dbcsr_rectangular_util, ONLY: swap, &
                                      invert_transpose_flag, &
                                      array_eq_i8
@@ -57,7 +56,8 @@ MODULE dbcsr_rectangular_mm
                             mp_comm_free
    USE dbcsr_operations, ONLY: dbcsr_scale
    USE dbcsr_rectangular_io, ONLY: dbcsr_r_write_dist, &
-                                   dbcsr_r_write_matrix_info
+                                   dbcsr_r_write_matrix_info, &
+                                   dbcsr_r_write_split_info
 #include "../base/dbcsr_base_uses.f90"
 
    IMPLICIT NONE
@@ -86,10 +86,11 @@ CONTAINS
 !> \param flop ...
 !> \param move_data memory optimization: move data to matrix_c such that matrix_a and matrix_b are
 !> empty on return
-!> \param io_unit unit number for output
+!> \param io_unit unit number for logging output
+!> \param log_verbose only for testing: verbose output
 ! **************************************************************************************************
    SUBROUTINE dbcsr_r_multiply(transa, transb, transc, alpha, matrix_a, matrix_b, beta, matrix_c, &
-                               optimize_dist, filter_eps, flop, move_data, io_unit)
+                               optimize_dist, filter_eps, flop, move_data, io_unit, log_verbose)
       CHARACTER(LEN=1), INTENT(IN)               :: transa, transb, transc
       TYPE(dbcsr_scalar_type), INTENT(IN)        :: alpha, beta
       TYPE(dbcsr_r_type), TARGET, INTENT(INOUT)  :: matrix_a, matrix_b, matrix_c
@@ -98,6 +99,7 @@ CONTAINS
       INTEGER(KIND=int_8), INTENT(OUT), OPTIONAL :: flop
       LOGICAL, INTENT(IN), OPTIONAL              :: move_data
       INTEGER, OPTIONAL, INTENT(IN)              :: io_unit
+      LOGICAL, OPTIONAL, INTENT(IN)              :: log_verbose
 
       TYPE(dbcsr_r_type), POINTER                :: matrix_b_rs => NULL(), matrix_a_rs => NULL(), matrix_c_rs => NULL()
       TYPE(dbcsr_r_type)                         :: matrix_c_rep, matrix_b_rep, matrix_a_rep
@@ -114,7 +116,6 @@ CONTAINS
       TYPE(dbcsr_r_split_info)                   :: info
       CHARACTER(LEN=*), PARAMETER                :: routineN = 'dbcsr_r_multiply', &
                                                     routineP = moduleN//':'//routineN
-      LOGICAL                                    :: debug = .FALSE.
 
       CALL timeset(routineN, handle)
 
@@ -150,9 +151,6 @@ CONTAINS
             WRITE (io_unit_prv, '(A)') repeat("-", 80)
          ENDIF
 
-         CALL dbcsr_r_write_matrix_info(matrix_a, io_unit_prv, full_info=debug)
-         CALL dbcsr_r_write_matrix_info(matrix_b, io_unit_prv, full_info=debug)
-         CALL dbcsr_r_write_matrix_info(matrix_c, io_unit_prv, full_info=debug)
       ENDIF
 
       IF (transa_prv .EQ. dbcsr_transpose) THEN
@@ -258,7 +256,16 @@ CONTAINS
          filter_eps_prv = 0.0_real_8
       ENDIF
 
-      IF (PRESENT(io_unit)) CALL dbcsr_r_print_split_info(info, " Split info:", io_unit_prv)
+      IF (PRESENT(io_unit)) THEN
+         IF(io_unit_prv > 0) THEN
+            WRITE(io_unit_prv, "(T2, A)") "SPLIT INFO"
+         ENDIF
+         CALL dbcsr_r_write_split_info(info, "Split info:", io_unit_prv)
+         CALL dbcsr_r_write_matrix_info(matrix_a_rs, io_unit_prv, full_info=log_verbose)
+         CALL dbcsr_r_write_matrix_info(matrix_b_rs, io_unit_prv, full_info=log_verbose)
+         CALL dbcsr_r_write_matrix_info(matrix_c_rs, io_unit_prv, full_info=log_verbose)
+      ENDIF
+
 
       zero = dbcsr_scalar_zero(data_type)
       SELECT CASE (max_mm_dim)
@@ -281,9 +288,9 @@ CONTAINS
             CALL timestop(handle2)
          END SELECT
          IF (PRESENT(io_unit)) THEN
-            CALL dbcsr_r_write_dist(matrix_a_rs, io_unit)
-            CALL dbcsr_r_write_dist(matrix_b_rep, io_unit)
-            CALL dbcsr_r_write_dist(matrix_c_rs, io_unit)
+            CALL dbcsr_r_write_dist(matrix_a_rs, io_unit, full_info=log_verbose)
+            CALL dbcsr_r_write_dist(matrix_b_rep, io_unit, full_info=log_verbose)
+            CALL dbcsr_r_write_dist(matrix_c_rs, io_unit, full_info=log_verbose)
          ENDIF
          CALL dbcsr_r_distribution_destroy(matrix_b_rep%dist)
          CALL dbcsr_r_destroy(matrix_b_rep)
@@ -296,9 +303,9 @@ CONTAINS
                              filter_eps=filter_eps_prv/REAL(nsplit, KIND=real_8), flop=flop)
          CALL timestop(handle2)
          IF (PRESENT(io_unit)) THEN
-            CALL dbcsr_r_write_dist(matrix_a_rs, io_unit)
-            CALL dbcsr_r_write_dist(matrix_b_rs, io_unit)
-            CALL dbcsr_r_write_dist(matrix_c_rep, io_unit)
+            CALL dbcsr_r_write_dist(matrix_a_rs, io_unit, full_info=log_verbose)
+            CALL dbcsr_r_write_dist(matrix_b_rs, io_unit, full_info=log_verbose)
+            CALL dbcsr_r_write_dist(matrix_c_rep, io_unit, full_info=log_verbose)
          ENDIF
 
          CALL dbcsr_r_merge(matrix_c_rs%matrix, matrix_c_rep, move_data=.TRUE.)
@@ -322,9 +329,9 @@ CONTAINS
             CALL timestop(handle2)
          END SELECT
          IF (PRESENT(io_unit)) THEN
-            CALL dbcsr_r_write_dist(matrix_a_rep, io_unit, dist=.TRUE.)
-            CALL dbcsr_r_write_dist(matrix_b_rs, io_unit)
-            CALL dbcsr_r_write_dist(matrix_c_rs, io_unit)
+            CALL dbcsr_r_write_dist(matrix_a_rep, io_unit, full_info=log_verbose)
+            CALL dbcsr_r_write_dist(matrix_b_rs, io_unit, full_info=log_verbose)
+            CALL dbcsr_r_write_dist(matrix_c_rs, io_unit, full_info=log_verbose)
          ENDIF
          CALL dbcsr_r_distribution_destroy(matrix_a_rep%dist)
          CALL dbcsr_r_destroy(matrix_a_rep)
@@ -509,7 +516,7 @@ CONTAINS
 
          IF (optimize_dist_prv) THEN
             IF (io_unit > 0) THEN
-               WRITE (io_unit, "(T2,A,1X,A,1X,A)") "Optimizing distribution of", TRIM(matrix1_in%matrix%name), &
+               WRITE (io_unit, "(T2,A,1X,A,1X,A,1X,A)") "Optimizing distribution of", TRIM(matrix1_in%matrix%name), &
                   "and", TRIM(matrix2_in%matrix%name)
             ENDIF
             CALL dbcsr_r_get_split_info(dbcsr_r_info(matrix1_in), mp_comm=mp_comm, split_rowcol=split_rc_1)

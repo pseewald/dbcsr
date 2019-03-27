@@ -15,7 +15,7 @@
 
 MODULE dbcsr_rectangular_io
    USE dbcsr_rectangular_types, ONLY: &
-      dbcsr_r_type
+      dbcsr_r_type, dbcsr_r_split_info
    USE dbcsr_rectangular_global, ONLY: &
       dbcsr_r_rowcol_data, dbcsr_r_distribution
    USE dbcsr_kinds, ONLY: &
@@ -24,7 +24,7 @@ MODULE dbcsr_rectangular_io
       dbcsr_r_get_info, dbcsr_r_get_num_blocks, dbcsr_r_get_data_size, dbcsr_r_nblkrows_total, &
       dbcsr_r_nblkcols_total
    USE dbcsr_rectangular_split, ONLY: &
-      dbcsr_r_get_split_info
+      dbcsr_r_get_split_info, rowsplit, colsplit
    USE dbcsr_mpiwrap, ONLY: &
       mp_environ, mp_sum, mp_max
    USE dbcsr_dist_methods, ONLY: &
@@ -37,7 +37,8 @@ MODULE dbcsr_rectangular_io
 
 PUBLIC :: &
       dbcsr_r_write_dist, &
-      dbcsr_r_write_matrix_info
+      dbcsr_r_write_matrix_info,&
+      dbcsr_r_write_split_info
 
 CONTAINS
 
@@ -106,12 +107,12 @@ CONTAINS
 !> \brief Write info on rectangular matrix distribution & load balance
 !> \param matrix ...
 !> \param output_unit ...
-!> \param dist Whether to print subgroup DBCSR distribution
+!> \param full_info Whether to print subgroup DBCSR distribution
 ! **************************************************************************************************
-   SUBROUTINE dbcsr_r_write_dist(matrix, output_unit, dist)
+   SUBROUTINE dbcsr_r_write_dist(matrix, output_unit, full_info)
       TYPE(dbcsr_r_type), INTENT(IN)   :: matrix
       INTEGER, INTENT(IN)              :: output_unit
-      LOGICAL, INTENT(IN), OPTIONAL    :: dist
+      LOGICAL, INTENT(IN), OPTIONAL    :: full_info
 
       CHARACTER(default_string_length) :: name
       INTEGER                          :: mp_comm, ngroup, igroup, mp_comm_group, nproc, iproc, &
@@ -167,9 +168,9 @@ CONTAINS
          WRITE (output_unit, "(T15,A,T68,I13)") "Maximum number of blocks per CPU:", nblock_p_max
          WRITE (output_unit, "(T15,A,T68,I13)") "Average number of matrix elements per CPU:", (nelement_p_sum + nproc - 1)/nproc
          WRITE (output_unit, "(T15,A,T68,I13)") "Maximum number of matrix elements per CPU:", nelement_p_max
-         IF (PRESENT(dist)) THEN
-            IF (dist) THEN
-               WRITE (output_unit, "(/T15,A)") "Row distribution on subgroup:"
+         IF (PRESENT(full_info)) THEN
+            IF (full_info) THEN
+               WRITE (output_unit, "(T15,A)") "Row distribution on subgroup:"
                WRITE (output_unit, '(T15)', advance='no')
                DO irow = 1, SIZE(rowdist)
                   WRITE (output_unit, '(I3, 1X)', advance='no') rowdist(irow)
@@ -184,5 +185,45 @@ CONTAINS
          ENDIF
       ENDIF
    END SUBROUTINE
+
+! **************************************************************************************************
+!> \brief Print info on how matrix is split
+!> \param info ...
+!> \param name ...
+!> \param io_unit ...
+! **************************************************************************************************
+   SUBROUTINE dbcsr_r_write_split_info(info, name, io_unit)
+      TYPE(dbcsr_r_split_info), INTENT(IN)               :: info
+      CHARACTER(len=*), INTENT(IN)                       :: name
+      INTEGER, INTENT(IN) :: io_unit
+      INTEGER                                            :: groupsize, igroup, mp_comm, &
+                                                            mp_comm_group, mynode, nsplit, &
+                                                            numnodes, split_rowcol
+      INTEGER, DIMENSION(2)                              :: coord, dims, groupcoord, groupdims, &
+                                                            pgrid_offset
+
+      CALL dbcsr_r_get_split_info(info, mp_comm, nsplit, igroup, mp_comm_group, split_rowcol, pgrid_offset)
+      CALL mp_environ(numnodes, mynode, mp_comm)
+      CALL mp_environ(numnodes, dims, coord, mp_comm)
+      CALL mp_environ(groupsize, groupdims, groupcoord, mp_comm_group)
+
+      IF (io_unit > 0) THEN
+         SELECT CASE (split_rowcol)
+         CASE (rowsplit)
+            WRITE (io_unit, "(T4,A,I4,1X,A,I4)") TRIM(name)//" splitting rows by factor", nsplit
+         CASE (colsplit)
+            WRITE (io_unit, "(T4,A,I4,1X,A,I4)") TRIM(name)//" splitting columns by factor", nsplit
+         END SELECT
+         WRITE (io_unit, "(T4,A, I4,A1,I4)") TRIM(name)//" global grid sizes:", dims(1), "x", dims(2)
+      ENDIF
+
+      IF (io_unit > 0) THEN
+         WRITE (io_unit, "(T4,A,I4,A1,I4)") &
+            TRIM(name)//" grid sizes on subgroups:", &
+            groupdims(1), "x", groupdims(2)
+      ENDIF
+
+   END SUBROUTINE
+
 END MODULE
 

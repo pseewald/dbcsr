@@ -40,7 +40,6 @@ MODULE dbcsr_rectangular_split
       dbcsr_r_get_split_info, &
       dbcsr_r_info_hold, &
       dbcsr_r_mp_comm, &
-      dbcsr_r_print_split_info, &
       dbcsr_r_release_info, &
       dbcsr_r_split, &
       dbcsr_r_split_rows_or_cols, &
@@ -348,44 +347,6 @@ CONTAINS
       ref = ref + 1
    END SUBROUTINE
 
-! **************************************************************************************************
-!> \brief ...
-!> \param info ...
-!> \param name ...
-!> \param io_unit ...
-! **************************************************************************************************
-   SUBROUTINE dbcsr_r_print_split_info(info, name, io_unit)
-      TYPE(dbcsr_r_split_info), INTENT(IN)               :: info
-      CHARACTER(len=*), INTENT(IN)                       :: name
-      INTEGER, INTENT(IN) :: io_unit
-      INTEGER                                            :: groupsize, igroup, mp_comm, &
-                                                            mp_comm_group, mynode, nsplit, &
-                                                            numnodes, split_rowcol
-      INTEGER, DIMENSION(2)                              :: coord, dims, groupcoord, groupdims, &
-                                                            pgrid_offset
-
-      CALL dbcsr_r_get_split_info(info, mp_comm, nsplit, igroup, mp_comm_group, split_rowcol, pgrid_offset)
-      CALL mp_environ(numnodes, mynode, mp_comm)
-      CALL mp_environ(numnodes, dims, coord, mp_comm)
-      CALL mp_environ(groupsize, groupdims, groupcoord, mp_comm_group)
-
-      IF (io_unit > 0) THEN
-         SELECT CASE (split_rowcol)
-         CASE (rowsplit)
-            WRITE (io_unit, "(A,I4,1X,A,I4)") TRIM(name)//" splitting rows by factor", nsplit
-         CASE (colsplit)
-            WRITE (io_unit, "(A,I4,1X,A,I4)") TRIM(name)//" splitting columns by factor", nsplit
-         END SELECT
-         WRITE (io_unit, "(A, I4,A1,I4)") TRIM(name)//" global grid sizes:", dims(1), "x", dims(2)
-      ENDIF
-
-      IF (io_unit > 0) THEN
-         WRITE (io_unit, "(A,I4,A1,I4)") &
-            TRIM(name)//" grid sizes on subgroups:", &
-            groupdims(1), "x", groupdims(2)
-      ENDIF
-
-   END SUBROUTINE
 
 ! **************************************************************************************************
 !> \brief map global process info to group

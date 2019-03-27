@@ -312,7 +312,7 @@ CONTAINS
 
       CALL dbcsr_r_multiply(transa, transb, transc, dbcsr_scalar(1.0_real_8), matrix_a, matrix_b, &
                             dbcsr_scalar(0.0_real_8), matrix_c, &
-                            filter_eps=filter_eps, io_unit=io_unit, optimize_dist=.TRUE.)
+                            filter_eps=filter_eps, io_unit=io_unit, log_verbose=.FALSE., optimize_dist=.TRUE.)
 
       CALL dbcsr_r_convert_to_dbcsr(matrix_a, dbcsr_a)
       CALL dbcsr_r_convert_to_dbcsr(matrix_b, dbcsr_b)
