@@ -60,7 +60,7 @@ CONTAINS
 !> \param split_info ...
 !> \param mp_comm global mpi communicator with a 2d cartesian grid
 !> \param ngroup number of groups. Note: this number may be diminished on out in order to have a
-!>        distribution where all groups have the same number of processes
+!>        distribution where all groups have the same number of processes ! todo: this is no longer true
 !> \param igroup my group ID
 !> \param split_rowcol split rows or columns
 ! **************************************************************************************************
@@ -131,50 +131,39 @@ CONTAINS
 !> \param nblkcols_total ...
 !> \return new communicator
 ! **************************************************************************************************
-   FUNCTION dbcsr_tas_mp_comm(mp_comm, nblkrows_total, nblkcols_total)
+   FUNCTION dbcsr_tas_mp_comm(mp_comm, split_rowcol, nsplit)
       INTEGER, INTENT(IN)                                :: mp_comm
-      INTEGER(KIND=int_8), INTENT(IN)                    :: nblkrows_total, nblkcols_total
+      INTEGER, INTENT(IN)                                :: split_rowcol
+      INTEGER, INTENT(INOUT)                             :: nsplit
       INTEGER                                            :: dbcsr_tas_mp_comm
 
       CHARACTER(LEN=*), PARAMETER :: routineN = 'dbcsr_tas_mp_comm', &
                                      routineP = moduleN//':'//routineN
 
-      INTEGER                                            :: group_size, handle, iproc, numproc, s, &
+      INTEGER                                            :: group_size, handle, iproc, numproc, &
                                                             split_rowcol
-      INTEGER(KIND=int_8)                                :: d_max, d_min
       INTEGER, DIMENSION(2)                              :: group_dims, mdims_group, myploc, npdims, &
                                                             sort_indices
 
       CALL timeset(routineN, handle)
 
-      d_max = MAX(nblkrows_total, nblkcols_total)
-      d_min = MIN(nblkrows_total, nblkcols_total)
-
-      s = INT((d_max - 1)/d_min + 1)
-
       CALL mp_environ(numproc, iproc, mp_comm)
 
-      DO WHILE (MOD(numproc, s) .NE. 0)
-         s = s - 1
+      DO WHILE (MOD(numproc, nsplit) .NE. 0)
+         nsplit = nsplit - 1
       ENDDO
 
-      group_size = numproc/s
+      group_size = numproc/nsplit
       group_dims(:) = 0
 
       CALL mp_dims_create(group_size, group_dims)
       CALL sort(group_dims, 2, sort_indices)
 
-      IF (d_max == nblkrows_total) THEN
-         split_rowcol = rowsplit
-      ELSE
-         split_rowcol = colsplit
-      ENDIF
-
       SELECT CASE (split_rowcol)
       CASE (rowsplit)
-         mdims_group = [INT(nblkrows_total/s), INT(nblkcols_total)]
+         mdims_group = [INT(nblkrows_total/nsplit), INT(nblkcols_total)]
       CASE (colsplit)
-         mdims_group = [INT(nblkrows_total), INT(nblkcols_total/s)]
+         mdims_group = [INT(nblkrows_total), INT(nblkcols_total/nsplit)]
       END SELECT
 
       IF (mdims_group(1) .GT. mdims_group(2)) THEN
@@ -183,9 +172,9 @@ CONTAINS
 
       SELECT CASE (split_rowcol)
       CASE (rowsplit)
-         npdims(:) = [group_dims(1)*s, group_dims(2)]
+         npdims(:) = [group_dims(1)*nsplit, group_dims(2)]
       CASE (colsplit)
-         npdims(:) = [group_dims(1), group_dims(2)*s]
+         npdims(:) = [group_dims(1), group_dims(2)*nsplit]
       END SELECT
 
       CALL mp_cart_create(mp_comm, 2, npdims, myploc, dbcsr_tas_mp_comm)
@@ -201,12 +190,14 @@ CONTAINS
 !> \param nblkrows_total ...
 !> \param nblkcols_total ...
 !> \param nosplit Matrix should not be split
+!> \todo careful no split arg has changed to nsplit
 ! **************************************************************************************************
-   SUBROUTINE dbcsr_tas_create_split(split_info, mp_comm, nblkrows_total, nblkcols_total, nosplit)
-      TYPE(dbcsr_tas_create_split_info), INTENT(OUT)              :: split_info
+   SUBROUTINE dbcsr_tas_create_split(split_info, mp_comm, split_rowcol, nsplit)
+      TYPE(dbcsr_tas_create_split_info), INTENT(OUT)     :: split_info
       INTEGER, INTENT(IN)                                :: mp_comm
       INTEGER(KIND=int_8), INTENT(IN)                    :: nblkrows_total, nblkcols_total
-      LOGICAL, INTENT(IN), OPTIONAL                      :: nosplit
+      INTEGER, INTENT(IN)                                :: split_rowcol
+      INTEGER, INTENT(INOUT)                             :: nsplit
 
       CHARACTER(LEN=*), PARAMETER :: routineN = 'dbcsr_tas_create_split', routineP = moduleN//':'//routineN
 
@@ -214,52 +205,26 @@ CONTAINS
                                                             split_rowcol
       INTEGER(KIND=int_8)                                :: d_max, d_min
       INTEGER, DIMENSION(2)                              :: pcoord, pdims, pdims_group
-      LOGICAL                                            :: nosplit_prv
 
       CALL timeset(routineN, handle)
 
-      IF (PRESENT(nosplit)) THEN
-         nosplit_prv = nosplit
-      ELSE
-         nosplit_prv = .FALSE.
-      ENDIF
+      CALL mp_environ(numproc, iproc, mp_comm)
+      CALL mp_environ(numproc, pdims, pcoord, mp_comm)
 
-      IF (nosplit_prv) THEN
-         s = 1
-         igroup = 0
-         split_rowcol = rowsplit
+      DO WHILE (MOD(pdims(split_rowcol), nsplit) .NE. 0)
+         nsplit = nsplit - 1
+      ENDDO
 
-      ELSE
+      SELECT CASE (split_rowcol)
+      CASE (rowsplit)
+         pdims_group = [pdims(1)/nsplit, pdims(2)]
+      CASE (colsplit)
+         pdims_group = [pdims(1), pdims(2)/nsplit]
+      END SELECT
 
-         d_max = MAX(nblkrows_total, nblkcols_total)
-         d_min = MIN(nblkrows_total, nblkcols_total)
+      igroup = pcoord(split_rowcol)/pdims_group(split_rowcol)
 
-         s = INT((d_max - 1)/d_min + 1)
-
-         CALL mp_environ(numproc, iproc, mp_comm)
-         CALL mp_environ(numproc, pdims, pcoord, mp_comm)
-
-         IF (d_max == nblkrows_total) THEN
-            split_rowcol = rowsplit
-         ELSE
-            split_rowcol = colsplit
-         ENDIF
-
-         DO WHILE (MOD(pdims(split_rowcol), s) .NE. 0)
-            s = s - 1
-         ENDDO
-
-         SELECT CASE (split_rowcol)
-         CASE (rowsplit)
-            pdims_group = [pdims(1)/s, pdims(2)]
-         CASE (colsplit)
-            pdims_group = [pdims(1), pdims(2)/s]
-         END SELECT
-
-         igroup = pcoord(split_rowcol)/pdims_group(split_rowcol)
-
-      ENDIF
-      CALL dbcsr_tas_create_split_rows_or_cols(split_info, mp_comm, s, igroup, split_rowcol)
+      CALL dbcsr_tas_create_split_rows_or_cols(split_info, mp_comm, nsplit, igroup, split_rowcol)
 
       CALL timestop(handle)
 

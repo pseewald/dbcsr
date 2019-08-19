@@ -37,6 +37,7 @@ MODULE dbcsr_tas_types
 
    ! info on MPI Cartesian grid that is split on MPI subgroups.
    ! info on distribution of matrix rows / columns to different subgroups.
+   ! todo: rename
    TYPE dbcsr_tas_create_split_info
       INTEGER :: mp_comm ! global communicator
       INTEGER :: igroup ! which subgroup do I belong to

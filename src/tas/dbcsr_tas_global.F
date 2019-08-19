@@ -114,6 +114,11 @@ MODULE dbcsr_tas_global
       PROCEDURE :: DATA => blk_size_repl
    END TYPE
 
+   TYPE, EXTENDS(dbcsr_tas_rowcol_data) :: dbcsr_tas_blk_size_one
+   CONTAINS
+      PROCEDURE :: DATA => blk_size_one
+   END TYPE
+
    ABSTRACT INTERFACE
 ! **************************************************************************************************
 !> \brief map matrix rows/cols to distribution rows/cols:
@@ -176,6 +181,10 @@ MODULE dbcsr_tas_global
       MODULE PROCEDURE new_dbcsr_tas_blk_size_repl
    END INTERFACE
 
+   INTERFACE dbcsr_tas_blk_size_one
+      MODULE PROCEDURE new_dbcsr_tas_blk_size_one
+   END INTERFACE
+
 CONTAINS
 ! **************************************************************************************************
 !> \brief ...
@@ -209,6 +218,16 @@ CONTAINS
 
    END FUNCTION
 
+   FUNCTION blk_size_one(t, rowcol)
+      CLASS(dbcsr_tas_blk_size_one), INTENT(IN) :: t
+      INTEGER(KIND=int_8), INTENT(IN) :: rowcol
+      INTEGER :: blk_size_one
+
+      !MARK_USED(t)
+      !MARK_USED(rowcol)
+      blk_size_one = 1
+   END FUNCTION
+
 ! **************************************************************************************************
 !> \brief ...
 !> \param blk_size_vec ...
@@ -240,6 +259,20 @@ CONTAINS
       new_dbcsr_tas_blk_size_repl%blk_size_vec(:) = blk_size_vec(:)
       new_dbcsr_tas_blk_size_repl%nmrowcol = new_dbcsr_tas_blk_size_repl%nmrowcol_local*n_repl
       new_dbcsr_tas_blk_size_repl%nfullrowcol = SUM(blk_size_vec)*n_repl
+   END FUNCTION
+
+! **************************************************************************************************
+!> \brief ...
+!> \param blk_size_vec ...
+!> \param n_repl ...
+!> \return ...
+! **************************************************************************************************
+   FUNCTION new_dbcsr_tas_blk_size_one(nrowcol)
+      INTEGER(KIND=int_8), INTENT(IN)      :: nrowcol
+      TYPE(dbcsr_tas_blk_size_one)         :: new_dbcsr_tas_blk_size_one
+
+      new_dbcsr_tas_blk_size_repl%nmrowcol = nrowcol
+      new_dbcsr_tas_blk_size_repl%nfullrowcol = nrowcol
    END FUNCTION
 
 ! **************************************************************************************************
