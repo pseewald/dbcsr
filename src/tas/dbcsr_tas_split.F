@@ -53,6 +53,11 @@ MODULE dbcsr_tas_split
 
    INTEGER, PARAMETER :: rowsplit = 1, colsplit = 2
 
+   INTERFACE dbcsr_tas_mp_comm
+      MODULE PROCEDURE dbcsr_tas_mp_comm
+      MODULE PROCEDURE dbcsr_tas_mp_comm_from_matrix_sizes
+   END INTERFACE
+
 CONTAINS
 
 ! **************************************************************************************************
@@ -127,8 +132,8 @@ CONTAINS
 !> \brief Create default cartesian grid that is consistent with default split heuristic of dbcsr_tas_create_split
 !>        This is experimental and should be used for testing purposes only!
 !> \param mp_comm ...
-!> \param nblkrows_total ...
-!> \param nblkcols_total ...
+!> \param split_rowcol ...
+!> \param nsplit ...
 !> \return new communicator
 ! **************************************************************************************************
    FUNCTION dbcsr_tas_mp_comm(mp_comm, split_rowcol, nsplit)
@@ -140,9 +145,8 @@ CONTAINS
       CHARACTER(LEN=*), PARAMETER :: routineN = 'dbcsr_tas_mp_comm', &
                                      routineP = moduleN//':'//routineN
 
-      INTEGER                                            :: group_size, handle, iproc, numproc, &
-                                                            split_rowcol
-      INTEGER, DIMENSION(2)                              :: group_dims, mdims_group, myploc, npdims, &
+      INTEGER                                            :: group_size, handle, iproc, numproc
+      INTEGER, DIMENSION(2)                              :: group_dims, myploc, npdims, &
                                                             sort_indices
 
       CALL timeset(routineN, handle)
@@ -161,17 +165,6 @@ CONTAINS
 
       SELECT CASE (split_rowcol)
       CASE (rowsplit)
-         mdims_group = [INT(nblkrows_total/nsplit), INT(nblkcols_total)]
-      CASE (colsplit)
-         mdims_group = [INT(nblkrows_total), INT(nblkcols_total/nsplit)]
-      END SELECT
-
-      IF (mdims_group(1) .GT. mdims_group(2)) THEN
-         CALL swap(group_dims)
-      ENDIF
-
-      SELECT CASE (split_rowcol)
-      CASE (rowsplit)
          npdims(:) = [group_dims(1)*nsplit, group_dims(2)]
       CASE (colsplit)
          npdims(:) = [group_dims(1), group_dims(2)*nsplit]
@@ -182,28 +175,49 @@ CONTAINS
       CALL timestop(handle)
    END FUNCTION
 
+   ! todo this should be used in testing only
+! **************************************************************************************************
+!> \brief ...
+!> \param mp_comm ...
+!> \param nblkrows ...
+!> \param nblkcols ...
+!> \return ...
+! **************************************************************************************************
+   FUNCTION dbcsr_tas_mp_comm_from_matrix_sizes(mp_comm, nblkrows, nblkcols) RESULT(mp_comm_new)
+      INTEGER, INTENT(IN)                                :: mp_comm
+      INTEGER(KIND=int_8), INTENT(IN)                    :: nblkrows, nblkcols
+      INTEGER                                            :: nsplit, split_rowcol
+      INTEGER                                            :: mp_comm_new
+
+      IF(nblkrows >= nblkcols) THEN
+         split_rowcol = rowsplit
+         nsplit = INT((nblkrows - 1)/nblkcols + 1)
+      ELSE
+         split_rowcol = colsplit
+         nsplit = INT((nblkcols - 1)/nblkrows + 1)
+      ENDIF
+
+      mp_comm_new = dbcsr_tas_mp_comm(mp_comm, split_rowcol, nsplit)
+   END FUNCTION
+
 ! **************************************************************************************************
 !> \brief Split Cartesian process grid using a default split heuristic. The split factor may not be
 !>        ideal.
 !> \param split_info object storing all data corresponding to split, submatrices and parallelization
 !> \param mp_comm ...
-!> \param nblkrows_total ...
-!> \param nblkcols_total ...
-!> \param nosplit Matrix should not be split
-!> \todo careful no split arg has changed to nsplit
+!> \param split_rowcol ...
+!> \param nsplit ...
 ! **************************************************************************************************
    SUBROUTINE dbcsr_tas_create_split(split_info, mp_comm, split_rowcol, nsplit)
       TYPE(dbcsr_tas_create_split_info), INTENT(OUT)     :: split_info
       INTEGER, INTENT(IN)                                :: mp_comm
-      INTEGER(KIND=int_8), INTENT(IN)                    :: nblkrows_total, nblkcols_total
       INTEGER, INTENT(IN)                                :: split_rowcol
       INTEGER, INTENT(INOUT)                             :: nsplit
 
       CHARACTER(LEN=*), PARAMETER :: routineN = 'dbcsr_tas_create_split', routineP = moduleN//':'//routineN
 
-      INTEGER                                            :: handle, igroup, iproc, numproc, s, &
-                                                            split_rowcol
-      INTEGER(KIND=int_8)                                :: d_max, d_min
+      INTEGER                                            :: handle, iproc, numproc, &
+                                                            igroup
       INTEGER, DIMENSION(2)                              :: pcoord, pdims, pdims_group
 
       CALL timeset(routineN, handle)

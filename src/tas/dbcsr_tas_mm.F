@@ -20,25 +20,35 @@
 ! **************************************************************************************************
 
 MODULE dbcsr_tas_mm
+#:include "dbcsr_tas.fypp"
 
-   USE dbcsr_data_methods, ONLY: dbcsr_scalar_zero
-   USE dbcsr_data_types, ONLY: dbcsr_scalar_type
+   USE dbcsr_data_methods, ONLY: dbcsr_scalar_zero, dbcsr_scalar
+   USE dbcsr_data_types, ONLY: dbcsr_scalar_type, &
+                               dbcsr_type_real_8, &
+                               dbcsr_type_real_4, &
+                               dbcsr_type_complex_8, &
+                               dbcsr_type_complex_4
    USE dbcsr_multiply_api, ONLY: dbcsr_multiply
    USE dbcsr_tas_base, ONLY: &
       dbcsr_tas_create, dbcsr_tas_destroy, dbcsr_tas_distribution_destroy, dbcsr_tas_distribution_new, &
       dbcsr_tas_get_data_type, dbcsr_tas_info, dbcsr_tas_nblkcols_total, &
-      dbcsr_tas_nblkrows_total, dbcsr_tas_filter
+      dbcsr_tas_nblkrows_total, dbcsr_tas_filter, dbcsr_tas_get_info, dbcsr_tas_iterator_blocks_left, &
+      dbcsr_tas_get_nze_total, dbcsr_tas_reserve_blocks, dbcsr_tas_iterator_start, dbcsr_tas_iterator_next_block, &
+      dbcsr_tas_put_block, dbcsr_tas_iterator_stop, dbcsr_tas_copy
    USE dbcsr_tas_types, ONLY: dbcsr_tas_distribution_type, &
                               dbcsr_tas_create_split_info, &
-                              dbcsr_tas_type
+                              dbcsr_tas_type, &
+                              dbcsr_tas_iterator
    USE dbcsr_tas_global, ONLY: dbcsr_tas_dist_cyclic, &
                                dbcsr_tas_dist_arb, &
                                dbcsr_tas_distribution, &
-                               dbcsr_tas_dist_arb_default
+                               dbcsr_tas_dist_arb_default, &
+                               dbcsr_tas_rowcol_data,&
+                               dbcsr_tas_blk_size_one
    USE dbcsr_tas_reshape_ops, ONLY: dbcsr_tas_merge, &
                                     dbcsr_tas_replicate, &
                                     dbcsr_tas_reshape
-   USE dbcsr_tas_split, ONLY: colsplit, &
+   USE dbcsr_tas_split, ONLY: rowsplit, colsplit, &
                               dbcsr_tas_get_split_info, &
                               dbcsr_tas_create_split, &
                               dbcsr_tas_mp_comm, &
@@ -49,7 +59,9 @@ MODULE dbcsr_tas_mm
    USE dbcsr_types, ONLY: dbcsr_no_transpose, &
                           dbcsr_transpose
    USE dbcsr_kinds, ONLY: int_8, &
-                          real_8
+                          real_8, &
+                          real_4, &
+                          default_string_length
    USE dbcsr_mpiwrap, ONLY: mp_comm_compare, &
                             mp_environ, &
                             mp_sum, &
@@ -109,7 +121,7 @@ CONTAINS
       INTEGER, DIMENSION(2) :: pdims, pcoord
       INTEGER(KIND=int_8), DIMENSION(3)          :: dims
       INTEGER                                    :: max_mm_dim, data_type, numnodes, mp_comm, comm_tmp, &
-                                                    handle, handle2, io_unit_prv, nsplit
+                                                    handle, handle2, io_unit_prv, nsplit, numproc, iproc
       CHARACTER(LEN=1)                           :: tr_case, transa_prv, transb_prv, transc_prv
       TYPE(dbcsr_scalar_type)                    :: zero
       LOGICAL                                    :: new_a, new_b, new_c, move_prv, simple_split_prv
@@ -175,7 +187,6 @@ CONTAINS
 
       dims(:) = [dims_a(1), dims_a(2), dims_b(2)]
 
-
       tr_case = ''
 
       IF (io_unit_prv > 0) THEN
@@ -187,8 +198,10 @@ CONTAINS
          nze_b = dbcsr_tas_get_nze_total(matrix_b)
          nze_c = result_sparsity_estimate(transa, transb, transc, matrix_a, matrix_b, matrix_c, filter_eps)
 
-         nsplit = split_factor_estimate(nze_a, nze_b, nze_c)
-         max_mm_dim = MINLOC([nze_b, nze_c, nze_a])
+         CALL dbcsr_tas_get_split_info(dbcsr_tas_info(matrix_a_rs), mp_comm=mp_comm)
+         CALL mp_environ(numproc, iproc, mp_comm)
+         nsplit = split_factor_estimate(nze_a, nze_b, nze_c, numproc)
+         max_mm_dim = MINLOC([nze_b, nze_c, nze_a], 1)
       ELSE
          nsplit = 0
          max_mm_dim = MAXLOC(dims, 1)
@@ -503,7 +516,7 @@ CONTAINS
       INTEGER(KIND=int_8)               :: d1, d2
       CHARACTER(LEN=*), PARAMETER :: routineN = 'reshape_mm_compatible', &
                                      routineP = moduleN//':'//routineN
-      INTEGER :: handle, mp_comm, numnodes, split_rc_1, split_rc_2, io_unit, nsplit_prv, ref, &
+      INTEGER :: handle, mp_comm, numnodes, io_unit, nsplit_prv, ref, &
                  split_rc_ref, split_rc_1_prv, split_rc_2_prv
       INTEGER, DIMENSION(2) :: pcoord, pdims
       LOGICAL :: optimize_dist_prv, trans1_newdist, trans2_newdist
@@ -526,8 +539,8 @@ CONTAINS
       ENDIF
 
       IF(PRESENT(nsplit)) THEN
-         CPASSERT(PRESENT(split_rc_1))
-         CPASSERT(PRESENT(split_rc_2))
+         DBCSR_ASSERT(PRESENT(split_rc_1))
+         DBCSR_ASSERT(PRESENT(split_rc_2))
       ENDIF
 
       IF(PRESENT(split_rc_1)) THEN
@@ -577,7 +590,6 @@ CONTAINS
 
       CALL timeset(routineN, handle)
       new1 = .FALSE.; new2 = .FALSE.
-
 
       IF ((.NOT. optimize_dist_prv) .AND. dist_compatible(matrix1_in, matrix2_in)) THEN
          IF(PRESENT(nsplit)) CALL change_split(matrix1_in, matrix1_out, nsplit, split_rc_1_prv, new1, nodata=nodata1)
@@ -694,14 +706,14 @@ CONTAINS
       LOGICAL, INTENT(IN), OPTIONAL :: nodata
       INTEGER :: mp_comm, split_rc, nsplit_old
       TYPE(dbcsr_tas_create_split_info) :: split_info
-      CHARACTER(len=*) :: name
+      CHARACTER(len=default_string_length) :: name
       INTEGER :: data_type
       INTEGER(KIND=int_8) :: nblkrows, nblkcols
       TYPE(dbcsr_tas_distribution_type) :: dist
       CLASS(dbcsr_tas_distribution), ALLOCATABLE :: rdist, cdist
       CLASS(dbcsr_tas_rowcol_data), ALLOCATABLE  :: rbsize, cbsize
 
-      CALL dbcsr_tas_get_split_info(dbcsr_tas_info(matrix1_in), mp_comm=mp_comm, &
+      CALL dbcsr_tas_get_split_info(dbcsr_tas_info(matrix_in), mp_comm=mp_comm, &
                                     split_rowcol=split_rc, nsplit=nsplit_old)
 
       CALL dbcsr_tas_get_info(matrix_in, data_type=data_type, name=name, &
@@ -711,17 +723,19 @@ CONTAINS
 
       CALL dbcsr_tas_create_split(split_info, mp_comm, split_rowcol, nsplit)
 
+      is_new = .TRUE.
       IF(nsplit_old == nsplit .AND. split_rc == split_rowcol) THEN
          matrix_out => matrix_in
+         is_new = .FALSE.
          RETURN
       ENDIF
 
       CALL dbcsr_tas_distribution_new(dist, mp_comm, rdist, cdist, &
                                       split_info=split_info)
       ALLOCATE(matrix_out)
-      CALL dbcsr_tas_create_new(matrix_out, name, dist, &
-                                data_type, &
-                                rbsize, cbsize, own_dist=.TRUE.)
+      CALL dbcsr_tas_create(matrix_out, name, dist, &
+                            data_type, &
+                            rbsize, cbsize, own_dist=.TRUE.)
 
       IF (PRESENT(nodata)) THEN
          IF (.NOT. nodata) CALL dbcsr_tas_copy(matrix_out, matrix_in)
@@ -889,7 +903,7 @@ CONTAINS
    FUNCTION result_sparsity_estimate(transa, transb, transc, matrix_a, matrix_b, matrix_c, filter_eps) RESULT(nze)
       CHARACTER(LEN=1), INTENT(IN)               :: transa, transb, transc
       TYPE(dbcsr_tas_type), INTENT(INOUT)        :: matrix_a, matrix_b, matrix_c
-      TYPE(dbcsr_tas_type)                       :: matrix_a_bnorm, matrix_b_bnorm, matrix_bnorm
+      TYPE(dbcsr_tas_type)                       :: matrix_a_bnorm, matrix_b_bnorm, matrix_c_bnorm
       REAL(KIND=real_8), INTENT(IN), OPTIONAL    :: filter_eps
       INTEGER(KIND=int_8)                        :: row, col, nze
       INTEGER                                    :: bn, row_size, col_size
@@ -899,8 +913,8 @@ CONTAINS
       CALL create_block_norms_matrix(matrix_b, matrix_b_bnorm)
       CALL create_block_norms_matrix(matrix_c, matrix_c_bnorm, nodata=.TRUE.)
 
-      CALL dbcsr_tas_multiply(transa, transb, transc, dbcsr_scalar(1.0_dp), matrix_a_bnorm, &
-                              matrix_b_bnorm, dbcsr_scalar(0.0_dp), matrix_c_bnorm, &
+      CALL dbcsr_tas_multiply(transa, transb, transc, dbcsr_scalar(1.0_real_8), matrix_a_bnorm, &
+                              matrix_b_bnorm, dbcsr_scalar(0.0_real_8), matrix_c_bnorm, &
                               filter_eps=filter_eps, move_data=.TRUE., simple_split=.TRUE.)
 
       CALL dbcsr_tas_iterator_start(iter, matrix_c_bnorm)
@@ -919,8 +933,9 @@ CONTAINS
 
    END FUNCTION
 
-   FUNCTION split_factor_estimate(nze_a, nze_b, nze_c) RESULT(nsplit)
+   FUNCTION split_factor_estimate(nze_a, nze_b, nze_c, numnodes) RESULT(nsplit)
       INTEGER(KIND=int_8), INTENT(IN)             :: nze_a, nze_b, nze_c
+      INTEGER, INTENT(IN)                         :: numnodes
       INTEGER                                     :: nsplit
 
       nsplit = CEILING(((nze_a + nze_b)/(2*MINVAL([nze_a, nze_b, nze_c])))**(2._real_8/3)*numnodes**(1._real_8/3))
@@ -941,23 +956,22 @@ CONTAINS
    !END FUNCTION
 
    SUBROUTINE create_block_norms_matrix(matrix_in, matrix_out, nodata)
-      TYPE(dbcsr_tas_type), INTENT(IN)           :: matrix_in
+      TYPE(dbcsr_tas_type), INTENT(INOUT)           :: matrix_in
       TYPE(dbcsr_tas_type), INTENT(OUT)          :: matrix_out
       LOGICAL, INTENT(IN), OPTIONAL              :: nodata
       TYPE(dbcsr_tas_blk_size_one)               :: row_blk_size, col_blk_size
       TYPE(dbcsr_tas_iterator)                   :: iter
       INTEGER(KIND=int_8)                        :: row, column, nblkrows, nblkcols
-      INTEGER                                    :: blk_nr
-      CHARACTER(len=*)                           :: name
+      CHARACTER(len=default_string_length)       :: name
       INTEGER                                    :: data_type
 
 #:for dparam, dtype, dsuffix in dtype_float_list
-      ${dtype}$, DIMENSION(:), POINTER        :: block_get_${dsuffix}$
-      ${dtype}$, DIMENSION(:), POINTER        :: block_put_${dsuffix}$
+      ${dtype}$, DIMENSION(:, :), POINTER        :: block_get_${dsuffix}$
+      ${dtype}$, DIMENSION(:, :), POINTER        :: block_put_${dsuffix}$
 #:endfor
       LOGICAL                                    :: tr, nodata_prv
 
-      CPASSERT(matrix_in%valid)
+      DBCSR_ASSERT(matrix_in%valid)
 
       IF(PRESENT(nodata)) THEN
          nodata_prv = nodata
@@ -972,9 +986,9 @@ CONTAINS
       col_blk_size = dbcsr_tas_blk_size_one(nblkcols)
 
       ! not sure if assumption that same distribution can be taken still holds
-      CALL dbcsr_tas_create_new(matrix_out, name, matrix_in%dist, &
-                                data_type, &
-                                row_blk_size, col_blk_size)
+      CALL dbcsr_tas_create(matrix_out, name, matrix_in%dist, &
+                            data_type, &
+                            row_blk_size, col_blk_size)
 
       IF (.NOT. nodata_prv) THEN
          CALL dbcsr_tas_reserve_blocks(matrix_in, matrix_out)
@@ -986,8 +1000,8 @@ CONTAINS
 #:for dparam, dtype, dsuffix in dtype_float_list
             IF (data_type == ${dparam}$) THEN
                CALL dbcsr_tas_iterator_next_block(iter, row, column, block_get_${dsuffix}$, tr)
-               ALLOCATE (block_put_${dsuffix}$ (1))
-               block_put_${dsuffix}$ (1) = NORM2(block_get_${dsuffix}$)
+               ALLOCATE (block_put_${dsuffix}$ (1, 1))
+               block_put_${dsuffix}$ (1, 1) = SQRT(SUM(block_get_${dsuffix}$**2)) ! norm2 works only for real
                CALL dbcsr_tas_put_block(matrix_out, row, column, block_put_${dsuffix}$)
             ENDIF
 #:endfor

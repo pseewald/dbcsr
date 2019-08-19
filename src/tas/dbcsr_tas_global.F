@@ -31,6 +31,7 @@ MODULE dbcsr_tas_global
    PUBLIC :: &
       dbcsr_tas_blk_size_arb, &
       dbcsr_tas_blk_size_repl, &
+      dbcsr_tas_blk_size_one, &
       dbcsr_tas_dist_arb, &
       dbcsr_tas_dist_arb_default, &
       dbcsr_tas_dist_cyclic, &
@@ -218,13 +219,19 @@ CONTAINS
 
    END FUNCTION
 
+! **************************************************************************************************
+!> \brief ...
+!> \param t ...
+!> \param rowcol ...
+!> \return ...
+! **************************************************************************************************
    FUNCTION blk_size_one(t, rowcol)
       CLASS(dbcsr_tas_blk_size_one), INTENT(IN) :: t
       INTEGER(KIND=int_8), INTENT(IN) :: rowcol
       INTEGER :: blk_size_one
 
-      !MARK_USED(t)
-      !MARK_USED(rowcol)
+      MARK_USED(t)
+      MARK_USED(rowcol)
       blk_size_one = 1
    END FUNCTION
 
@@ -263,16 +270,15 @@ CONTAINS
 
 ! **************************************************************************************************
 !> \brief ...
-!> \param blk_size_vec ...
-!> \param n_repl ...
+!> \param nrowcol ...
 !> \return ...
 ! **************************************************************************************************
    FUNCTION new_dbcsr_tas_blk_size_one(nrowcol)
       INTEGER(KIND=int_8), INTENT(IN)      :: nrowcol
       TYPE(dbcsr_tas_blk_size_one)         :: new_dbcsr_tas_blk_size_one
 
-      new_dbcsr_tas_blk_size_repl%nmrowcol = nrowcol
-      new_dbcsr_tas_blk_size_repl%nfullrowcol = nrowcol
+      new_dbcsr_tas_blk_size_one%nmrowcol = nrowcol
+      new_dbcsr_tas_blk_size_one%nfullrowcol = nrowcol
    END FUNCTION
 
 ! **************************************************************************************************

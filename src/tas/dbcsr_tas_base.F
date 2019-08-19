@@ -414,14 +414,14 @@ CONTAINS
       INTEGER, INTENT(IN)                            :: mp_comm
       CLASS(dbcsr_tas_distribution), INTENT(IN)        :: row_dist, col_dist
       TYPE(dbcsr_tas_create_split_info), INTENT(IN), OPTIONAL :: split_info
-      LOGICAL, INTENT(IN), OPTIONAL                  :: nosplit
+      LOGICAL, INTENT(IN), OPTIONAL                           :: nosplit
 
       TYPE(dbcsr_tas_create_split_info)                           :: split_info_prv
 
       INTEGER, DIMENSION(:), POINTER :: row_dist_vec => NULL()
       INTEGER, DIMENSION(:), POINTER :: col_dist_vec => NULL()
       TYPE(dbcsr_mp_obj) :: mp_environ_tmp
-      INTEGER :: nrows, ncols, irow, col, icol, row
+      INTEGER :: nrows, ncols, irow, col, icol, row, split_rowcol, nsplit
 
       CHARACTER(LEN=*), PARAMETER :: routineN = 'dbcsr_tas_distribution_new', &
                                      routineP = moduleN//':'//routineN
@@ -432,7 +432,17 @@ CONTAINS
          CALL dbcsr_tas_info_hold(split_info)
          split_info_prv = split_info
       ELSE
-         CALL dbcsr_tas_create_split(split_info_prv, mp_comm, row_dist%nmrowcol, col_dist%nmrowcol, nosplit=nosplit)
+         IF(row_dist%nmrowcol >= col_dist%nmrowcol) THEN
+            split_rowcol = rowsplit
+            nsplit = INT((row_dist%nmrowcol - 1)/col_dist%nmrowcol + 1)
+         ELSE
+            split_rowcol = colsplit
+            nsplit = INT((col_dist%nmrowcol - 1)/row_dist%nmrowcol + 1)
+         ENDIF
+         IF(PRESENT(nosplit)) THEN
+            IF(nosplit) nsplit=1
+         ENDIF
+         CALL dbcsr_tas_create_split(split_info_prv, mp_comm, split_rowcol, nsplit=nsplit)
       ENDIF
 
       SELECT CASE (split_info_prv%split_rowcol)
