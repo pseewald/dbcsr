@@ -403,6 +403,7 @@ CONTAINS
       ENDIF
 
       IF (PRESENT(flop)) THEN
+         CALL dbcsr_tas_get_split_info(dbcsr_tas_info(matrix_a), mp_comm=mp_comm)
          CALL mp_sum(flop, mp_comm)
          flop = (flop + numnodes - 1)/numnodes
       ENDIF
