@@ -389,10 +389,8 @@ CONTAINS
       IF (io_unit_prv > 0) THEN
          WRITE (io_unit_prv, "(T2,A)") &
             "MM PARAMETERS"
-         WRITE (io_unit_prv, "(T4,A,T68,I13)") "rel. error in est. occupancy: (nze_guess - nze_calc)/nze_calc", &
+         WRITE (io_unit_prv, "(T4,A,T68,F13.1)") "rel. error in est. occupancy: (nze_guess - nze_calc)/nze_calc", &
             (REAL(nze_c, real_8) - REAL(nze_result, real_8))/REAL(nze_result, real_8)
-
-         WRITE (io_unit_prv, "(T4,A,T68,I13)") "Est. optimal split factor:", nsplit
       ENDIF
 
       IF (new_a) THEN
