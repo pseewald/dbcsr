@@ -129,6 +129,7 @@ CONTAINS
       CHARACTER(LEN=*), PARAMETER                :: routineN = 'dbcsr_tas_multiply', &
                                                     routineP = moduleN//':'//routineN
       INTEGER(KIND=int_8)                        :: nze_a, nze_b, nze_c
+
       CALL timeset(routineN, handle)
 
       IF (PRESENT(io_unit)) THEN
@@ -202,6 +203,16 @@ CONTAINS
          CALL mp_environ(numproc, iproc, mp_comm)
          nsplit = split_factor_estimate(nze_a, nze_b, nze_c, numproc)
          max_mm_dim = MINLOC([nze_b, nze_c, nze_a], 1)
+
+         IF (io_unit_prv > 0) THEN
+            WRITE (io_unit_prv, "(T2,A)") &
+               "MM PARAMETERS"
+            WRITE (io_unit_prv, "(T4,A,T68,I13)") "Est. number of matrix elements per CPU of result matrix:", &
+               (nze_c + numproc - 1)/numproc
+
+            WRITE (io_unit_prv, "(T4,A,T68,I13)") "Est. optimal split factor:", nsplit
+         ENDIF
+
       ELSE
          nsplit = 0
          max_mm_dim = MAXLOC(dims, 1)
@@ -526,6 +537,9 @@ CONTAINS
       INTEGER(KIND=int_8)               :: nze1, nze2
       LOGICAL                           :: do_split
 
+      CALL timeset(routineN, handle)
+      new1 = .FALSE.; new2 = .FALSE.
+
       NULLIFY(matrix1_out, matrix2_out)
       IF (PRESENT(unit_nr)) THEN
          io_unit = unit_nr
@@ -594,8 +608,7 @@ CONTAINS
          DBCSR_ASSERT(PRESENT(comm_new))
       ENDIF
 
-      CALL timeset(routineN, handle)
-      new1 = .FALSE.; new2 = .FALSE.
+
 
       IF ((.NOT. optimize_dist_prv) .AND. dist_compatible(matrix1_in, matrix2_in)) THEN
          IF(do_split) CALL change_split(matrix1_in, matrix1_out, nsplit_prv, split_rc_1_prv, new1, nodata=nodata1)
@@ -710,7 +723,7 @@ CONTAINS
       INTEGER, INTENT(IN)    :: split_rowcol
       LOGICAL, INTENT(OUT) :: is_new
       LOGICAL, INTENT(IN), OPTIONAL :: nodata
-      INTEGER :: mp_comm, split_rc, nsplit_old
+      INTEGER :: mp_comm, split_rc, nsplit_old, handle
       TYPE(dbcsr_tas_create_split_info) :: split_info
       CHARACTER(len=default_string_length) :: name
       INTEGER :: data_type
@@ -718,6 +731,10 @@ CONTAINS
       TYPE(dbcsr_tas_distribution_type) :: dist
       CLASS(dbcsr_tas_distribution), ALLOCATABLE :: rdist, cdist
       CLASS(dbcsr_tas_rowcol_data), ALLOCATABLE  :: rbsize, cbsize
+      CHARACTER(LEN=*), PARAMETER :: routineN = 'change_split', &
+                                     routineP = moduleN//':'//routineN
+
+      CALL timeset(routineN, handle)
 
       CALL dbcsr_tas_get_split_info(dbcsr_tas_info(matrix_in), mp_comm=mp_comm, &
                                     split_rowcol=split_rc, nsplit=nsplit_old)
@@ -734,6 +751,7 @@ CONTAINS
          matrix_out => matrix_in
          is_new = .FALSE.
          CALL dbcsr_tas_release_info(split_info)
+         CALL timestop(handle)
          RETURN
       ENDIF
 
@@ -753,6 +771,7 @@ CONTAINS
          CALL dbcsr_tas_copy(matrix_out, matrix_in)
       ENDIF
 
+      CALL timestop(handle)
    END SUBROUTINE
 
 ! **************************************************************************************************
@@ -916,8 +935,12 @@ CONTAINS
       TYPE(dbcsr_tas_type)                       :: matrix_a_bnorm, matrix_b_bnorm, matrix_c_bnorm
       REAL(KIND=real_8), INTENT(IN), OPTIONAL    :: filter_eps
       INTEGER(KIND=int_8)                        :: row, col, nze
-      INTEGER                                    :: bn, row_size, col_size, mp_comm
+      INTEGER                                    :: bn, row_size, col_size, mp_comm, handle
       TYPE(dbcsr_tas_iterator)                   :: iter
+      CHARACTER(LEN=*), PARAMETER :: routineN = 'result_sparsity_estimate', &
+                                     routineP = moduleN//':'//routineN
+
+      CALL timeset(routineN, handle)
 
       CALL create_block_norms_matrix(matrix_a, matrix_a_bnorm)
       CALL create_block_norms_matrix(matrix_b, matrix_b_bnorm)
@@ -943,6 +966,7 @@ CONTAINS
       CALL dbcsr_tas_destroy(matrix_a_bnorm)
       CALL dbcsr_tas_destroy(matrix_b_bnorm)
       CALL dbcsr_tas_destroy(matrix_c_bnorm)
+      CALL timestop(handle)
 
    END FUNCTION
 
@@ -954,19 +978,6 @@ CONTAINS
       nsplit = CEILING(((nze_a + nze_b)/(2*MINVAL([nze_a, nze_b, nze_c])))**(2._real_8/3)*numnodes**(1._real_8/3))
 
    END FUNCTION
-
-   !SUBROUTINE mm_split(transa, transb, transc, matrix_a, matrix_b, matrix_c, matrix_a_split, matrix_b_split, matrix_c_split, &
-   !                    filter_eps)
-   !   CHARACTER(LEN=1), INTENT(IN)               :: transa, transb, transc
-   !   TYPE(dbcsr_tas_type), INTENT(INOUT)        :: matrix_a, matrix_b, matrix_c
-   !   TYPE(dbcsr_tas_type)                       :: matrix_a_bnorm, matrix_b_bnorm, matrix_bnorm
-   !   REAL(KIND=real_8), INTENT(IN), OPTIONAL    :: filter_eps
-   !   INTEGER(KIND=int_8)                        :: nze_a, nze_b, nze_c
-
-   !   nze_a = dbcsr_tas_get_nze_total(matrix_a)
-   !   nze_b = dbcsr_tas_get_nze_total(matrix_b)
-   !   nze_c = dbcsr_tas_get_nze_total(matrix_c)
-   !END FUNCTION
 
    SUBROUTINE create_block_norms_matrix(matrix_in, matrix_out, nodata)
       TYPE(dbcsr_tas_type), INTENT(INOUT)           :: matrix_in
