@@ -380,19 +380,20 @@ CONTAINS
             CALL dbcsr_tas_write_dist(matrix_a_rep, io_unit, full_info=log_verbose)
             CALL dbcsr_tas_write_dist(matrix_b_rs, io_unit)
             CALL dbcsr_tas_write_dist(matrix_c_rs, io_unit)
-            nze_result = dbcsr_tas_get_nze_total(matrix_c)
-            IF (io_unit_prv > 0) THEN
-               WRITE (io_unit_prv, "(T2,A)") &
-                  "MM PARAMETERS"
-               WRITE (io_unit_prv, "(T4,A,T68,I13)") "rel. error in est. occupancy: (nze_guess - nze_calc)/nze_calc", &
-                  (REAL(nze_c, real_8) - REAL(nze_result, real_8))/REAL(nze_result, real_8)
-
-               WRITE (io_unit_prv, "(T4,A,T68,I13)") "Est. optimal split factor:", nsplit
-            ENDIF
          ENDIF
          CALL dbcsr_tas_distribution_destroy(matrix_a_rep%dist)
          CALL dbcsr_tas_destroy(matrix_a_rep)
       END SELECT
+
+      nze_result = dbcsr_tas_get_nze_total(matrix_c_rs)
+      IF (io_unit_prv > 0) THEN
+         WRITE (io_unit_prv, "(T2,A)") &
+            "MM PARAMETERS"
+         WRITE (io_unit_prv, "(T4,A,T68,I13)") "rel. error in est. occupancy: (nze_guess - nze_calc)/nze_calc", &
+            (REAL(nze_c, real_8) - REAL(nze_result, real_8))/REAL(nze_result, real_8)
+
+         WRITE (io_unit_prv, "(T4,A,T68,I13)") "Est. optimal split factor:", nsplit
+      ENDIF
 
       IF (new_a) THEN
          CALL dbcsr_tas_destroy(matrix_a_rs)
