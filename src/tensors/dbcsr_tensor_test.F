@@ -730,6 +730,7 @@ CONTAINS
                             contract_2, notcontract_2, &
                             map_1, map_2, &
                             bounds_1=bounds_1, bounds_2=bounds_2, bounds_3=bounds_3, &
+                            filter_eps=1.0E-12_real_8, &
                             unit_nr=io_unit, log_verbose=log_verbose)
 
       cs_3 = dbcsr_t_checksum(tensor_3)
@@ -834,7 +835,7 @@ CONTAINS
       eql_diff = MAXVAL(ABS(array_3_test_mm(:, :) - array_3_mm(:, :)))
       notzero = MAXVAL(ABS(array_3_test_mm(:, :))) .GT. 1.0E-12_${dprec}$
 
-      eql = eql_diff .LT. 1.0E-12_${dprec}$
+      eql = eql_diff .LT. 1.0E-11_${dprec}$
 
       IF (.NOT. eql .OR. .NOT. notzero) THEN
          IF (io_unit > 0) WRITE (io_unit, *) 'Test failed!', eql_diff

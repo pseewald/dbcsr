@@ -37,7 +37,8 @@ MODULE dbcsr_tas_global
       dbcsr_tas_dist_cyclic, &
       dbcsr_tas_dist_repl, &
       dbcsr_tas_distribution, &
-      dbcsr_tas_rowcol_data
+      dbcsr_tas_rowcol_data, &
+      cyclic_weighted_dist
 
    ! abstract type for distribution vectors along one dimension
    TYPE, ABSTRACT :: dbcsr_tas_distribution
@@ -438,7 +439,9 @@ CONTAINS
 
       CALL cyclic_weighted_dist(INT(nmrowcol), nprowcol, bsize_vec, dist_vec)
       dbcsr_tas_dist_arb_default = dbcsr_tas_dist_arb(dist_vec, nprowcol, nmrowcol)
-   CONTAINS
+
+   END FUNCTION
+
 ! **************************************************************************************************
 !> \brief ...
 !> \param nel ...
@@ -446,32 +449,31 @@ CONTAINS
 !> \param weights ...
 !> \param dist ...
 ! **************************************************************************************************
-      SUBROUTINE cyclic_weighted_dist(nel, nbin, weights, dist)
-         INTEGER, INTENT(IN) :: nel
-         INTEGER, INTENT(IN) :: nbin
-         INTEGER, DIMENSION(nel), INTENT(IN)            :: weights
-         INTEGER, DIMENSION(nel), INTENT(OUT)            :: dist
-         INTEGER, DIMENSION(nbin)                        :: occup
-         INTEGER                :: iel, ibin
-         INTEGER                :: niter
+   SUBROUTINE cyclic_weighted_dist(nel, nbin, weights, dist)
+      INTEGER, INTENT(IN) :: nel
+      INTEGER, INTENT(IN) :: nbin
+      INTEGER, DIMENSION(nel), INTENT(IN)            :: weights
+      INTEGER, DIMENSION(nel), INTENT(OUT)            :: dist
+      INTEGER, DIMENSION(nbin)                        :: occup
+      INTEGER                :: iel, ibin
+      INTEGER                :: niter
 
-         occup(:) = 0
-         ibin = 0
-         DO iel = 1, nel
-            niter = 0
+      occup(:) = 0
+      ibin = 0
+      DO iel = 1, nel
+         niter = 0
+         ibin = MOD(ibin + 1, nbin)
+         DO WHILE (occup(ibin + 1) + weights(iel) .GE. MAXVAL(occup))
+            IF (MINLOC(occup, DIM=1) == ibin + 1) EXIT
             ibin = MOD(ibin + 1, nbin)
-            DO WHILE (occup(ibin + 1) + weights(iel) .GE. MAXVAL(occup))
-               IF (MINLOC(occup, DIM=1) == ibin + 1) EXIT
-               ibin = MOD(ibin + 1, nbin)
-               niter = niter + 1
-            ENDDO
-            dist(iel) = ibin
-            occup(ibin + 1) = occup(ibin + 1) + weights(iel)
+            niter = niter + 1
          ENDDO
+         dist(iel) = ibin
+         occup(ibin + 1) = occup(ibin + 1) + weights(iel)
+      ENDDO
 
-      END SUBROUTINE
+   END SUBROUTINE
 
-   END FUNCTION
 
 ! **************************************************************************************************
 !> \brief ...
