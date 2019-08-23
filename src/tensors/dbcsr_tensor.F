@@ -356,7 +356,7 @@ CONTAINS
                                contract_2, notcontract_2, &
                                map_1, map_2, &
                                bounds_1, bounds_2, bounds_3, &
-                               optimize_dist, filter_eps, flop, move_data, unit_nr, log_verbose)
+                               optimize_dist, optimize_pgrid, filter_eps, flop, move_data, unit_nr, log_verbose)
       TYPE(dbcsr_scalar_type), INTENT(IN) :: alpha
       TYPE(dbcsr_t_type), INTENT(INOUT), TARGET  :: tensor_1, tensor_2
       TYPE(dbcsr_scalar_type), INTENT(IN) :: beta
@@ -369,7 +369,7 @@ CONTAINS
          INTENT(IN), OPTIONAL                        :: bounds_2
       INTEGER, DIMENSION(2, SIZE(notcontract_2)), &
          INTENT(IN), OPTIONAL                        :: bounds_3
-      LOGICAL, INTENT(IN), OPTIONAL                  :: optimize_dist
+      LOGICAL, INTENT(IN), OPTIONAL                  :: optimize_dist, optimize_pgrid
       REAL(KIND=real_8), INTENT(IN), OPTIONAL        :: filter_eps
       INTEGER(KIND=int_8), INTENT(OUT), OPTIONAL       :: flop
       LOGICAL, INTENT(IN), OPTIONAL                  :: move_data
@@ -633,7 +633,7 @@ CONTAINS
                               tensor_contr_1%matrix_rep, tensor_contr_2%matrix_rep, &
                               beta, &
                               tensor_contr_3%matrix_rep, filter_eps=filter_eps, flop=flop, &
-                              io_unit=unit_nr, log_verbose=log_verbose)
+                              io_unit=unit_nr, log_verbose=log_verbose, optimize_pgrid = optimize_pgrid)
 
       IF (PRESENT(unit_nr)) THEN
          CALL dbcsr_t_write_tensor_info(tensor_contr_3, unit_nr, full_info=log_verbose)

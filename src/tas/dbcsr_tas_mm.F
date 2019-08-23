@@ -120,11 +120,11 @@ CONTAINS
 !> \param log_verbose only for testing: verbose output
 ! **************************************************************************************************
    SUBROUTINE dbcsr_tas_multiply(transa, transb, transc, alpha, matrix_a, matrix_b, beta, matrix_c, &
-                                 optimize_dist, filter_eps, flop, move_data, simple_split, io_unit, log_verbose)
+                                 optimize_dist, optimize_pgrid, filter_eps, flop, move_data, simple_split, io_unit, log_verbose)
       CHARACTER(LEN=1), INTENT(IN)               :: transa, transb, transc
       TYPE(dbcsr_scalar_type), INTENT(IN)        :: alpha, beta
       TYPE(dbcsr_tas_type), TARGET, INTENT(INOUT)  :: matrix_a, matrix_b, matrix_c
-      LOGICAL, INTENT(IN), OPTIONAL              :: optimize_dist
+      LOGICAL, INTENT(IN), OPTIONAL              :: optimize_dist, optimize_pgrid
       REAL(KIND=real_8), INTENT(IN), OPTIONAL    :: filter_eps
       INTEGER(KIND=int_8), INTENT(OUT), OPTIONAL :: flop
       LOGICAL, INTENT(IN), OPTIONAL              :: move_data, simple_split
@@ -149,11 +149,9 @@ CONTAINS
                                                     routineP = moduleN//':'//routineN
       INTEGER(KIND=int_8)                        :: nze_a, nze_b, nze_c, nze_result
       TYPE(dbcsr_type), POINTER                  :: matrix_a_mm, matrix_b_mm, matrix_c_mm
-      LOGICAL                                    :: optimize_pgrid
+      LOGICAL                                    :: optimize_pgrid_prv
 
       CALL timeset(routineN, handle)
-
-      optimize_pgrid = .FALSE. ! todo
 
       IF (PRESENT(io_unit)) THEN
          io_unit_prv = io_unit
@@ -172,6 +170,14 @@ CONTAINS
       ELSE
          simple_split_prv = .FALSE.
       ENDIF
+
+      IF (PRESENT(optimize_pgrid)) THEN
+         optimize_pgrid_prv = optimize_pgrid
+      ELSE
+         optimize_pgrid_prv = .FALSE.
+      ENDIF
+
+      IF(simple_split_prv) optimize_pgrid_prv = .FALSE.
 
       IF (.NOT. dbcsr_tas_get_data_type(matrix_a) .EQ. dbcsr_tas_get_data_type(matrix_b)) THEN
          DBCSR_ABORT("matrices must have same datatype")
@@ -357,17 +363,17 @@ CONTAINS
             CALL dbcsr_tas_write_dist(matrix_b_rep, io_unit, full_info=log_verbose)
          ENDIF
 
-         CALL convert_to_new_pgrid(mp_comm_mm, matrix_a_rs%matrix, matrix_a_mm, optimize_pgrid=optimize_pgrid)
+         CALL convert_to_new_pgrid(mp_comm_mm, matrix_a_rs%matrix, matrix_a_mm, optimize_pgrid=optimize_pgrid_prv)
 
-         IF (new_a .AND. optimize_pgrid) THEN
+         IF (new_a .AND. optimize_pgrid_prv) THEN
             CALL dbcsr_tas_destroy(matrix_a_rs)
             DEALLOCATE (matrix_a_rs)
          ENDIF
-         CALL convert_to_new_pgrid(mp_comm_mm, matrix_b_rep%matrix, matrix_b_mm, optimize_pgrid=optimize_pgrid)
+         CALL convert_to_new_pgrid(mp_comm_mm, matrix_b_rep%matrix, matrix_b_mm, optimize_pgrid=optimize_pgrid_prv)
 
-         IF(optimize_pgrid) CALL dbcsr_tas_destroy(matrix_b_rep)
+         IF(optimize_pgrid_prv) CALL dbcsr_tas_destroy(matrix_b_rep)
 
-         CALL convert_to_new_pgrid(mp_comm_mm, matrix_c_rs%matrix, matrix_c_mm, nodata=.TRUE., optimize_pgrid=optimize_pgrid)
+         CALL convert_to_new_pgrid(mp_comm_mm, matrix_c_rs%matrix, matrix_c_mm, nodata=.TRUE., optimize_pgrid=optimize_pgrid_prv)
 
          nze_result = dbcsr_get_nze(matrix_c_mm)
 
@@ -390,7 +396,7 @@ CONTAINS
 
          nze_result = dbcsr_get_nze(matrix_c_mm) - nze_result
 
-         IF (optimize_pgrid) THEN
+         IF (optimize_pgrid_prv) THEN
             CALL dbcsr_release(matrix_a_mm)
             CALL dbcsr_release(matrix_b_mm)
             IF (.NOT. new_c) THEN
@@ -419,19 +425,19 @@ CONTAINS
             CALL dbcsr_tas_write_dist(matrix_b_rs, io_unit)
          ENDIF
 
-         CALL convert_to_new_pgrid(mp_comm_mm, matrix_a_rs%matrix, matrix_a_mm, optimize_pgrid=optimize_pgrid)
-         IF (new_a .AND. optimize_pgrid) THEN
+         CALL convert_to_new_pgrid(mp_comm_mm, matrix_a_rs%matrix, matrix_a_mm, optimize_pgrid=optimize_pgrid_prv)
+         IF (new_a .AND. optimize_pgrid_prv) THEN
             CALL dbcsr_tas_destroy(matrix_a_rs)
             DEALLOCATE (matrix_a_rs)
          ENDIF
 
-         CALL convert_to_new_pgrid(mp_comm_mm, matrix_b_rs%matrix, matrix_b_mm, optimize_pgrid=optimize_pgrid)
-         IF (new_b .AND. optimize_pgrid) THEN
+         CALL convert_to_new_pgrid(mp_comm_mm, matrix_b_rs%matrix, matrix_b_mm, optimize_pgrid=optimize_pgrid_prv)
+         IF (new_b .AND. optimize_pgrid_prv) THEN
             CALL dbcsr_tas_destroy(matrix_b_rs)
             DEALLOCATE (matrix_b_rs)
          ENDIF
 
-         CALL convert_to_new_pgrid(mp_comm_mm, matrix_c_rep%matrix, matrix_c_mm, nodata=.TRUE., optimize_pgrid=optimize_pgrid)
+         CALL convert_to_new_pgrid(mp_comm_mm, matrix_c_rep%matrix, matrix_c_mm, nodata=.TRUE., optimize_pgrid=optimize_pgrid_prv)
 
          nze_result = dbcsr_get_nze(matrix_c_mm)
 
@@ -443,7 +449,7 @@ CONTAINS
 
          nze_result = dbcsr_get_nze(matrix_c_mm) - nze_result
 
-         IF (optimize_pgrid) THEN
+         IF (optimize_pgrid_prv) THEN
             CALL dbcsr_release(matrix_a_mm)
             CALL dbcsr_release(matrix_b_mm)
             CALL dbcsr_redistribute(matrix_c_mm, matrix_c_rep%matrix)
@@ -475,17 +481,17 @@ CONTAINS
             CALL dbcsr_tas_write_dist(matrix_b_rs, io_unit)
          ENDIF
 
-         CALL convert_to_new_pgrid(mp_comm_mm, matrix_a_rep%matrix, matrix_a_mm, optimize_pgrid=optimize_pgrid)
+         CALL convert_to_new_pgrid(mp_comm_mm, matrix_a_rep%matrix, matrix_a_mm, optimize_pgrid=optimize_pgrid_prv)
 
-         IF(optimize_pgrid) CALL dbcsr_tas_destroy(matrix_a_rep)
+         IF(optimize_pgrid_prv) CALL dbcsr_tas_destroy(matrix_a_rep)
 
-         CALL convert_to_new_pgrid(mp_comm_mm, matrix_b_rs%matrix, matrix_b_mm, optimize_pgrid=optimize_pgrid)
+         CALL convert_to_new_pgrid(mp_comm_mm, matrix_b_rs%matrix, matrix_b_mm, optimize_pgrid=optimize_pgrid_prv)
 
-         IF (new_b .AND. optimize_pgrid) THEN
+         IF (new_b .AND. optimize_pgrid_prv) THEN
             CALL dbcsr_tas_destroy(matrix_b_rs)
             DEALLOCATE (matrix_b_rs)
          ENDIF
-         CALL convert_to_new_pgrid(mp_comm_mm, matrix_c_rs%matrix, matrix_c_mm, nodata=.TRUE., optimize_pgrid=optimize_pgrid)
+         CALL convert_to_new_pgrid(mp_comm_mm, matrix_c_rs%matrix, matrix_c_mm, nodata=.TRUE., optimize_pgrid=optimize_pgrid_prv)
 
          nze_result = dbcsr_get_nze(matrix_c_mm)
 
@@ -506,7 +512,7 @@ CONTAINS
 
          nze_result = dbcsr_get_nze(matrix_c_mm) - nze_result
 
-         IF (optimize_pgrid) THEN
+         IF (optimize_pgrid_prv) THEN
             CALL dbcsr_release(matrix_a_mm)
             CALL dbcsr_release(matrix_b_mm)
 
