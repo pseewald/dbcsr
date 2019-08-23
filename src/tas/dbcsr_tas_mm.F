@@ -148,9 +148,12 @@ CONTAINS
       CHARACTER(LEN=*), PARAMETER                :: routineN = 'dbcsr_tas_multiply', &
                                                     routineP = moduleN//':'//routineN
       INTEGER(KIND=int_8)                        :: nze_a, nze_b, nze_c, nze_result
-      TYPE(dbcsr_type)                           :: matrix_a_mm, matrix_b_mm, matrix_c_mm
+      TYPE(dbcsr_type), POINTER                  :: matrix_a_mm, matrix_b_mm, matrix_c_mm
+      LOGICAL                                    :: optimize_pgrid
 
       CALL timeset(routineN, handle)
+
+      optimize_pgrid = .FALSE. ! todo
 
       IF (PRESENT(io_unit)) THEN
          io_unit_prv = io_unit
@@ -354,46 +357,54 @@ CONTAINS
             CALL dbcsr_tas_write_dist(matrix_b_rep, io_unit, full_info=log_verbose)
          ENDIF
 
-         CALL convert_to_new_pgrid(mp_comm_mm, matrix_a_rs%matrix, matrix_a_mm)
-         IF (new_a) THEN
+         CALL convert_to_new_pgrid(mp_comm_mm, matrix_a_rs%matrix, matrix_a_mm, optimize_pgrid=optimize_pgrid)
+
+         IF (new_a .AND. optimize_pgrid) THEN
             CALL dbcsr_tas_destroy(matrix_a_rs)
             DEALLOCATE (matrix_a_rs)
          ENDIF
-         CALL convert_to_new_pgrid(mp_comm_mm, matrix_b_rep%matrix, matrix_b_mm)
+         CALL convert_to_new_pgrid(mp_comm_mm, matrix_b_rep%matrix, matrix_b_mm, optimize_pgrid=optimize_pgrid)
 
-         CALL dbcsr_tas_distribution_destroy(matrix_b_rep%dist)
-         CALL dbcsr_tas_destroy(matrix_b_rep)
+         IF(optimize_pgrid) CALL dbcsr_tas_destroy(matrix_b_rep)
 
-         CALL convert_to_new_pgrid(mp_comm_mm, matrix_c_rs%matrix, matrix_c_mm, nodata=.TRUE.)
+         CALL convert_to_new_pgrid(mp_comm_mm, matrix_c_rs%matrix, matrix_c_mm, nodata=.TRUE., optimize_pgrid=optimize_pgrid)
+
+         nze_result = dbcsr_get_nze(matrix_c_mm)
 
          SELECT CASE (tr_case)
          CASE (dbcsr_no_transpose)
             CALL timeset(routineN//"_mm_1N", handle2)
 
             CALL dbcsr_multiply(transa=dbcsr_no_transpose, transb=dbcsr_no_transpose, alpha=alpha, &
-                                matrix_a=matrix_a_mm, matrix_b=matrix_b_mm, beta=zero, matrix_c=matrix_c_mm, &
+                                matrix_a=matrix_a_mm, matrix_b=matrix_b_mm, beta=beta, matrix_c=matrix_c_mm, &
                                 filter_eps=filter_eps_prv, flop=flop)
             CALL timestop(handle2)
          CASE (dbcsr_transpose)
             CALL timeset(routineN//"_mm_1T", handle2)
             CALL dbcsr_multiply(transa=dbcsr_transpose, transb=dbcsr_no_transpose, alpha=alpha, &
-                                matrix_a=matrix_b_mm, matrix_b=matrix_a_mm, beta=zero, matrix_c=matrix_c_mm, &
+                                matrix_a=matrix_b_mm, matrix_b=matrix_a_mm, beta=beta, matrix_c=matrix_c_mm, &
                                 filter_eps=filter_eps_prv, flop=flop)
 
             CALL timestop(handle2)
          END SELECT
 
-         nze_result = dbcsr_get_nze(matrix_c_mm)
+         nze_result = dbcsr_get_nze(matrix_c_mm) - nze_result
 
-         CALL dbcsr_release(matrix_a_mm)
-         CALL dbcsr_release(matrix_b_mm)
-         IF(.NOT. new_c) THEN
-            CALL redistribute_and_sum(matrix_c_mm, matrix_c_rs%matrix, alpha=beta)
+         IF (optimize_pgrid) THEN
+            CALL dbcsr_release(matrix_a_mm)
+            CALL dbcsr_release(matrix_b_mm)
+            IF (.NOT. new_c) THEN
+               CALL redistribute_and_sum(matrix_c_mm, matrix_c_rs%matrix, alpha=beta)
+            ELSE
+               CALL redistribute_and_sum(matrix_c_mm, matrix_c_rs%matrix)
+            ENDIF
+
+            CALL dbcsr_release(matrix_c_mm)
          ELSE
-            CALL redistribute_and_sum(matrix_c_mm, matrix_c_rs%matrix)
+            IF(new_a) CALL dbcsr_tas_destroy(matrix_a_rs)
+            IF(new_a) DEALLOCATE(matrix_a_rs)
+            CALL dbcsr_tas_destroy(matrix_b_rep)
          ENDIF
-
-         CALL dbcsr_release(matrix_c_mm)
 
          IF(PRESENT(filter_eps)) CALL dbcsr_tas_filter(matrix_c_rs, filter_eps)
 
@@ -408,32 +419,41 @@ CONTAINS
             CALL dbcsr_tas_write_dist(matrix_b_rs, io_unit)
          ENDIF
 
-         CALL convert_to_new_pgrid(mp_comm_mm, matrix_a_rs%matrix, matrix_a_mm)
-         IF (new_a) THEN
+         CALL convert_to_new_pgrid(mp_comm_mm, matrix_a_rs%matrix, matrix_a_mm, optimize_pgrid=optimize_pgrid)
+         IF (new_a .AND. optimize_pgrid) THEN
             CALL dbcsr_tas_destroy(matrix_a_rs)
             DEALLOCATE (matrix_a_rs)
          ENDIF
 
-         CALL convert_to_new_pgrid(mp_comm_mm, matrix_b_rs%matrix, matrix_b_mm)
-         IF (new_b) THEN
+         CALL convert_to_new_pgrid(mp_comm_mm, matrix_b_rs%matrix, matrix_b_mm, optimize_pgrid=optimize_pgrid)
+         IF (new_b .AND. optimize_pgrid) THEN
             CALL dbcsr_tas_destroy(matrix_b_rs)
             DEALLOCATE (matrix_b_rs)
          ENDIF
 
-         CALL convert_to_new_pgrid(mp_comm_mm, matrix_c_rep%matrix, matrix_c_mm, nodata=.TRUE.)
-
-         CALL timeset(routineN//"_mm_2", handle2)
-         CALL dbcsr_multiply(transa=transa_prv, transb=transb_prv, alpha=alpha, matrix_a=matrix_a_mm, &
-                             matrix_b=matrix_b_mm, beta=zero, matrix_c=matrix_c_mm, &
-                             filter_eps=filter_eps_prv/REAL(nsplit, KIND=real_8), flop=flop)
-         CALL timestop(handle2)
+         CALL convert_to_new_pgrid(mp_comm_mm, matrix_c_rep%matrix, matrix_c_mm, nodata=.TRUE., optimize_pgrid=optimize_pgrid)
 
          nze_result = dbcsr_get_nze(matrix_c_mm)
 
-         CALL dbcsr_release(matrix_a_mm)
-         CALL dbcsr_release(matrix_b_mm)
-         CALL dbcsr_redistribute(matrix_c_mm, matrix_c_rep%matrix)
-         CALL dbcsr_release(matrix_c_mm)
+         CALL timeset(routineN//"_mm_2", handle2)
+         CALL dbcsr_multiply(transa=transa_prv, transb=transb_prv, alpha=alpha, matrix_a=matrix_a_mm, &
+                             matrix_b=matrix_b_mm, beta=beta, matrix_c=matrix_c_mm, &
+                             filter_eps=filter_eps_prv/REAL(nsplit, KIND=real_8), flop=flop)
+         CALL timestop(handle2)
+
+         nze_result = dbcsr_get_nze(matrix_c_mm) - nze_result
+
+         IF (optimize_pgrid) THEN
+            CALL dbcsr_release(matrix_a_mm)
+            CALL dbcsr_release(matrix_b_mm)
+            CALL dbcsr_redistribute(matrix_c_mm, matrix_c_rep%matrix)
+            CALL dbcsr_release(matrix_c_mm)
+         ELSE
+            IF(new_a) CALL dbcsr_tas_destroy(matrix_a_rs)
+            IF(new_a) DEALLOCATE(matrix_a_rs)
+            IF(new_b) CALL dbcsr_tas_destroy(matrix_b_rs)
+            IF(new_b) DEALLOCATE(matrix_b_rs)
+         ENDIF
 
          IF(PRESENT(filter_eps)) CALL dbcsr_tas_filter(matrix_c_rs, filter_eps)
 
@@ -443,7 +463,6 @@ CONTAINS
 
          CALL dbcsr_tas_merge(matrix_c_rs%matrix, matrix_c_rep, move_data=.TRUE.)
          IF(PRESENT(filter_eps)) CALL dbcsr_tas_filter(matrix_c_rs, filter_eps)
-         CALL dbcsr_tas_distribution_destroy(matrix_c_rep%dist)
          CALL dbcsr_tas_destroy(matrix_c_rep)
       CASE (3)
          CALL dbcsr_tas_replicate(matrix_a_rs%matrix, dbcsr_tas_info(matrix_b_rs), matrix_a_rep, move_data=.TRUE.)
@@ -455,45 +474,54 @@ CONTAINS
             CALL dbcsr_tas_write_dist(matrix_a_rep, io_unit, full_info=log_verbose)
             CALL dbcsr_tas_write_dist(matrix_b_rs, io_unit)
          ENDIF
-         CALL convert_to_new_pgrid(mp_comm_mm, matrix_a_rep%matrix, matrix_a_mm)
 
-         CALL dbcsr_tas_distribution_destroy(matrix_a_rep%dist)
-         CALL dbcsr_tas_destroy(matrix_a_rep)
+         CALL convert_to_new_pgrid(mp_comm_mm, matrix_a_rep%matrix, matrix_a_mm, optimize_pgrid=optimize_pgrid)
 
-         CALL convert_to_new_pgrid(mp_comm_mm, matrix_b_rs%matrix, matrix_b_mm)
-         IF (new_b) THEN
+         IF(optimize_pgrid) CALL dbcsr_tas_destroy(matrix_a_rep)
+
+         CALL convert_to_new_pgrid(mp_comm_mm, matrix_b_rs%matrix, matrix_b_mm, optimize_pgrid=optimize_pgrid)
+
+         IF (new_b .AND. optimize_pgrid) THEN
             CALL dbcsr_tas_destroy(matrix_b_rs)
             DEALLOCATE (matrix_b_rs)
          ENDIF
+         CALL convert_to_new_pgrid(mp_comm_mm, matrix_c_rs%matrix, matrix_c_mm, nodata=.TRUE., optimize_pgrid=optimize_pgrid)
 
-         CALL convert_to_new_pgrid(mp_comm_mm, matrix_c_rs%matrix, matrix_c_mm, nodata=.TRUE.)
+         nze_result = dbcsr_get_nze(matrix_c_mm)
 
          SELECT CASE (tr_case)
          CASE (dbcsr_no_transpose)
             CALL timeset(routineN//"_mm_3N", handle2)
             CALL dbcsr_multiply(transa=dbcsr_no_transpose, transb=dbcsr_no_transpose, alpha=alpha, &
-                                matrix_a=matrix_a_mm, matrix_b=matrix_b_mm, beta=zero, matrix_c=matrix_c_mm, &
+                                matrix_a=matrix_a_mm, matrix_b=matrix_b_mm, beta=beta, matrix_c=matrix_c_mm, &
                                 filter_eps=filter_eps_prv, flop=flop)
             CALL timestop(handle2)
          CASE (dbcsr_transpose)
             CALL timeset(routineN//"_mm_3T", handle2)
             CALL dbcsr_multiply(transa=dbcsr_no_transpose, transb=dbcsr_transpose, alpha=alpha, &
-                                matrix_a=matrix_b_mm, matrix_b=matrix_a_mm, beta=zero, matrix_c=matrix_c_mm, &
+                                matrix_a=matrix_b_mm, matrix_b=matrix_a_mm, beta=beta, matrix_c=matrix_c_mm, &
                                 filter_eps=filter_eps_prv, flop=flop)
             CALL timestop(handle2)
          END SELECT
 
-         nze_result = dbcsr_get_nze(matrix_c_mm)
+         nze_result = dbcsr_get_nze(matrix_c_mm) - nze_result
 
-         CALL dbcsr_release(matrix_a_mm)
-         CALL dbcsr_release(matrix_b_mm)
+         IF (optimize_pgrid) THEN
+            CALL dbcsr_release(matrix_a_mm)
+            CALL dbcsr_release(matrix_b_mm)
 
-         IF(.NOT. new_c) THEN
-            CALL redistribute_and_sum(matrix_c_mm, matrix_c_rs%matrix, alpha=beta)
+            IF (.NOT. new_c) THEN
+               CALL redistribute_and_sum(matrix_c_mm, matrix_c_rs%matrix, alpha=beta)
+            ELSE
+               CALL redistribute_and_sum(matrix_c_mm, matrix_c_rs%matrix)
+            ENDIF
+
+            CALL dbcsr_release(matrix_c_mm)
          ELSE
-            CALL redistribute_and_sum(matrix_c_mm, matrix_c_rs%matrix)
+            IF(new_b) CALL dbcsr_tas_destroy(matrix_b_rs)
+            IF(new_b) DEALLOCATE(matrix_b_rs)
+            CALL dbcsr_tas_destroy(matrix_a_rep)
          ENDIF
-         CALL dbcsr_release(matrix_c_mm)
 
          IF(PRESENT(filter_eps)) CALL dbcsr_tas_filter(matrix_c_rs, filter_eps)
 
@@ -1183,11 +1211,12 @@ CONTAINS
 
    END SUBROUTINE
 
-   SUBROUTINE convert_to_new_pgrid(mp_comm_cart, matrix_in, matrix_out, nodata)
+   SUBROUTINE convert_to_new_pgrid(mp_comm_cart, matrix_in, matrix_out, nodata, optimize_pgrid)
       INTEGER, INTENT(IN) :: mp_comm_cart
-      TYPE(dbcsr_type), INTENT(INOUT) :: matrix_in
-      TYPE(dbcsr_type), INTENT(OUT) :: matrix_out
+      TYPE(dbcsr_type), INTENT(INOUT), TARGET :: matrix_in
+      TYPE(dbcsr_type), INTENT(OUT), POINTER :: matrix_out
       LOGICAL, INTENT(IN), OPTIONAL :: nodata
+      LOGICAL, INTENT(IN), OPTIONAL :: optimize_pgrid
       INTEGER :: nbrows, nbcols, data_type, nproc
       INTEGER, DIMENSION(2) :: pdims, pcoord
       INTEGER, DIMENSION(:), POINTER :: row_dist, col_dist
@@ -1195,15 +1224,28 @@ CONTAINS
       TYPE(dbcsr_distribution_obj) :: dist, dist_old
       TYPE(dbcsr_mp_obj) :: mp_obj
       CHARACTER(len=default_string_length) :: name
-      LOGICAL :: nodata_prv
+      LOGICAL :: nodata_prv, optimize_pgrid_prv
 
       NULLIFY(row_dist, col_dist, rbsize, rcsize)
+
+      IF(PRESENT(optimize_pgrid)) THEN
+         optimize_pgrid_prv = optimize_pgrid
+      ELSE
+         optimize_pgrid_prv = .TRUE.
+      ENDIF
 
       IF(PRESENT(nodata)) THEN
          nodata_prv = nodata
       ELSE
          nodata_prv = .FALSE.
       ENDIF
+
+      IF(.NOT. optimize_pgrid_prv) THEN
+         matrix_out => matrix_in
+         RETURN
+      ENDIF
+
+      ALLOCATE(matrix_out)
 
       CALL dbcsr_get_info(matrix_in, nblkrows_total=nbrows, nblkcols_total=nbcols, &
                           row_blk_size=rbsize, col_blk_size=rcsize, &

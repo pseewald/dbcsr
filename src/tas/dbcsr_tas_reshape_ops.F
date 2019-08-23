@@ -392,7 +392,7 @@ CONTAINS
 
       CALL dbcsr_tas_distribution_new(dist, mp_comm, row_dist_obj, col_dist_obj, split_info=info)
       CALL dbcsr_tas_create(matrix_out, TRIM(matrix_in%name)//" replicated", &
-                            dist, data_type, row_bsize_obj, col_bsize_obj)
+                            dist, data_type, row_bsize_obj, col_bsize_obj, own_dist=.TRUE.)
 
       IF (nodata_prv) THEN
          CALL dbcsr_tas_finalize(matrix_out)
