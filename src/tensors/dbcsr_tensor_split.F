@@ -28,7 +28,7 @@ MODULE dbcsr_tensor_split
                                  dbcsr_t_iterator_next_block, &
                                  dbcsr_t_reserve_blocks, &
                                  dbcsr_t_reserved_block_indices
-   USE dbcsr_tensor_index, ONLY: get_mapping_info
+   USE dbcsr_tensor_index, ONLY: dbcsr_t_get_mapping_info
    USE dbcsr_tensor_types, ONLY: dbcsr_t_create, &
                                  dbcsr_t_get_data_type, &
                                  dbcsr_t_type, &
@@ -154,7 +154,7 @@ CONTAINS
 
       ENDDO
 
-      CALL get_mapping_info(tensor_in%nd_index_blk, map1_2d=map1_2d, map2_2d=map2_2d)
+      CALL dbcsr_t_get_mapping_info(tensor_in%nd_index_blk, map1_2d=map1_2d, map2_2d=map2_2d)
 
 #:for ndim in ndims
       IF (ndims_tensor(tensor_in) == ${ndim}$) THEN

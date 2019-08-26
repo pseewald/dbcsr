@@ -47,7 +47,7 @@ MODULE dbcsr_tensor_types
                                  get_nd_indices, &
                                  create_nd_to_2d_mapping, &
                                  destroy_nd_to_2d_mapping, &
-                                 get_mapping_info, &
+                                 dbcsr_t_get_mapping_info, &
                                  nd_to_2d_mapping, &
                                  split_index, &
                                  combine_index, &
@@ -208,21 +208,21 @@ CONTAINS
       INTEGER, DIMENSION(:), ALLOCATABLE :: index_map
 
       IF (which_dim == 1) THEN
-         CALL get_mapping_info(map_blks, &
-                               dims_2d_i8=matrix_dims, &
-                               map1_2d=index_map, &
-                               dims1_2d=new_dbcsr_tas_dist_t%dims)
-         CALL get_mapping_info(map_grid, &
-                               dims_2d=grid_dims, &
-                               dims1_2d=new_dbcsr_tas_dist_t%dims_grid)
+         CALL dbcsr_t_get_mapping_info(map_blks, &
+                                       dims_2d_i8=matrix_dims, &
+                                       map1_2d=index_map, &
+                                       dims1_2d=new_dbcsr_tas_dist_t%dims)
+         CALL dbcsr_t_get_mapping_info(map_grid, &
+                                       dims_2d=grid_dims, &
+                                       dims1_2d=new_dbcsr_tas_dist_t%dims_grid)
       ELSEIF (which_dim == 2) THEN
-         CALL get_mapping_info(map_blks, &
-                               dims_2d_i8=matrix_dims, &
-                               map2_2d=index_map, &
-                               dims2_2d=new_dbcsr_tas_dist_t%dims)
-         CALL get_mapping_info(map_grid, &
-                               dims_2d=grid_dims, &
-                               dims2_2d=new_dbcsr_tas_dist_t%dims_grid)
+         CALL dbcsr_t_get_mapping_info(map_blks, &
+                                       dims_2d_i8=matrix_dims, &
+                                       map2_2d=index_map, &
+                                       dims2_2d=new_dbcsr_tas_dist_t%dims)
+         CALL dbcsr_t_get_mapping_info(map_grid, &
+                                       dims_2d=grid_dims, &
+                                       dims2_2d=new_dbcsr_tas_dist_t%dims_grid)
       ELSE
          DBCSR_ABORT("Unknown value for which_dim")
       ENDIF
@@ -324,15 +324,15 @@ CONTAINS
       TYPE(dbcsr_tas_blk_size_t) :: new_dbcsr_tas_blk_size_t
 
       IF (which_dim == 1) THEN
-         CALL get_mapping_info(map_blks, &
-                               dims_2d_i8=matrix_dims, &
-                               map1_2d=index_map, &
-                               dims1_2d=new_dbcsr_tas_blk_size_t%dims)
+         CALL dbcsr_t_get_mapping_info(map_blks, &
+                                       dims_2d_i8=matrix_dims, &
+                                       map1_2d=index_map, &
+                                       dims1_2d=new_dbcsr_tas_blk_size_t%dims)
       ELSEIF (which_dim == 2) THEN
-         CALL get_mapping_info(map_blks, &
-                               dims_2d_i8=matrix_dims, &
-                               map2_2d=index_map, &
-                               dims2_2d=new_dbcsr_tas_blk_size_t%dims)
+         CALL dbcsr_t_get_mapping_info(map_blks, &
+                                       dims_2d_i8=matrix_dims, &
+                                       map2_2d=index_map, &
+                                       dims2_2d=new_dbcsr_tas_blk_size_t%dims)
       ELSE
          DBCSR_ABORT("Unknown value for which_dim")
       ENDIF
@@ -489,7 +489,7 @@ CONTAINS
 
       need_pgrid_remap = .TRUE.
       IF (PRESENT(own_comm)) THEN
-         CALL get_mapping_info(pgrid%nd_index_grid, map1_2d=map1_2d_check, map2_2d=map2_2d_check)
+         CALL dbcsr_t_get_mapping_info(pgrid%nd_index_grid, map1_2d=map1_2d_check, map2_2d=map2_2d_check)
          IF (own_comm) THEN
             IF (.NOT. array_eq_i(map1_2d_check, map1_2d) .OR. .NOT. array_eq_i(map2_2d_check, map2_2d)) THEN
                DBCSR_ABORT("map1_2d / map2_2d are not consistent with pgrid")
@@ -513,7 +513,7 @@ CONTAINS
       row_dist_obj = dbcsr_tas_dist_t(nd_dist, map_blks, map_grid, 1)
       col_dist_obj = dbcsr_tas_dist_t(nd_dist, map_blks, map_grid, 2)
 
-      CALL get_mapping_info(map_grid, dims_2d=pdims_2d)
+      CALL dbcsr_t_get_mapping_info(map_grid, dims_2d=pdims_2d)
 
       comm_2d = pgrid_prv%mp_comm_2d !dbcsr_t_2d_mp_comm(comm_nd, map1_2d, map2_2d)
 
@@ -668,7 +668,7 @@ CONTAINS
       dims = sizes_of_arrays(blk_size)
 
       CALL create_nd_to_2d_mapping(map, dims, map1_2d, map2_2d)
-      CALL get_mapping_info(map, dims_2d_i8=dims_2d)
+      CALL dbcsr_t_get_mapping_info(map, dims_2d_i8=dims_2d)
 
       row_blk_size_obj = dbcsr_tas_blk_size_t(blk_size, map, 1)
       col_blk_size_obj = dbcsr_tas_blk_size_t(blk_size, map, 2)
@@ -1083,7 +1083,7 @@ CONTAINS
       CALL mp_environ(nproc, iproc, mp_comm)
       IF (ANY(dims == 0)) CALL mp_dims_create(nproc, dims)
       CALL create_nd_to_2d_mapping(pgrid%nd_index_grid, dims, map1_2d_prv, map2_2d_prv, base=0, col_major=.FALSE.)
-      CALL get_mapping_info(pgrid%nd_index_grid, dims_2d=pdims_2d)
+      CALL dbcsr_t_get_mapping_info(pgrid%nd_index_grid, dims_2d=pdims_2d)
       CALL mp_cart_create(mp_comm, 2, pdims_2d, pos, pgrid%mp_comm_2d)
 
       CALL timestop(handle)
@@ -1121,7 +1121,7 @@ CONTAINS
       INTEGER, DIMENSION(:), ALLOCATABLE :: dims
 
       ALLOCATE (dims(SIZE(map1_2d) + SIZE(map2_2d)))
-      CALL get_mapping_info(pgrid_in%nd_index_grid, dims_nd=dims)
+      CALL dbcsr_t_get_mapping_info(pgrid_in%nd_index_grid, dims_nd=dims)
       CALL dbcsr_t_pgrid_create(pgrid_in%mp_comm_2d, dims, pgrid_out, map1_2d, map2_2d)
    END SUBROUTINE
 
@@ -1139,7 +1139,8 @@ CONTAINS
       INTEGER :: nproc
 
       CALL mp_environ(nproc, dims_2d, task_coor_2d, pgrid%mp_comm_2d)
-      CALL get_mapping_info(pgrid%nd_index_grid, dims_nd=dims)
+      CALL mp_environ(nproc, dims_2d, task_coor_2d, pgrid%mp_comm_2d)
+      CALL dbcsr_t_get_mapping_info(pgrid%nd_index_grid, dims_nd=dims)
       task_coor = get_nd_indices(pgrid%nd_index_grid, INT(task_coor_2d, KIND=int_8))
    END SUBROUTINE
 
@@ -1226,8 +1227,8 @@ CONTAINS
       INTEGER, INTENT(OUT), OPTIONAL                            :: data_type
       INTEGER, DIMENSION(ndims_tensor(tensor))                  :: pdims_tmp, my_ploc_tmp
 
-      IF (PRESENT(nblks_total)) CALL get_mapping_info(tensor%nd_index_blk, dims_nd=nblks_total)
-      IF (PRESENT(nfull_total)) CALL get_mapping_info(tensor%nd_index, dims_nd=nfull_total)
+      IF (PRESENT(nblks_total)) CALL dbcsr_t_get_mapping_info(tensor%nd_index_blk, dims_nd=nblks_total)
+      IF (PRESENT(nfull_total)) CALL dbcsr_t_get_mapping_info(tensor%nd_index, dims_nd=nfull_total)
       IF (PRESENT(nblks_local)) nblks_local(:) = tensor%nblks_local
       IF (PRESENT(nfull_local)) nfull_local(:) = tensor%nfull_local
 

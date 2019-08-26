@@ -48,7 +48,7 @@ MODULE dbcsr_tensor
                                  ndims_iterator, &
                                  dbcsr_t_reserve_blocks, &
                                  block_nd
-   USE dbcsr_tensor_index, ONLY: get_mapping_info, &
+   USE dbcsr_tensor_index, ONLY: dbcsr_t_get_mapping_info, &
                                  nd_to_2d_mapping, &
                                  dbcsr_t_inverse_order, &
                                  permute_index
@@ -198,8 +198,8 @@ CONTAINS
          out_tmp_1 => tensor_out
       ENDIF
 
-      CALL get_mapping_info(in_tmp_2%nd_index, map1_2d=map1_in_1, map2_2d=map1_in_2)
-      CALL get_mapping_info(out_tmp_1%nd_index, map1_2d=map2_in_1, map2_2d=map2_in_2)
+      CALL dbcsr_t_get_mapping_info(in_tmp_2%nd_index, map1_2d=map1_in_1, map2_2d=map1_in_2)
+      CALL dbcsr_t_get_mapping_info(out_tmp_1%nd_index, map1_2d=map2_in_1, map2_2d=map2_in_2)
 
       IF (.NOT. PRESENT(order)) THEN
          IF (array_eq_i(map1_in_1, map2_in_1) .AND. array_eq_i(map1_in_2, map2_in_2)) THEN
@@ -879,14 +879,14 @@ CONTAINS
                IF (compat1 == 1) THEN ! linked index is first 2d dimension
                   ! get distribution of linked index, tensor 2 must adopt this distribution
                   ! get grid dimensions of linked index
-                  CALL get_mapping_info(dist_in%pgrid%nd_index_grid, dims1_2d=mp_dims)
+                  CALL dbcsr_t_get_mapping_info(dist_in%pgrid%nd_index_grid, dims1_2d=mp_dims)
                   ALLOCATE (tensor2_out)
                   CALL dbcsr_t_remap(tensor2, ind2_linked, ind2_free, tensor2_out, comm_2d=dist_in%pgrid%mp_comm_2d, &
                                      dist1=dist_list, mp_dims_1=mp_dims, nodata=nodata2, move_data=move_data)
                ELSEIF (compat1 == 2) THEN ! linked index is second 2d dimension
                   ! get distribution of linked index, tensor 2 must adopt this distribution
                   ! get grid dimensions of linked index
-                  CALL get_mapping_info(dist_in%pgrid%nd_index_grid, dims2_2d=mp_dims)
+                  CALL dbcsr_t_get_mapping_info(dist_in%pgrid%nd_index_grid, dims2_2d=mp_dims)
                   ALLOCATE (tensor2_out)
                   CALL dbcsr_t_remap(tensor2, ind2_free, ind2_linked, tensor2_out, comm_2d=dist_in%pgrid%mp_comm_2d, &
                                      dist2=dist_list, mp_dims_2=mp_dims, nodata=nodata2, move_data=move_data)
@@ -920,12 +920,12 @@ CONTAINS
                dist_in = dbcsr_t_distribution(tensor2_out)
                dist_list = array_sublist(dist_in%nd_dist, ind2_linked)
                IF (compat2 == 1) THEN
-                  CALL get_mapping_info(dist_in%pgrid%nd_index_grid, dims1_2d=mp_dims)
+                  CALL dbcsr_t_get_mapping_info(dist_in%pgrid%nd_index_grid, dims1_2d=mp_dims)
                   ALLOCATE (tensor1_out)
                   CALL dbcsr_t_remap(tensor1, ind1_linked, ind1_free, tensor1_out, comm_2d=dist_in%pgrid%mp_comm_2d, &
                                      dist1=dist_list, mp_dims_1=mp_dims, nodata=nodata1, move_data=move_data)
                ELSEIF (compat2 == 2) THEN
-                  CALL get_mapping_info(dist_in%pgrid%nd_index_grid, dims2_2d=mp_dims)
+                  CALL dbcsr_t_get_mapping_info(dist_in%pgrid%nd_index_grid, dims2_2d=mp_dims)
                   ALLOCATE (tensor1_out)
                   CALL dbcsr_t_remap(tensor1, ind1_free, ind1_linked, tensor1_out, comm_2d=dist_in%pgrid%mp_comm_2d, &
                                      dist2=dist_list, mp_dims_2=mp_dims, nodata=nodata1, move_data=move_data)
@@ -1083,7 +1083,7 @@ CONTAINS
          INTEGER, DIMENSION(:), ALLOCATABLE :: map1, map2
          INTEGER                            :: compat_map
 
-         CALL get_mapping_info(nd_index, map1_2d=map1, map2_2d=map2)
+         CALL dbcsr_t_get_mapping_info(nd_index, map1_2d=map1, map2_2d=map2)
 
          compat_map = 0
          IF (array_eq_i(map1, compat_ind)) THEN
@@ -1123,7 +1123,7 @@ CONTAINS
          INTEGER, DIMENSION(:), ALLOCATABLE :: map1, map2
          TYPE(dbcsr_t_pgrid_type) :: opt_pgrid
 
-         CALL get_mapping_info(tensor%pgrid%nd_index_grid, map1_2d=map1, map2_2d=map2)
+         CALL dbcsr_t_get_mapping_info(tensor%pgrid%nd_index_grid, map1_2d=map1, map2_2d=map2)
 
          SELECT CASE(split_opt)
          CASE(rowsplit)
@@ -1298,7 +1298,7 @@ CONTAINS
 
       CALL timeset(routineN, handle)
 
-      CALL get_mapping_info(tensor_in%nd_index_blk, map1_2d=map1_2d, map2_2d=map2_2d)
+      CALL dbcsr_t_get_mapping_info(tensor_in%nd_index_blk, map1_2d=map1_2d, map2_2d=map2_2d)
       order_prv = dbcsr_t_inverse_order([map1_2d, map2_2d])
       CALL dbcsr_t_permute_index(tensor_in, tensor_out, order=order_prv)
 
@@ -1546,9 +1546,9 @@ CONTAINS
       INTEGER, DIMENSION(:), ALLOCATABLE :: map11, map12, map21, map22, map31, map32
       INTEGER :: ichar1, ichar2, ichar3
 
-      CALL get_mapping_info(tensor_1%nd_index_blk, map1_2d=map11, map2_2d=map12)
-      CALL get_mapping_info(tensor_2%nd_index_blk, map1_2d=map21, map2_2d=map22)
-      CALL get_mapping_info(tensor_3%nd_index_blk, map1_2d=map31, map2_2d=map32)
+      CALL dbcsr_t_get_mapping_info(tensor_1%nd_index_blk, map1_2d=map11, map2_2d=map12)
+      CALL dbcsr_t_get_mapping_info(tensor_2%nd_index_blk, map1_2d=map21, map2_2d=map22)
+      CALL dbcsr_t_get_mapping_info(tensor_3%nd_index_blk, map1_2d=map31, map2_2d=map32)
 
       IF (unit_nr .GT. 0) THEN
          WRITE (unit_nr, '(T2,A)') "INDEX INFO"

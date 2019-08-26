@@ -52,7 +52,7 @@ MODULE dbcsr_tensor_test
                             mp_cart_create
    USE dbcsr_allocate_wrap, ONLY: allocate_any
    USE dbcsr_tensor_index, ONLY: combine_index, &
-                                 get_mapping_info
+                                 dbcsr_t_get_mapping_info
    USE dbcsr_tas_test, ONLY: dbcsr_tas_checksum
    USE dbcsr_data_types, ONLY: dbcsr_scalar_type
 #include "base/dbcsr_base_uses.f90"
@@ -558,7 +558,7 @@ CONTAINS
       LOGICAL                                                    :: found
 
       DBCSR_ASSERT(dbcsr_t_ndims(tensor) .EQ. ${ndim}$)
-      CALL get_mapping_info(tensor%nd_index, dims_nd=dims_nd)
+      CALL dbcsr_t_get_mapping_info(tensor%nd_index, dims_nd=dims_nd)
       CALL allocate_any(array, shape_spec=dims_nd)
       array(${shape_colon(ndim)}$) = 0.0_${dprec}$
 
@@ -602,7 +602,7 @@ CONTAINS
       INTEGER, DIMENSION(dbcsr_t_ndims(tensor))                  :: blk_start, blk_end
 
       DBCSR_ASSERT(dbcsr_t_ndims(tensor) .EQ. ${ndim}$)
-      CALL get_mapping_info(tensor%nd_index, dims_nd=dims_nd)
+      CALL dbcsr_t_get_mapping_info(tensor%nd_index, dims_nd=dims_nd)
 
       CALL dbcsr_t_iterator_start(iterator, tensor)
       DO WHILE (dbcsr_t_iterator_blocks_left(iterator))
