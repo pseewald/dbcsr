@@ -149,8 +149,8 @@ CONTAINS
       INTEGER(KIND=int_8), DIMENSION(2)          :: dims_a, dims_b, dims_c
       INTEGER, DIMENSION(2)                      :: pdims, pcoord, pcoord_sub, pdims_sub
       INTEGER(KIND=int_8), DIMENSION(3)          :: dims
-      INTEGER                                    :: max_mm_dim, data_type, numnodes, numnodes_sub, mp_comm, comm_tmp, &
-                                                    handle, handle2, io_unit_prv, nsplit, numproc, iproc, &
+      INTEGER                                    :: max_mm_dim, data_type, mp_comm, comm_tmp, &
+                                                    handle, handle2, io_unit_prv, nsplit, numproc, numproc_sub, iproc, &
                                                     mp_comm_group, mp_comm_mm, split_rc, split_a, split_b, split_c
       CHARACTER(LEN=1)                           :: tr_case, transa_prv, transb_prv, transc_prv
       TYPE(dbcsr_scalar_type)                    :: zero
@@ -325,13 +325,6 @@ CONTAINS
          info = dbcsr_tas_info(matrix_b_rs)
          CALL dbcsr_tas_get_split_info(info, split_rowcol=split_rc, mp_comm=mp_comm)
          pdims_opt_prv = dbcsr_tas_mp_dims(numproc, split_rc, nsplit)
-         pdims_opt_sub = pdims_opt_prv
-         SELECT CASE (split_rc)
-         CASE(rowsplit)
-            pdims_opt_sub(1) = pdims_opt_prv(1)/nsplit
-         CASE(colsplit)
-            pdims_opt_sub(2) = pdims_opt_prv(2)/nsplit
-         END SELECT
 
          ALLOCATE (matrix_a_rs)
          CALL reshape_mm_small(mp_comm, matrix_a, matrix_a_rs, transa_prv == dbcsr_transpose, transa_prv, move_data=move_data)
@@ -348,11 +341,20 @@ CONTAINS
 
       END SELECT
 
+      pdims_opt_sub = pdims_opt_prv
+      SELECT CASE (split_rc)
+      CASE(rowsplit)
+         pdims_opt_sub(1) = pdims_opt_sub(1)/nsplit
+      CASE(colsplit)
+         pdims_opt_sub(2) = pdims_opt_sub(2)/nsplit
+      END SELECT
+
       IF(PRESENT(pdims_opt)) pdims_opt = pdims_opt_prv
 
       CALL dbcsr_tas_get_split_info(info, nsplit=nsplit, mp_comm=mp_comm, mp_comm_group=mp_comm_group)
 
-      CALL mp_environ(numnodes_sub, pdims_sub, pcoord_sub, mp_comm_group)
+      CALL mp_environ(numproc, pdims, pcoord, mp_comm)
+      CALL mp_environ(numproc_sub, pdims_sub, pcoord_sub, mp_comm_group)
 
       opt_pgrid = (MAXVAL(REAL(pdims_opt_sub, real_8))/MAXVAL(pdims_sub) .GE. pdims_ratio_prv) .OR. &
                   (MINVAL(REAL(pdims_opt_sub, real_8))/MINVAL(pdims_sub) .GE. pdims_ratio_prv)
@@ -596,7 +598,7 @@ CONTAINS
 
       IF (PRESENT(flop)) THEN
          CALL mp_sum(flop, mp_comm)
-         flop = (flop + numnodes - 1)/numnodes
+         flop = (flop + numproc - 1)/numproc
       ENDIF
 
       IF (PRESENT(optimize_dist)) THEN
