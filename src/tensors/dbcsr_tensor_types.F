@@ -111,7 +111,7 @@ MODULE dbcsr_tensor_types
    END TYPE
 
    TYPE dbcsr_t_type
-      TYPE(dbcsr_tas_type), POINTER          :: matrix_rep => NULL()
+      TYPE(dbcsr_tas_type), POINTER        :: matrix_rep => NULL()
       TYPE(nd_to_2d_mapping)               :: nd_index_blk
       TYPE(nd_to_2d_mapping)               :: nd_index
       TYPE(array_list)                     :: blk_sizes

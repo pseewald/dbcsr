@@ -53,7 +53,8 @@ MODULE dbcsr_tas_mm
                               dbcsr_tas_get_split_info, &
                               dbcsr_tas_create_split, &
                               dbcsr_tas_mp_comm, &
-                              dbcsr_tas_release_info
+                              dbcsr_tas_release_info, &
+                              dbcsr_tas_mp_dims
    USE dbcsr_tas_util, ONLY: swap, &
                              invert_transpose_flag, &
                              array_eq_i8, &
@@ -111,7 +112,13 @@ CONTAINS
 !> \param beta ...
 !> \param matrix_c ...
 !> \param optimize_dist Whether distribution should be optimized internally. Experimental and should
-!> be used for dense matrices only.
+!>        be used for dense matrices only.
+!> \param pdims_ratio max. ratio between optimal and actual process grid dimensions of submatrices
+!>                    to be accepted. If actual ratio greater than this number, process grid is redefined and
+!>                    all matrix data is redistributed  (for the sake of a more efficient matrix multiplication)
+!> \param pdims_opt process grid dimensions that would be optimal for the shape and sparsity of matrices. This
+!>                  can be used to choose optimal process grids for subsequent matrix multiplications.
+!> \param split_opt which dimension of each matrix is split, this is derived based on matrix occupancy numbers
 !> \param filter_eps ...
 !> \param flop ...
 !> \param move_data memory optimization: move data to matrix_c such that matrix_a and matrix_b are
@@ -120,36 +127,40 @@ CONTAINS
 !> \param log_verbose only for testing: verbose output
 ! **************************************************************************************************
    SUBROUTINE dbcsr_tas_multiply(transa, transb, transc, alpha, matrix_a, matrix_b, beta, matrix_c, &
-                                 optimize_dist, optimize_pgrid, filter_eps, flop, move_data, simple_split, io_unit, log_verbose)
+                                 optimize_dist, pdims_ratio, pdims_opt, split_opt, filter_eps, flop, move_data, &
+                                 simple_split, io_unit, log_verbose)
       CHARACTER(LEN=1), INTENT(IN)               :: transa, transb, transc
       TYPE(dbcsr_scalar_type), INTENT(IN)        :: alpha, beta
-      TYPE(dbcsr_tas_type), TARGET, INTENT(INOUT)  :: matrix_a, matrix_b, matrix_c
-      LOGICAL, INTENT(IN), OPTIONAL              :: optimize_dist, optimize_pgrid
+      TYPE(dbcsr_tas_type), TARGET, INTENT(INOUT) :: matrix_a, matrix_b, matrix_c
+      LOGICAL, INTENT(IN), OPTIONAL              :: optimize_dist
+      REAL(KIND=real_8), INTENT(IN), OPTIONAL        :: pdims_ratio
+      INTEGER, DIMENSION(2), INTENT(OUT), OPTIONAL :: pdims_opt
+      INTEGER, DIMENSION(3), INTENT(OUT), OPTIONAL :: split_opt
       REAL(KIND=real_8), INTENT(IN), OPTIONAL    :: filter_eps
       INTEGER(KIND=int_8), INTENT(OUT), OPTIONAL :: flop
       LOGICAL, INTENT(IN), OPTIONAL              :: move_data, simple_split
       INTEGER, OPTIONAL, INTENT(IN)              :: io_unit
       LOGICAL, OPTIONAL, INTENT(IN)              :: log_verbose
 
-      TYPE(dbcsr_tas_type), POINTER                :: matrix_b_rs => NULL(), matrix_a_rs => NULL(), matrix_c_rs => NULL()
-      TYPE(dbcsr_tas_type)                         :: matrix_c_rep, matrix_b_rep, matrix_a_rep
+      TYPE(dbcsr_tas_type), POINTER              :: matrix_b_rs => NULL(), matrix_a_rs => NULL(), matrix_c_rs => NULL()
+      TYPE(dbcsr_tas_type)                       :: matrix_c_rep, matrix_b_rep, matrix_a_rep
 
-      REAL(KIND=real_8)                          :: filter_eps_prv
+      REAL(KIND=real_8)                          :: filter_eps_prv, pdims_ratio_prv
       INTEGER(KIND=int_8), DIMENSION(2)          :: dims_a, dims_b, dims_c
       INTEGER, DIMENSION(2) :: pdims, pcoord
       INTEGER(KIND=int_8), DIMENSION(3)          :: dims
       INTEGER                                    :: max_mm_dim, data_type, numnodes, mp_comm, comm_tmp, &
                                                     handle, handle2, io_unit_prv, nsplit, numproc, iproc, &
-                                                    mp_comm_group, mp_comm_mm
+                                                    mp_comm_group, mp_comm_mm, split_rc, split_a, split_b, split_c
       CHARACTER(LEN=1)                           :: tr_case, transa_prv, transb_prv, transc_prv
       TYPE(dbcsr_scalar_type)                    :: zero
-      LOGICAL                                    :: new_a, new_b, new_c, move_prv, simple_split_prv
+      LOGICAL                                    :: new_a, new_b, new_c, move_prv, simple_split_prv, opt_pgrid
       TYPE(dbcsr_tas_create_split_info)          :: info
       CHARACTER(LEN=*), PARAMETER                :: routineN = 'dbcsr_tas_multiply', &
                                                     routineP = moduleN//':'//routineN
       INTEGER(KIND=int_8)                        :: nze_a, nze_b, nze_c, nze_result
       TYPE(dbcsr_type), POINTER                  :: matrix_a_mm, matrix_b_mm, matrix_c_mm
-      LOGICAL                                    :: optimize_pgrid_prv
+      INTEGER, DIMENSION(2)                      :: pdims_opt_prv
 
       CALL timeset(routineN, handle)
 
@@ -171,13 +182,11 @@ CONTAINS
          simple_split_prv = .FALSE.
       ENDIF
 
-      IF (PRESENT(optimize_pgrid)) THEN
-         optimize_pgrid_prv = optimize_pgrid
+      IF (PRESENT(pdims_ratio)) THEN
+         pdims_ratio_prv = MAX(pdims_ratio, 1.0_real_8/pdims_ratio)
       ELSE
-         optimize_pgrid_prv = .FALSE.
+         pdims_ratio_prv = 1.5_real_8
       ENDIF
-
-      IF(simple_split_prv) optimize_pgrid_prv = .FALSE.
 
       IF (.NOT. dbcsr_tas_get_data_type(matrix_a) .EQ. dbcsr_tas_get_data_type(matrix_b)) THEN
          DBCSR_ABORT("matrices must have same datatype")
@@ -223,13 +232,13 @@ CONTAINS
          WRITE (io_unit_prv, "(T2,A, 1X, I12, 1X, I12, 1X, I12)") "mm dims:", dims(1), dims(2), dims(3)
       ENDIF
 
+      CALL dbcsr_tas_get_split_info(dbcsr_tas_info(matrix_a), mp_comm=mp_comm)
+      CALL mp_environ(numproc, iproc, mp_comm)
       IF (.NOT. simple_split_prv) THEN
          nze_a = dbcsr_tas_get_nze_total(matrix_a)
          nze_b = dbcsr_tas_get_nze_total(matrix_b)
          nze_c = result_sparsity_estimate(transa, transb, transc, matrix_a, matrix_b, matrix_c, filter_eps)
 
-         CALL dbcsr_tas_get_split_info(dbcsr_tas_info(matrix_a), mp_comm=mp_comm)
-         CALL mp_environ(numproc, iproc, mp_comm)
          nsplit = split_factor_estimate(nze_a, nze_b, nze_c, numproc)
          max_mm_dim = MINLOC([nze_b, nze_c, nze_a], 1)
 
@@ -245,23 +254,24 @@ CONTAINS
       ELSE
          nsplit = 0
          max_mm_dim = MAXLOC(dims, 1)
+         pdims_ratio_prv = REAL(numproc, KIND=real_8)
       ENDIF
 
-      ! ideally decision which matrix to reshape should be based on occupancy not on size
-      ! but since we don't know occupancy of result matrix, heuristics is based on size
-
+      split_a = 0; split_b=0; split_c=0
       SELECT CASE (max_mm_dim)
       CASE (1)
 
+         split_a = rowsplit; split_c = rowsplit
          CALL reshape_mm_compatible(matrix_a, matrix_c, matrix_a_rs, matrix_c_rs, &
                                     new_a, new_c, transa_prv, transc_prv, optimize_dist=optimize_dist, &
                                     nsplit=nsplit, &
-                                    split_rc_1=rowsplit, split_rc_2=rowsplit, &
+                                    split_rc_1=split_a, split_rc_2=split_c, &
                                     nodata2=.TRUE., comm_new=comm_tmp, &
                                     move_data=move_data, unit_nr=io_unit)
 
          info = dbcsr_tas_info(matrix_a_rs)
-         CALL dbcsr_tas_get_split_info(info, mp_comm=mp_comm)
+         CALL dbcsr_tas_get_split_info(info, split_rowcol=split_rc, mp_comm=mp_comm)
+         pdims_opt_prv = dbcsr_tas_mp_dims(numproc, split_rc, nsplit)
 
          ALLOCATE (matrix_b_rs)
          CALL reshape_mm_small(mp_comm, matrix_b, matrix_b_rs, transb_prv == dbcsr_transpose, transb_prv, move_data=move_data)
@@ -277,15 +287,18 @@ CONTAINS
          ENDIF
 
       CASE (2)
+
+         split_a = colsplit; split_b=rowsplit
          CALL reshape_mm_compatible(matrix_a, matrix_b, matrix_a_rs, matrix_b_rs, new_a, new_b, transa_prv, transb_prv, &
                                     optimize_dist=optimize_dist, &
                                     nsplit=nsplit, &
-                                    split_rc_1 = colsplit, split_rc_2=rowsplit, &
+                                    split_rc_1 = split_a, split_rc_2=split_b, &
                                     comm_new=comm_tmp, &
                                     move_data=move_data, unit_nr=io_unit)
 
          info = dbcsr_tas_info(matrix_a_rs)
-         CALL dbcsr_tas_get_split_info(info, mp_comm=mp_comm)
+         CALL dbcsr_tas_get_split_info(info, split_rowcol=split_rc, mp_comm=mp_comm)
+         pdims_opt_prv = dbcsr_tas_mp_dims(numproc, split_rc, nsplit)
 
          ALLOCATE (matrix_c_rs)
          CALL reshape_mm_small(mp_comm, matrix_c, matrix_c_rs, transc_prv == dbcsr_transpose, transc_prv, nodata=.TRUE.)
@@ -302,14 +315,16 @@ CONTAINS
 
       CASE (3)
 
+         split_b=colsplit; split_c=colsplit
          CALL reshape_mm_compatible(matrix_b, matrix_c, matrix_b_rs, matrix_c_rs, new_b, new_c, transb_prv, &
                                     transc_prv, optimize_dist=optimize_dist, &
                                     nsplit=nsplit, &
-                                    split_rc_1=colsplit, split_rc_2=colsplit, &
+                                    split_rc_1=split_b, split_rc_2=split_c, &
                                     nodata2=.TRUE., comm_new=comm_tmp, &
                                     move_data=move_data, unit_nr=io_unit)
          info = dbcsr_tas_info(matrix_b_rs)
-         CALL dbcsr_tas_get_split_info(info, mp_comm=mp_comm)
+         CALL dbcsr_tas_get_split_info(info, split_rowcol=split_rc, mp_comm=mp_comm)
+         pdims_opt_prv = dbcsr_tas_mp_dims(numproc, split_rc, nsplit)
 
          ALLOCATE (matrix_a_rs)
          CALL reshape_mm_small(mp_comm, matrix_a, matrix_a_rs, transa_prv == dbcsr_transpose, transa_prv, move_data=move_data)
@@ -326,9 +341,16 @@ CONTAINS
 
       END SELECT
 
+      IF(PRESENT(pdims_opt)) pdims_opt = pdims_opt_prv
+
       CALL dbcsr_tas_get_split_info(info, nsplit=nsplit, mp_comm=mp_comm, mp_comm_group=mp_comm_group)
 
       CALL mp_environ(numnodes, pdims, pcoord, mp_comm)
+
+      opt_pgrid = (MAXVAL(REAL(pdims_opt_prv, real_8))/MAXVAL(pdims) .GE. pdims_ratio_prv) .OR. &
+                  (MINVAL(REAL(pdims_opt_prv, real_8))/MINVAL(pdims) .GE. pdims_ratio_prv)
+
+      IF(PRESENT(split_opt)) split_opt = [split_a, split_b, split_c]
 
       IF (PRESENT(filter_eps)) THEN
          filter_eps_prv = filter_eps
@@ -363,17 +385,17 @@ CONTAINS
             CALL dbcsr_tas_write_dist(matrix_b_rep, io_unit, full_info=log_verbose)
          ENDIF
 
-         CALL convert_to_new_pgrid(mp_comm_mm, matrix_a_rs%matrix, matrix_a_mm, optimize_pgrid=optimize_pgrid_prv)
+         CALL convert_to_new_pgrid(mp_comm_mm, matrix_a_rs%matrix, matrix_a_mm, optimize_pgrid=opt_pgrid)
 
-         IF (new_a .AND. optimize_pgrid_prv) THEN
+         IF (new_a .AND. opt_pgrid) THEN
             CALL dbcsr_tas_destroy(matrix_a_rs)
             DEALLOCATE (matrix_a_rs)
          ENDIF
-         CALL convert_to_new_pgrid(mp_comm_mm, matrix_b_rep%matrix, matrix_b_mm, optimize_pgrid=optimize_pgrid_prv)
+         CALL convert_to_new_pgrid(mp_comm_mm, matrix_b_rep%matrix, matrix_b_mm, optimize_pgrid=opt_pgrid)
 
-         IF(optimize_pgrid_prv) CALL dbcsr_tas_destroy(matrix_b_rep)
+         IF(opt_pgrid) CALL dbcsr_tas_destroy(matrix_b_rep)
 
-         CALL convert_to_new_pgrid(mp_comm_mm, matrix_c_rs%matrix, matrix_c_mm, nodata=.TRUE., optimize_pgrid=optimize_pgrid_prv)
+         CALL convert_to_new_pgrid(mp_comm_mm, matrix_c_rs%matrix, matrix_c_mm, nodata=.TRUE., optimize_pgrid=opt_pgrid)
 
          nze_result = dbcsr_get_nze(matrix_c_mm)
 
@@ -396,7 +418,7 @@ CONTAINS
 
          nze_result = dbcsr_get_nze(matrix_c_mm) - nze_result
 
-         IF (optimize_pgrid_prv) THEN
+         IF (opt_pgrid) THEN
             CALL dbcsr_release(matrix_a_mm)
             CALL dbcsr_release(matrix_b_mm)
             IF (.NOT. new_c) THEN
@@ -425,19 +447,19 @@ CONTAINS
             CALL dbcsr_tas_write_dist(matrix_b_rs, io_unit)
          ENDIF
 
-         CALL convert_to_new_pgrid(mp_comm_mm, matrix_a_rs%matrix, matrix_a_mm, optimize_pgrid=optimize_pgrid_prv)
-         IF (new_a .AND. optimize_pgrid_prv) THEN
+         CALL convert_to_new_pgrid(mp_comm_mm, matrix_a_rs%matrix, matrix_a_mm, optimize_pgrid=opt_pgrid)
+         IF (new_a .AND. opt_pgrid) THEN
             CALL dbcsr_tas_destroy(matrix_a_rs)
             DEALLOCATE (matrix_a_rs)
          ENDIF
 
-         CALL convert_to_new_pgrid(mp_comm_mm, matrix_b_rs%matrix, matrix_b_mm, optimize_pgrid=optimize_pgrid_prv)
-         IF (new_b .AND. optimize_pgrid_prv) THEN
+         CALL convert_to_new_pgrid(mp_comm_mm, matrix_b_rs%matrix, matrix_b_mm, optimize_pgrid=opt_pgrid)
+         IF (new_b .AND. opt_pgrid) THEN
             CALL dbcsr_tas_destroy(matrix_b_rs)
             DEALLOCATE (matrix_b_rs)
          ENDIF
 
-         CALL convert_to_new_pgrid(mp_comm_mm, matrix_c_rep%matrix, matrix_c_mm, nodata=.TRUE., optimize_pgrid=optimize_pgrid_prv)
+         CALL convert_to_new_pgrid(mp_comm_mm, matrix_c_rep%matrix, matrix_c_mm, nodata=.TRUE., optimize_pgrid=opt_pgrid)
 
          nze_result = dbcsr_get_nze(matrix_c_mm)
 
@@ -449,7 +471,7 @@ CONTAINS
 
          nze_result = dbcsr_get_nze(matrix_c_mm) - nze_result
 
-         IF (optimize_pgrid_prv) THEN
+         IF (opt_pgrid) THEN
             CALL dbcsr_release(matrix_a_mm)
             CALL dbcsr_release(matrix_b_mm)
             CALL dbcsr_redistribute(matrix_c_mm, matrix_c_rep%matrix)
@@ -481,17 +503,17 @@ CONTAINS
             CALL dbcsr_tas_write_dist(matrix_b_rs, io_unit)
          ENDIF
 
-         CALL convert_to_new_pgrid(mp_comm_mm, matrix_a_rep%matrix, matrix_a_mm, optimize_pgrid=optimize_pgrid_prv)
+         CALL convert_to_new_pgrid(mp_comm_mm, matrix_a_rep%matrix, matrix_a_mm, optimize_pgrid=opt_pgrid)
 
-         IF(optimize_pgrid_prv) CALL dbcsr_tas_destroy(matrix_a_rep)
+         IF(opt_pgrid) CALL dbcsr_tas_destroy(matrix_a_rep)
 
-         CALL convert_to_new_pgrid(mp_comm_mm, matrix_b_rs%matrix, matrix_b_mm, optimize_pgrid=optimize_pgrid_prv)
+         CALL convert_to_new_pgrid(mp_comm_mm, matrix_b_rs%matrix, matrix_b_mm, optimize_pgrid=opt_pgrid)
 
-         IF (new_b .AND. optimize_pgrid_prv) THEN
+         IF (new_b .AND. opt_pgrid) THEN
             CALL dbcsr_tas_destroy(matrix_b_rs)
             DEALLOCATE (matrix_b_rs)
          ENDIF
-         CALL convert_to_new_pgrid(mp_comm_mm, matrix_c_rs%matrix, matrix_c_mm, nodata=.TRUE., optimize_pgrid=optimize_pgrid_prv)
+         CALL convert_to_new_pgrid(mp_comm_mm, matrix_c_rs%matrix, matrix_c_mm, nodata=.TRUE., optimize_pgrid=opt_pgrid)
 
          nze_result = dbcsr_get_nze(matrix_c_mm)
 
@@ -512,7 +534,7 @@ CONTAINS
 
          nze_result = dbcsr_get_nze(matrix_c_mm) - nze_result
 
-         IF (optimize_pgrid_prv) THEN
+         IF (opt_pgrid) THEN
             CALL dbcsr_release(matrix_a_mm)
             CALL dbcsr_release(matrix_b_mm)
 
@@ -687,7 +709,7 @@ CONTAINS
       CHARACTER(LEN=1), INTENT(INOUT) :: trans1, trans2
       LOGICAL, INTENT(IN), OPTIONAL :: optimize_dist
       INTEGER, INTENT(INOUT), OPTIONAL :: nsplit
-      INTEGER, INTENT(IN) :: split_rc_1, split_rc_2
+      INTEGER, INTENT(INOUT) :: split_rc_1, split_rc_2
       INTEGER, INTENT(OUT), OPTIONAL :: comm_new
       LOGICAL, OPTIONAL, INTENT(IN) :: nodata1, nodata2, move_data
       INTEGER, INTENT(IN), OPTIONAL :: unit_nr
@@ -696,8 +718,7 @@ CONTAINS
       INTEGER(KIND=int_8)               :: d1, d2
       CHARACTER(LEN=*), PARAMETER :: routineN = 'reshape_mm_compatible', &
                                      routineP = moduleN//':'//routineN
-      INTEGER :: handle, mp_comm, numnodes, io_unit, nsplit_prv, ref, &
-                 split_rc_ref, split_rc_1_prv, split_rc_2_prv
+      INTEGER :: handle, mp_comm, numnodes, io_unit, nsplit_prv, ref, split_rc_ref
       INTEGER, DIMENSION(2) :: pcoord, pdims
       LOGICAL :: optimize_dist_prv, trans1_newdist, trans2_newdist
       TYPE(dbcsr_tas_dist_cyclic) :: row_dist_1, col_dist_1, row_dist_2, col_dist_2
@@ -739,27 +760,17 @@ CONTAINS
       nze1 = dbcsr_tas_get_nze_total(matrix1_in)
       nze2 = dbcsr_tas_get_nze_total(matrix2_in)
 
-      SELECT CASE(trans1)
-      CASE(dbcsr_transpose)
-         split_rc_1_prv = MOD(split_rc_1, 2) + 1
-      CASE(dbcsr_no_transpose)
-         split_rc_1_prv = split_rc_1
-      END SELECT
+      IF(trans1 == dbcsr_transpose) split_rc_1 = MOD(split_rc_1, 2) + 1
 
-      SELECT CASE(trans2)
-      CASE(dbcsr_transpose)
-         split_rc_2_prv = MOD(split_rc_2, 2) + 1
-      CASE(dbcsr_no_transpose)
-         split_rc_2_prv = split_rc_2
-      END SELECT
+      IF(trans2 == dbcsr_transpose) split_rc_2 = MOD(split_rc_2, 2) + 1
 
       IF(nze1 >= nze2) THEN
          ref=1
-         split_rc_ref = split_rc_1_prv
+         split_rc_ref = split_rc_1
          dims_ref=dims1
       ELSE
          ref=2
-         split_rc_ref = split_rc_2_prv
+         split_rc_ref = split_rc_2
          dims_ref=dims2
       ENDIF
 
@@ -790,8 +801,8 @@ CONTAINS
       ENDIF
 
       IF ((.NOT. optimize_dist_prv) .AND. dist_compatible(matrix1_in, matrix2_in)) THEN
-         IF(do_split) CALL change_split(matrix1_in, matrix1_out, nsplit_prv, split_rc_1_prv, new1, nodata=nodata1)
-         IF(do_split) CALL change_split(matrix2_in, matrix2_out, nsplit_prv, split_rc_2_prv, new2, nodata=nodata2)
+         IF(do_split) CALL change_split(matrix1_in, matrix1_out, nsplit_prv, split_rc_1, new1, nodata=nodata1)
+         IF(do_split) CALL change_split(matrix2_in, matrix2_out, nsplit_prv, split_rc_2, new2, nodata=nodata2)
          IF (io_unit > 0) THEN
             WRITE (io_unit, "(T2,A,1X,A,1X,A,1X,A)") "No redistribution of", TRIM(matrix1_in%matrix%name), &
                "and", TRIM(matrix2_in%matrix%name)
@@ -804,8 +815,8 @@ CONTAINS
                   "and", TRIM(matrix2_in%matrix%name)
             ENDIF
 
-            trans1_newdist = (split_rc_1_prv == colsplit)
-            trans2_newdist = (split_rc_2_prv == colsplit)
+            trans1_newdist = (split_rc_1 == colsplit)
+            trans2_newdist = (split_rc_2 == colsplit)
 
             IF (trans1_newdist) THEN
                CALL swap(dims1)
@@ -869,7 +880,7 @@ CONTAINS
                   WRITE (io_unit, "(T2,A,1X,A)") "Redistribution of", TRIM(matrix2_in%matrix%name)
                ENDIF
 
-               IF(do_split) CALL change_split(matrix1_in, matrix1_out, nsplit_prv, split_rc_1_prv, new1, nodata=nodata1)
+               IF(do_split) CALL change_split(matrix1_in, matrix1_out, nsplit_prv, split_rc_1, new1, nodata=nodata1)
 
                ALLOCATE (matrix2_out)
                CALL reshape_mm_template(matrix1_out, matrix2_in, matrix2_out, trans2, nodata=nodata2, move_data=move_data)
@@ -879,7 +890,7 @@ CONTAINS
                   WRITE (io_unit, "(T2,A,1X,A)") "Redistribution of", TRIM(matrix1_in%matrix%name)
                ENDIF
 
-               IF(do_split) CALL change_split(matrix2_in, matrix2_out, nsplit_prv, split_rc_2_prv, new2, nodata=nodata2)
+               IF(do_split) CALL change_split(matrix2_in, matrix2_out, nsplit_prv, split_rc_2, new2, nodata=nodata2)
 
                ALLOCATE (matrix1_out)
                CALL reshape_mm_template(matrix2_out, matrix1_in, matrix1_out, trans1, nodata=nodata1, move_data=move_data)

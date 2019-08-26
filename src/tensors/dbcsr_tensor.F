@@ -82,7 +82,7 @@ MODULE dbcsr_tensor
    USE dbcsr_toollib, ONLY: sort
    USE dbcsr_tensor_reshape, ONLY: dbcsr_t_reshape
    USE dbcsr_mpiwrap, ONLY: mp_comm_free
-   USE dbcsr_tas_split, ONLY: dbcsr_tas_mp_comm
+   USE dbcsr_tas_split, ONLY: dbcsr_tas_mp_comm, rowsplit, colsplit
    USE dbcsr_data_types, ONLY: dbcsr_scalar_type
    USE dbcsr_tensor_split, ONLY: dbcsr_t_split_copyback, &
                                  dbcsr_t_make_compatible_blocks,&
@@ -356,7 +356,8 @@ CONTAINS
                                contract_2, notcontract_2, &
                                map_1, map_2, &
                                bounds_1, bounds_2, bounds_3, &
-                               optimize_dist, optimize_pgrid, filter_eps, flop, move_data, unit_nr, log_verbose)
+                               optimize_dist, pgrid_opt_1, pgrid_opt_2, pgrid_opt_3, &
+                               filter_eps, flop, move_data, unit_nr, log_verbose)
       TYPE(dbcsr_scalar_type), INTENT(IN) :: alpha
       TYPE(dbcsr_t_type), INTENT(INOUT), TARGET  :: tensor_1, tensor_2
       TYPE(dbcsr_scalar_type), INTENT(IN) :: beta
@@ -369,7 +370,9 @@ CONTAINS
          INTENT(IN), OPTIONAL                        :: bounds_2
       INTEGER, DIMENSION(2, SIZE(notcontract_2)), &
          INTENT(IN), OPTIONAL                        :: bounds_3
-      LOGICAL, INTENT(IN), OPTIONAL                  :: optimize_dist, optimize_pgrid
+      LOGICAL, INTENT(IN), OPTIONAL                  :: optimize_dist
+      TYPE(dbcsr_t_pgrid_type), INTENT(OUT), &
+         OPTIONAL                                    :: pgrid_opt_1, pgrid_opt_2, pgrid_opt_3
       REAL(KIND=real_8), INTENT(IN), OPTIONAL        :: filter_eps
       INTEGER(KIND=int_8), INTENT(OUT), OPTIONAL       :: flop
       LOGICAL, INTENT(IN), OPTIONAL                  :: move_data
@@ -402,6 +405,8 @@ CONTAINS
       INTEGER, DIMENSION(2, dbcsr_t_ndims(tensor_1)) :: bounds_t1
       INTEGER, DIMENSION(2, dbcsr_t_ndims(tensor_2)) :: bounds_t2
       LOGICAL :: do_crop_1, do_crop_2
+      INTEGER, DIMENSION(2) :: pdims_opt
+      INTEGER, DIMENSION(3) :: split_opt
 
       CALL timeset(routineN, handle)
 
@@ -633,7 +638,35 @@ CONTAINS
                               tensor_contr_1%matrix_rep, tensor_contr_2%matrix_rep, &
                               beta, &
                               tensor_contr_3%matrix_rep, filter_eps=filter_eps, flop=flop, &
-                              io_unit=unit_nr, log_verbose=log_verbose, optimize_pgrid = optimize_pgrid)
+                              io_unit=unit_nr, log_verbose=log_verbose, &
+                              pdims_opt=pdims_opt, split_opt=split_opt)
+
+      IF(PRESENT(pgrid_opt_1)) THEN
+         IF(new_1) THEN
+            CALL dbcsr_abort(__LOCATION__, &
+                             "pgrid_opt_1 can not be returned because tensor_1 not in matrix multiplication compatible layout")
+         ELSE
+            pgrid_opt_1 = opt_pgrid(tensor_1, pdims_opt, split_opt(1))
+         ENDIF
+      ENDIF
+
+      IF(PRESENT(pgrid_opt_2)) THEN
+         IF(new_2) THEN
+            CALL dbcsr_abort(__LOCATION__, &
+                             "pgrid_opt_2 can not be returned because tensor_2 not in matrix multiplication compatible layout")
+         ELSE
+            pgrid_opt_2 = opt_pgrid(tensor_2, pdims_opt, split_opt(2))
+         ENDIF
+      ENDIF
+
+      IF(PRESENT(pgrid_opt_3)) THEN
+         IF(new_3) THEN
+            CALL dbcsr_abort(__LOCATION__, &
+                             "pgrid_opt_3 can not be returned because tensor_3 not in matrix multiplication compatible layout")
+         ELSE
+            pgrid_opt_3 = opt_pgrid(tensor_3, pdims_opt, split_opt(3))
+         ENDIF
+      ENDIF
 
       IF (PRESENT(unit_nr)) THEN
          CALL dbcsr_t_write_tensor_info(tensor_contr_3, unit_nr, full_info=log_verbose)
@@ -1079,6 +1112,29 @@ CONTAINS
          ind_dep(:) = ind_dep(sort_indices)
 
       END SUBROUTINE
+
+      FUNCTION opt_pgrid(tensor, pdims_opt_2d, split_opt)
+         TYPE(dbcsr_t_type), INTENT(IN) :: tensor
+         INTEGER, DIMENSION(2), &
+            INTENT(IN)                  :: pdims_opt_2d
+         INTEGER, INTENT(IN)            :: split_opt
+
+         INTEGER, DIMENSION(2)          :: pdims_2d
+         INTEGER, DIMENSION(:), ALLOCATABLE :: map1, map2
+         TYPE(dbcsr_t_pgrid_type) :: opt_pgrid
+
+         CALL get_mapping_info(tensor%pgrid%nd_index_grid, map1_2d=map1, map2_2d=map2)
+
+         SELECT CASE(split_opt)
+         CASE(rowsplit)
+            pdims_2d = [MAXVAL(pdims_opt_2d), MINVAL(pdims_opt_2d)]
+         CASE(colsplit)
+            pdims_2d = [MINVAL(pdims_opt_2d), MAXVAL(pdims_opt_2d)]
+         CASE DEFAULT
+            DBCSR_ABORT("Should not happen")
+         END SELECT
+         opt_pgrid = dbcsr_t_nd_mp_comm(tensor_contr_1%pgrid%mp_comm_2d, map1, map2, pdims_2d=pdims_2d)
+      END FUNCTION
 
    END SUBROUTINE
 

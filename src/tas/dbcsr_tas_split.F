@@ -40,6 +40,7 @@ MODULE dbcsr_tas_split
       dbcsr_tas_get_split_info, &
       dbcsr_tas_info_hold, &
       dbcsr_tas_mp_comm, &
+      dbcsr_tas_mp_dims, &
       dbcsr_tas_release_info, &
       dbcsr_tas_create_split, &
       dbcsr_tas_create_split_rows_or_cols, &
@@ -145,14 +146,37 @@ CONTAINS
       CHARACTER(LEN=*), PARAMETER :: routineN = 'dbcsr_tas_mp_comm', &
                                      routineP = moduleN//':'//routineN
 
-      INTEGER                                            :: group_size, handle, iproc, numproc
-      INTEGER, DIMENSION(2)                              :: group_dims, myploc, npdims, &
-                                                            sort_indices
+      INTEGER                                            :: handle, iproc, numproc
+      INTEGER, DIMENSION(2)                              :: myploc, npdims
 
       CALL timeset(routineN, handle)
 
       CALL mp_environ(numproc, iproc, mp_comm)
 
+      npdims = dbcsr_tas_mp_dims(numproc, split_rowcol, nsplit)
+
+      CALL mp_cart_create(mp_comm, 2, npdims, myploc, dbcsr_tas_mp_comm)
+
+      CALL timestop(handle)
+   END FUNCTION
+
+! **************************************************************************************************
+!> \brief ...
+!> \param numproc ...
+!> \param split_rowcol ...
+!> \param nsplit ...
+!> \return ...
+! **************************************************************************************************
+   FUNCTION dbcsr_tas_mp_dims(numproc, split_rowcol, nsplit)
+      INTEGER, INTENT(IN)                                :: numproc
+      INTEGER, INTENT(IN)                                :: split_rowcol
+      INTEGER, INTENT(INOUT)                             :: nsplit
+      INTEGER, DIMENSION(2)                              :: dbcsr_tas_mp_dims
+
+      INTEGER                                            :: dbcsr_tas_mp_comm
+      INTEGER                                            :: group_size
+      INTEGER, DIMENSION(2)                              :: group_dims, &
+                                                            sort_indices
       DO WHILE (MOD(numproc, nsplit) .NE. 0)
          nsplit = nsplit - 1
       ENDDO
@@ -165,14 +189,11 @@ CONTAINS
 
       SELECT CASE (split_rowcol)
       CASE (rowsplit)
-         npdims(:) = [group_dims(1)*nsplit, group_dims(2)]
+         dbcsr_tas_mp_dims(:) = [group_dims(1)*nsplit, group_dims(2)]
       CASE (colsplit)
-         npdims(:) = [group_dims(1), group_dims(2)*nsplit]
+         dbcsr_tas_mp_dims(:) = [group_dims(1), group_dims(2)*nsplit]
       END SELECT
 
-      CALL mp_cart_create(mp_comm, 2, npdims, myploc, dbcsr_tas_mp_comm)
-
-      CALL timestop(handle)
    END FUNCTION
 
    ! todo this should be used in testing only
