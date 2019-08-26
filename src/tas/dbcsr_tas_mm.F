@@ -350,6 +350,7 @@ CONTAINS
       opt_pgrid = (MAXVAL(REAL(pdims_opt_prv, real_8))/MAXVAL(pdims) .GE. pdims_ratio_prv) .OR. &
                   (MINVAL(REAL(pdims_opt_prv, real_8))/MINVAL(pdims) .GE. pdims_ratio_prv)
 
+
       IF(PRESENT(split_opt)) split_opt = [split_a, split_b, split_c]
 
       IF (PRESENT(filter_eps)) THEN
@@ -360,12 +361,19 @@ CONTAINS
 
       IF (PRESENT(io_unit)) THEN
          IF (io_unit_prv > 0) THEN
-            WRITE (io_unit_prv, "(T2, A)") "SPLIT INFO"
+            WRITE (io_unit_prv, "(T2, A)") "SPLIT / PARALLELIZATION INFO"
          ENDIF
          CALL dbcsr_tas_write_split_info(info, "Split info:", io_unit_prv)
          CALL dbcsr_tas_write_matrix_info(matrix_a_rs, io_unit_prv, full_info=log_verbose)
          CALL dbcsr_tas_write_matrix_info(matrix_b_rs, io_unit_prv, full_info=log_verbose)
          CALL dbcsr_tas_write_matrix_info(matrix_c_rs, io_unit_prv, full_info=log_verbose)
+         IF (io_unit_prv > 0) THEN
+            IF(opt_pgrid) THEN
+               WRITE (io_unit_prv, "(T4, A, 1X, A)") "Change process grid:", "Yes"
+            ELSE
+               WRITE (io_unit_prv, "(T4, A, 1X, A)") "Change process grid:", "No"
+            ENDIF
+         ENDIF
       ENDIF
 
       zero = dbcsr_scalar_zero(data_type)
