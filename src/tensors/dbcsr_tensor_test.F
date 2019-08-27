@@ -383,6 +383,12 @@ CONTAINS
             CALL dbcsr_t_destroy(tensor2)
             CALL dbcsr_t_distribution_destroy(dist2)
 
+#:for dim in range(1, maxdim+1)
+            IF (${dim}$ <= ndims) THEN
+               DEALLOCATE(dist1_${dim}$, dist2_${dim}$)
+            ENDIF
+#:endfor
+
          ENDDO
       ENDDO
       CALL dbcsr_t_pgrid_destroy(comm_nd)
@@ -396,9 +402,10 @@ CONTAINS
 !> \param mp_comm
 ! **************************************************************************************************
    SUBROUTINE dbcsr_t_random_dist(dist_array, dist_size, nbins, mp_comm)
-      INTEGER, ALLOCATABLE, DIMENSION(:), INTENT(out) :: dist_array
+      INTEGER, ALLOCATABLE, DIMENSION(:), INTENT(OUT) :: dist_array
       INTEGER, INTENT(IN)                             :: dist_size, nbins, mp_comm
       REAL, DIMENSION(dist_size)                      :: rn
+      INTEGER, DIMENSION(dist_size)                   :: rn_int
       INTEGER                                         :: numnodes, mynode
 
       CALL mp_environ(numnodes, mynode, mp_comm)
@@ -408,7 +415,8 @@ CONTAINS
       ENDIF
       CALL mp_bcast(rn, 0, mp_comm)
 
-      CALL allocate_any(dist_array, source=FLOOR(rn*nbins))
+      rn_int = FLOOR(rn*nbins)
+      CALL allocate_any(dist_array, source=rn_int)
 
    END SUBROUTINE dbcsr_t_random_dist
 

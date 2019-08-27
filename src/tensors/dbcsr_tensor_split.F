@@ -594,14 +594,15 @@ CONTAINS
 
    END SUBROUTINE
 
-   SUBROUTINE dbcsr_t_crop(tensor_in, tensor_out, bounds)
+   SUBROUTINE dbcsr_t_crop(tensor_in, tensor_out, bounds, move_data)
       TYPE(dbcsr_t_type), INTENT(INOUT) :: tensor_in
       TYPE(dbcsr_t_type), INTENT(OUT) :: tensor_out
       INTEGER, DIMENSION(2, ndims_tensor(tensor_in)), INTENT(IN) :: bounds
+      LOGICAL, INTENT(IN), OPTIONAL :: move_data
       INTEGER, DIMENSION(2, ndims_tensor(tensor_in)) :: blk_bounds
       TYPE(dbcsr_t_iterator_type)                     :: iter
       INTEGER, DIMENSION(ndims_tensor(tensor_in)) :: blk_index, blk_size, blk_offset
-      LOGICAL :: found
+      LOGICAL :: found, move_data_prv
       INTEGER :: idim, blk, iblk, iblk_all, nblk
       INTEGER, DIMENSION(:, :), ALLOCATABLE :: blk_ind, blk_ind_tmp
 #:for dparam, dtype, dsuffix in dtype_float_list
@@ -609,6 +610,12 @@ CONTAINS
       ${dtype}$, DIMENSION(${shape_colon(n=ndim)}$), ALLOCATABLE :: block_${dsuffix}$_${ndim}$d, block_put_${dsuffix}$_${ndim}$d
 #:endfor
 #:endfor
+
+      IF(PRESENT(move_data)) THEN
+         move_data_prv = move_data
+      ELSE
+         move_data_prv = .FALSE.
+      ENDIF
 
       CALL dbcsr_t_create(tensor_in, tensor_out)
 
@@ -665,6 +672,8 @@ CONTAINS
       ENDDO iter_loop
       CALL dbcsr_t_iterator_stop(iter)
       CALL dbcsr_t_finalize(tensor_out)
+
+      IF(move_data_prv) CALL dbcsr_t_clear(tensor_in)
    END SUBROUTINE
 
 END MODULE
