@@ -1212,11 +1212,12 @@ CONTAINS
       INTEGER(KIND=int_8), INTENT(IN)             :: nze_a, nze_b, nze_c
       INTEGER, INTENT(IN)                         :: numnodes
       INTEGER                                     :: nsplit, nsplit_comm, nsplit_memory
-      INTEGER(KIND=int_8)                         :: min_nze
+      INTEGER(KIND=int_8)                         :: max_nze, min_nze
 
       min_nze = MAX(MINVAL([nze_a, nze_b, nze_c]),1_int_8)
+      max_nze = MAX(MAXVAL([nze_a, nze_b, nze_c]),1_int_8)
       nsplit_comm = CEILING(((nze_a + nze_b)/(2*min_nze))**(2._real_8/3)*numnodes**(1._real_8/3))
-      nsplit_memory = INT((MAX(nze_a, nze_b) - 1)/nze_c + 1)
+      nsplit_memory = INT((max_nze - 1)/min_nze + 1)
 
       nsplit = MIN(nsplit_comm, nsplit_memory)
 
