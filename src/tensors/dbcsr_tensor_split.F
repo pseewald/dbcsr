@@ -40,7 +40,6 @@ MODULE dbcsr_tensor_split
                                  dbcsr_t_clear, &
                                  dbcsr_t_finalize, &
                                  dbcsr_t_get_num_blocks,&
-                                 dbcsr_t_filter, &
                                  dbcsr_t_blk_offsets, &
                                  dbcsr_t_blk_sizes
    USE dbcsr_api, ONLY: ${uselist(dtype_float_param)}$

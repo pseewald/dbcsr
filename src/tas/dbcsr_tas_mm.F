@@ -77,7 +77,6 @@ MODULE dbcsr_tas_mm
                                dbcsr_get_info, &
                                dbcsr_copy, &
                                dbcsr_clear, &
-                               dbcsr_filter, &
                                dbcsr_add
    USE dbcsr_tas_io, ONLY: dbcsr_tas_write_dist, &
                            dbcsr_tas_write_matrix_info, &
@@ -517,15 +516,13 @@ CONTAINS
             IF(new_b) DEALLOCATE(matrix_b_rs)
          ENDIF
 
-         IF(PRESENT(filter_eps)) CALL dbcsr_tas_filter(matrix_c_rs, filter_eps)
-
          IF (PRESENT(io_unit)) THEN
             CALL dbcsr_tas_write_dist(matrix_c_rep, io_unit, full_info=log_verbose)
          ENDIF
 
          CALL dbcsr_tas_merge(matrix_c_rs%matrix, matrix_c_rep, move_data=.TRUE.)
-         IF(PRESENT(filter_eps)) CALL dbcsr_tas_filter(matrix_c_rs, filter_eps)
          CALL dbcsr_tas_destroy(matrix_c_rep)
+         IF(PRESENT(filter_eps)) CALL dbcsr_tas_filter(matrix_c_rs, filter_eps)
       CASE (3)
          CALL dbcsr_tas_replicate(matrix_a_rs%matrix, dbcsr_tas_info(matrix_b_rs), matrix_a_rep, move_data=.TRUE.)
          IF (new_a) THEN
@@ -610,9 +607,9 @@ CONTAINS
          CALL dbcsr_scale(matrix_c%matrix, beta)
          CALL dbcsr_tas_reshape(matrix_c_rs, matrix_c, summation=.TRUE., transposed=transc_prv /= transc, &
                                 move_data=.TRUE.)
-         IF (PRESENT(filter_eps)) CALL dbcsr_tas_filter(matrix_c, filter_eps)
          CALL dbcsr_tas_destroy(matrix_c_rs)
          DEALLOCATE (matrix_c_rs)
+         IF (PRESENT(filter_eps)) CALL dbcsr_tas_filter(matrix_c, filter_eps)
       ENDIF
 
       IF (PRESENT(flop)) THEN
@@ -1293,7 +1290,7 @@ CONTAINS
       TYPE(dbcsr_type), INTENT(OUT), POINTER :: matrix_out
       LOGICAL, INTENT(IN), OPTIONAL :: move_data, nodata
       LOGICAL, INTENT(IN), OPTIONAL :: optimize_pgrid
-      INTEGER :: nbrows, nbcols, data_type, nproc
+      INTEGER :: nbrows, nbcols, data_type, nproc, handle
       INTEGER, DIMENSION(2) :: pdims, pcoord
       INTEGER, DIMENSION(:), POINTER :: row_dist, col_dist
       INTEGER, DIMENSION(:), POINTER :: rbsize, rcsize
@@ -1301,6 +1298,8 @@ CONTAINS
       TYPE(dbcsr_mp_obj) :: mp_obj
       CHARACTER(len=default_string_length) :: name
       LOGICAL :: nodata_prv, optimize_pgrid_prv
+      CHARACTER(LEN=*), PARAMETER                :: routineN = 'convert_to_new_pgrid', &
+                                                    routineP = moduleN//':'//routineN
 
       NULLIFY(row_dist, col_dist, rbsize, rcsize)
 
@@ -1310,15 +1309,17 @@ CONTAINS
          optimize_pgrid_prv = .TRUE.
       ENDIF
 
+      IF(.NOT. optimize_pgrid_prv) THEN
+         matrix_out => matrix_in
+         RETURN
+      ENDIF
+
+      CALL timeset(routineN, handle)
+
       IF(PRESENT(nodata)) THEN
          nodata_prv = nodata
       ELSE
          nodata_prv = .FALSE.
-      ENDIF
-
-      IF(.NOT. optimize_pgrid_prv) THEN
-         matrix_out => matrix_in
-         RETURN
       ENDIF
 
       ALLOCATE(matrix_out)
@@ -1345,6 +1346,8 @@ CONTAINS
             IF(move_data) CALL dbcsr_clear(matrix_in)
          ENDIF
       ENDIF
+
+      CALL timestop(handle)
    END SUBROUTINE
 
 END MODULE
