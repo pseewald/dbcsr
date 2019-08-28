@@ -272,7 +272,7 @@ CONTAINS
 
       IF(PRESENT(pdims_ratio)) THEN
 
-         accept_pgrid = accept_pgrid_dims(pdims_group, pdims_ratio)
+         accept_pgrid = accept_pgrid_dims(pdims_group, pdims_ratio, relative=.FALSE.)
          IF(.NOT. accept_pgrid) THEN
             nsplit_mod = nsplit
             SELECT CASE (split_rowcol)
@@ -297,7 +297,7 @@ CONTAINS
             CASE (colsplit)
                pdims_group_mod = [pdims(1), pdims(2)/nsplit_mod]
             END SELECT
-            accept_pgrid = accept_pgrid_dims(pdims_group_mod, pdims_ratio)
+            accept_pgrid = accept_pgrid_dims(pdims_group_mod, pdims_ratio, relative=.FALSE.)
             IF(accept_pgrid) THEN
                nsplit = nsplit_mod
                pdims_group = pdims_group_mod
@@ -319,18 +319,24 @@ CONTAINS
 !> \param accept_ratio ...
 !> \return ...
 ! **************************************************************************************************
-   FUNCTION accept_pgrid_dims(dims, accept_ratio)
+   FUNCTION accept_pgrid_dims(dims, accept_ratio, relative)
       INTEGER, DIMENSION(2), INTENT(IN) :: dims
       REAL(real_8), INTENT(IN) :: accept_ratio
+      LOGICAL, INTENT(IN) :: relative
       INTEGER, DIMENSION(2) :: dims_opt
       LOGICAL :: accept_pgrid_dims
       REAL(real_8) :: ratio
 
       ratio = MAX(accept_ratio, 1.0_real_8/accept_ratio)
 
-      dims_opt = 0
-      CALL mp_dims_create(PRODUCT(dims), dims_opt)
-      accept_pgrid_dims = (MAXVAL(REAL(dims, real_8))/MAXVAL(dims_opt) .LT. ratio)
+      IF(relative) THEN
+         dims_opt = 0
+         CALL mp_dims_create(PRODUCT(dims), dims_opt)
+         accept_pgrid_dims = (MAXVAL(REAL(dims, real_8))/MAXVAL(dims_opt) .LT. ratio)
+      ELSE
+         ratio = ratio**2
+         accept_pgrid_dims = (MAXVAL(REAL(dims, real_8))/MINVAL(dims) .LT. ratio)
+      ENDIF
    END FUNCTION
 
 ! **************************************************************************************************

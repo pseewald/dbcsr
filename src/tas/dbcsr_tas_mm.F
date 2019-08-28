@@ -362,7 +362,7 @@ CONTAINS
       CALL mp_environ(numproc_sub, pdims_sub, pcoord_sub, mp_comm_group)
 
       IF (.NOT. simple_split_prv) THEN
-         opt_pgrid = .NOT. accept_pgrid_dims(pdims_sub, pdims_ratio_prv)
+         opt_pgrid = .NOT. accept_pgrid_dims(pdims_sub, pdims_ratio_prv, relative=.TRUE.)
       ELSE
          opt_pgrid = .FALSE.
       ENDIF
