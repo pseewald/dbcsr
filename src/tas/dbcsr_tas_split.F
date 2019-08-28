@@ -28,6 +28,7 @@ MODULE dbcsr_tas_split
                             mp_comm_split_direct, &
                             mp_dims_create, &
                             mp_environ
+   USE dbcsr_kinds, ONLY: real_8
 #include "../base/dbcsr_base_uses.f90"
 
    IMPLICIT NONE
@@ -48,7 +49,8 @@ MODULE dbcsr_tas_split
       group_to_world_proc_map, &
       mrowcol_to_group, &
       rowsplit, &
-      world_to_group_proc_map
+      world_to_group_proc_map, &
+      accept_pgrid_dims
 
    CHARACTER(len=*), PARAMETER, PRIVATE :: moduleN = 'dbcsr_tas_split'
 
@@ -175,8 +177,8 @@ CONTAINS
 
       INTEGER                                            :: dbcsr_tas_mp_comm
       INTEGER                                            :: group_size
-      INTEGER, DIMENSION(2)                              :: group_dims, &
-                                                            sort_indices
+      INTEGER, DIMENSION(2)                              :: group_dims
+
       DO WHILE (MOD(numproc, nsplit) .NE. 0)
          nsplit = nsplit - 1
       ENDDO
@@ -185,7 +187,15 @@ CONTAINS
       group_dims(:) = 0
 
       CALL mp_dims_create(group_size, group_dims)
-      CALL sort(group_dims, 2, sort_indices)
+
+      ! here we choose order of group dims s.t. a split factor < nsplit is favoured w.r.t.
+      ! optimal subgrid dimensions
+      SELECT CASE(split_rowcol)
+      CASE(rowsplit)
+         group_dims = [MINVAL(group_dims), MAXVAL(group_dims)]
+      CASE(colsplit)
+         group_dims = [MAXVAL(group_dims), MINVAL(group_dims)]
+      END SELECT
 
       SELECT CASE (split_rowcol)
       CASE (rowsplit)
@@ -228,18 +238,21 @@ CONTAINS
 !> \param mp_comm ...
 !> \param split_rowcol ...
 !> \param nsplit ...
+!> \param pdims_ratio ...
 ! **************************************************************************************************
-   SUBROUTINE dbcsr_tas_create_split(split_info, mp_comm, split_rowcol, nsplit)
+   SUBROUTINE dbcsr_tas_create_split(split_info, mp_comm, split_rowcol, nsplit, pdims_ratio)
       TYPE(dbcsr_tas_create_split_info), INTENT(OUT)     :: split_info
       INTEGER, INTENT(IN)                                :: mp_comm
       INTEGER, INTENT(IN)                                :: split_rowcol
       INTEGER, INTENT(INOUT)                             :: nsplit
+      REAL(KIND=real_8), INTENT(IN), OPTIONAL            :: pdims_ratio
 
       CHARACTER(LEN=*), PARAMETER :: routineN = 'dbcsr_tas_create_split', routineP = moduleN//':'//routineN
 
       INTEGER                                            :: handle, iproc, numproc, &
-                                                            igroup
-      INTEGER, DIMENSION(2)                              :: pcoord, pdims, pdims_group
+                                                            igroup, nsplit_mod
+      INTEGER, DIMENSION(2)                              :: pcoord, pdims, pdims_group, pdims_group_mod
+      LOGICAL                                            :: accept_pgrid, reduce_split
 
       CALL timeset(routineN, handle)
 
@@ -257,6 +270,41 @@ CONTAINS
          pdims_group = [pdims(1), pdims(2)/nsplit]
       END SELECT
 
+      IF(PRESENT(pdims_ratio)) THEN
+
+         accept_pgrid = accept_pgrid_dims(pdims_group, pdims_ratio)
+         IF(.NOT. accept_pgrid) THEN
+            nsplit_mod = nsplit
+            SELECT CASE (split_rowcol)
+            CASE (rowsplit)
+               reduce_split = pdims_group(1) <= pdims_group(2)
+            CASE (colsplit)
+               reduce_split = pdims_group(2) <= pdims_group(1)
+            END SELECT
+            IF(reduce_split) THEN
+               DO WHILE (MOD(pdims(split_rowcol), nsplit_mod) .NE. 0)
+                  nsplit_mod = nsplit_mod - 1
+               ENDDO
+            ELSE
+               DO WHILE (MOD(pdims(split_rowcol), nsplit_mod) .NE. 0)
+                  nsplit_mod = nsplit_mod + 1
+               ENDDO
+            ENDIF
+
+            SELECT CASE (split_rowcol)
+            CASE (rowsplit)
+               pdims_group_mod = [pdims(1)/nsplit_mod, pdims(2)]
+            CASE (colsplit)
+               pdims_group_mod = [pdims(1), pdims(2)/nsplit_mod]
+            END SELECT
+            accept_pgrid = accept_pgrid_dims(pdims_group_mod, pdims_ratio)
+            IF(accept_pgrid) THEN
+               nsplit = nsplit_mod
+               pdims_group = pdims_group_mod
+            ENDIF
+         ENDIF
+      ENDIF
+
       igroup = pcoord(split_rowcol)/pdims_group(split_rowcol)
 
       CALL dbcsr_tas_create_split_rows_or_cols(split_info, mp_comm, nsplit, igroup, split_rowcol)
@@ -264,6 +312,26 @@ CONTAINS
       CALL timestop(handle)
 
    END SUBROUTINE
+
+! **************************************************************************************************
+!> \brief ...
+!> \param dims ...
+!> \param accept_ratio ...
+!> \return ...
+! **************************************************************************************************
+   FUNCTION accept_pgrid_dims(dims, accept_ratio)
+      INTEGER, DIMENSION(2), INTENT(IN) :: dims
+      REAL(real_8), INTENT(IN) :: accept_ratio
+      INTEGER, DIMENSION(2) :: dims_opt
+      LOGICAL :: accept_pgrid_dims
+      REAL(real_8) :: ratio
+
+      ratio = MAX(accept_ratio, 1.0_real_8/accept_ratio)
+
+      dims_opt = 0
+      CALL mp_dims_create(PRODUCT(dims), dims_opt)
+      accept_pgrid_dims = (MAXVAL(REAL(dims, real_8))/MAXVAL(dims_opt) .LT. ratio)
+   END FUNCTION
 
 ! **************************************************************************************************
 !> \brief Get info on split

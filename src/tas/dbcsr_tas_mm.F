@@ -34,7 +34,7 @@ MODULE dbcsr_tas_mm
       dbcsr_tas_get_data_type, dbcsr_tas_info, dbcsr_tas_nblkcols_total, &
       dbcsr_tas_nblkrows_total, dbcsr_tas_filter, dbcsr_tas_get_info, dbcsr_tas_iterator_blocks_left, &
       dbcsr_tas_get_nze_total, dbcsr_tas_reserve_blocks, dbcsr_tas_iterator_start, dbcsr_tas_iterator_next_block, &
-      dbcsr_tas_iterator_stop, dbcsr_tas_copy, dbcsr_tas_get_block_p, dbcsr_tas_clear
+      dbcsr_tas_iterator_stop, dbcsr_tas_copy, dbcsr_tas_get_block_p, dbcsr_tas_clear, dbcsr_tas_get_nze
    USE dbcsr_tas_types, ONLY: dbcsr_tas_distribution_type, &
                               dbcsr_tas_create_split_info, &
                               dbcsr_tas_type, &
@@ -54,7 +54,8 @@ MODULE dbcsr_tas_mm
                               dbcsr_tas_create_split, &
                               dbcsr_tas_mp_comm, &
                               dbcsr_tas_release_info, &
-                              dbcsr_tas_mp_dims
+                              dbcsr_tas_mp_dims, &
+                              accept_pgrid_dims
    USE dbcsr_tas_util, ONLY: swap, &
                              invert_transpose_flag, &
                              array_eq_i8, &
@@ -88,6 +89,7 @@ MODULE dbcsr_tas_mm
                             dbcsr_release,&
                             dbcsr_distribution_release,&
                             dbcsr_get_nze
+   USE dbcsr_lib, ONLY: dbcsr_clear_mempools
 #include "../base/dbcsr_base_uses.f90"
 
    IMPLICIT NONE
@@ -160,7 +162,7 @@ CONTAINS
                                                     routineP = moduleN//':'//routineN
       INTEGER(KIND=int_8)                        :: nze_a, nze_b, nze_c, nze_result
       TYPE(dbcsr_type), POINTER                  :: matrix_a_mm, matrix_b_mm, matrix_c_mm
-      INTEGER, DIMENSION(2)                      :: pdims_opt_prv, pdims_opt_sub
+      INTEGER, DIMENSION(2)                      :: pdims_opt_prv
 
       CALL timeset(routineN, handle)
 
@@ -238,6 +240,8 @@ CONTAINS
       IF (io_unit_prv > 0) THEN
          WRITE (io_unit_prv, "(T2,A, 1X, I12, 1X, I12, 1X, I12)") "mm dims:", dims(1), dims(2), dims(3)
       ENDIF
+
+      nze_result = dbcsr_tas_get_nze(matrix_c)
 
       CALL dbcsr_tas_get_split_info(dbcsr_tas_info(matrix_a), mp_comm=mp_comm)
       CALL mp_environ(numproc, iproc, mp_comm)
@@ -349,14 +353,6 @@ CONTAINS
       END SELECT
 
       IF (.NOT. simple_split_prv) THEN
-         pdims_opt_sub = pdims_opt_prv
-         SELECT CASE (split_rc)
-         CASE (rowsplit)
-            pdims_opt_sub(1) = pdims_opt_sub(1)/nsplit
-         CASE (colsplit)
-            pdims_opt_sub(2) = pdims_opt_sub(2)/nsplit
-         END SELECT
-
          IF (PRESENT(pdims_opt)) pdims_opt = pdims_opt_prv
       ENDIF
 
@@ -366,8 +362,7 @@ CONTAINS
       CALL mp_environ(numproc_sub, pdims_sub, pcoord_sub, mp_comm_group)
 
       IF (.NOT. simple_split_prv) THEN
-         opt_pgrid = (MAXVAL(REAL(pdims_opt_sub, real_8))/MAXVAL(pdims_sub) .GE. pdims_ratio_prv) .OR. &
-                     (MINVAL(REAL(pdims_opt_sub, real_8))/MINVAL(pdims_sub) .GE. pdims_ratio_prv)
+         opt_pgrid = .NOT. accept_pgrid_dims(pdims_sub, pdims_ratio_prv)
       ELSE
          opt_pgrid = .FALSE.
       ENDIF
@@ -426,8 +421,6 @@ CONTAINS
 
          CALL convert_to_new_pgrid(mp_comm_mm, matrix_c_rs%matrix, matrix_c_mm, nodata=.TRUE., optimize_pgrid=opt_pgrid)
 
-         nze_result = dbcsr_get_nze(matrix_c_mm)
-
          SELECT CASE (tr_case)
          CASE (dbcsr_no_transpose)
             CALL timeset(routineN//"_mm_1N", handle2)
@@ -445,7 +438,7 @@ CONTAINS
             CALL timestop(handle2)
          END SELECT
 
-         nze_result = dbcsr_get_nze(matrix_c_mm) - nze_result
+         CALL dbcsr_clear_mempools() ! todo: more systematic solution, this is not safe for gpus
 
          IF (opt_pgrid) THEN
             CALL dbcsr_release(matrix_a_mm)
@@ -492,15 +485,13 @@ CONTAINS
 
          CALL convert_to_new_pgrid(mp_comm_mm, matrix_c_rep%matrix, matrix_c_mm, nodata=.TRUE., optimize_pgrid=opt_pgrid)
 
-         nze_result = dbcsr_get_nze(matrix_c_mm)
-
          CALL timeset(routineN//"_mm_2", handle2)
          CALL dbcsr_multiply(transa=transa_prv, transb=transb_prv, alpha=alpha, matrix_a=matrix_a_mm, &
                              matrix_b=matrix_b_mm, beta=beta, matrix_c=matrix_c_mm, &
                              filter_eps=filter_eps_prv/REAL(nsplit, KIND=real_8), flop=flop)
          CALL timestop(handle2)
 
-         nze_result = dbcsr_get_nze(matrix_c_mm) - nze_result
+         CALL dbcsr_clear_mempools()
 
          IF (opt_pgrid) THEN
             CALL dbcsr_release(matrix_a_mm)
@@ -546,8 +537,6 @@ CONTAINS
          ENDIF
          CALL convert_to_new_pgrid(mp_comm_mm, matrix_c_rs%matrix, matrix_c_mm, nodata=.TRUE., optimize_pgrid=opt_pgrid)
 
-         nze_result = dbcsr_get_nze(matrix_c_mm)
-
          SELECT CASE (tr_case)
          CASE (dbcsr_no_transpose)
             CALL timeset(routineN//"_mm_3N", handle2)
@@ -563,7 +552,7 @@ CONTAINS
             CALL timestop(handle2)
          END SELECT
 
-         nze_result = dbcsr_get_nze(matrix_c_mm) - nze_result
+         CALL dbcsr_clear_mempools()
 
          IF (opt_pgrid) THEN
             CALL dbcsr_release(matrix_a_mm)
@@ -594,14 +583,6 @@ CONTAINS
       CALL mp_comm_free(mp_comm_mm)
 
       CALL dbcsr_tas_get_split_info(dbcsr_tas_info(matrix_c), mp_comm=mp_comm)
-      CALL mp_sum(nze_result, mp_comm)
-
-      IF (io_unit_prv > 0) THEN
-         WRITE (io_unit_prv, "(T2,A)") &
-            "MM PARAMETERS"
-         WRITE (io_unit_prv, "(T4,A,T68,F13.1)") "rel. error in est. occupancy: (nze_guess - nze_calc)/nze_calc", &
-            (REAL(nze_c, real_8) - REAL(nze_result, real_8))/REAL(nze_result, real_8)
-      ENDIF
 
       IF (new_c) THEN
          CALL dbcsr_scale(matrix_c%matrix, beta)
@@ -610,6 +591,16 @@ CONTAINS
          CALL dbcsr_tas_destroy(matrix_c_rs)
          DEALLOCATE (matrix_c_rs)
          IF (PRESENT(filter_eps)) CALL dbcsr_tas_filter(matrix_c, filter_eps)
+      ENDIF
+
+      nze_result = dbcsr_tas_get_nze(matrix_c) - nze_result
+      IF(PRESENT(io_unit)) CALL mp_sum(nze_result, mp_comm)
+
+      IF (io_unit_prv > 0) THEN
+         WRITE (io_unit_prv, "(T2,A)") &
+            "MM PARAMETERS"
+         WRITE (io_unit_prv, "(T4,A,T68,F13.1)") "rel. error in est. occupancy: (nze_guess - nze_calc)/nze_calc", &
+            (REAL(nze_c, real_8) - REAL(nze_result, real_8))/REAL(nze_result, real_8)
       ENDIF
 
       IF (PRESENT(flop)) THEN
@@ -1220,11 +1211,14 @@ CONTAINS
    FUNCTION split_factor_estimate(nze_a, nze_b, nze_c, numnodes) RESULT(nsplit)
       INTEGER(KIND=int_8), INTENT(IN)             :: nze_a, nze_b, nze_c
       INTEGER, INTENT(IN)                         :: numnodes
-      INTEGER                                     :: nsplit
+      INTEGER                                     :: nsplit, nsplit_comm, nsplit_memory
       INTEGER(KIND=int_8)                         :: min_nze
 
       min_nze = MAX(MINVAL([nze_a, nze_b, nze_c]),1_int_8)
-      nsplit = CEILING(((nze_a + nze_b)/(2*min_nze))**(2._real_8/3)*numnodes**(1._real_8/3))
+      nsplit_comm = CEILING(((nze_a + nze_b)/(2*min_nze))**(2._real_8/3)*numnodes**(1._real_8/3))
+      nsplit_memory = INT((MAX(nze_a, nze_b) - 1)/nze_c + 1)
+
+      nsplit = MIN(nsplit_comm, nsplit_memory)
 
    END FUNCTION
 
