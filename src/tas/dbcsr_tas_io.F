@@ -192,9 +192,8 @@ CONTAINS
 !> \param name ...
 !> \param io_unit ...
 ! **************************************************************************************************
-   SUBROUTINE dbcsr_tas_write_split_info(info, name, io_unit)
+   SUBROUTINE dbcsr_tas_write_split_info(info, io_unit)
       TYPE(dbcsr_tas_create_split_info), INTENT(IN)               :: info
-      CHARACTER(len=*), INTENT(IN)                       :: name
       INTEGER, INTENT(IN) :: io_unit
       INTEGER                                            :: groupsize, igroup, mp_comm, &
                                                             mp_comm_group, mynode, nsplit, &
@@ -210,16 +209,16 @@ CONTAINS
       IF (io_unit > 0) THEN
          SELECT CASE (split_rowcol)
          CASE (rowsplit)
-            WRITE (io_unit, "(T4,A,I4,1X,A,I4)") TRIM(name)//" splitting rows by factor", nsplit
+            WRITE (io_unit, "(T4,A,I4,1X,A,I4)") "splitting rows by factor", nsplit
          CASE (colsplit)
-            WRITE (io_unit, "(T4,A,I4,1X,A,I4)") TRIM(name)//" splitting columns by factor", nsplit
+            WRITE (io_unit, "(T4,A,I4,1X,A,I4)") "splitting columns by factor", nsplit
          END SELECT
-         WRITE (io_unit, "(T4,A, I4,A1,I4)") TRIM(name)//" global grid sizes:", dims(1), "x", dims(2)
+         WRITE (io_unit, "(T4,A, I4,A1,I4)") "global grid sizes:", dims(1), "x", dims(2)
       ENDIF
 
       IF (io_unit > 0) THEN
          WRITE (io_unit, "(T4,A,I4,A1,I4)") &
-            TRIM(name)//" grid sizes on subgroups:", &
+            "grid sizes on subgroups:", &
             groupdims(1), "x", groupdims(2)
       ENDIF
 

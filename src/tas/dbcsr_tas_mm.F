@@ -364,7 +364,7 @@ CONTAINS
          IF (io_unit_prv > 0) THEN
             WRITE (io_unit_prv, "(T2, A)") "SPLIT / PARALLELIZATION INFO"
          ENDIF
-         CALL dbcsr_tas_write_split_info(info, "Split info:", io_unit_prv)
+         CALL dbcsr_tas_write_split_info(info, io_unit_prv)
          CALL dbcsr_tas_write_matrix_info(matrix_a_rs, io_unit_prv, full_info=log_verbose)
          CALL dbcsr_tas_write_matrix_info(matrix_b_rs, io_unit_prv, full_info=log_verbose)
          CALL dbcsr_tas_write_matrix_info(matrix_c_rs, io_unit_prv, full_info=log_verbose)
@@ -809,8 +809,16 @@ CONTAINS
          IF (io_unit > 0) THEN
             WRITE (io_unit, "(T2,A,1X,A,1X,A,1X,A)") "No redistribution of", TRIM(matrix1_in%matrix%name), &
                "and", TRIM(matrix2_in%matrix%name)
-            IF(new1) WRITE (io_unit, "(T2,A,1X,A)") "Changing split factor of", TRIM(matrix1_in%matrix%name)
-            IF(new2) WRITE (io_unit, "(T2,A,1X,A)") "Changing split factor of", TRIM(matrix2_in%matrix%name)
+            IF(new1) THEN
+               WRITE (io_unit, "(T2,A,1X,A,1X,A)") "Changing split factor of", TRIM(matrix1_in%matrix%name), ": Yes"
+            ELSE
+               WRITE (io_unit, "(T2,A,1X,A,1X,A)") "Changing split factor of", TRIM(matrix1_in%matrix%name), ": No"
+            ENDIF
+            IF(new2) THEN
+               WRITE (io_unit, "(T2,A,1X,A,1X,A)") "Changing split factor of", TRIM(matrix2_in%matrix%name), ": Yes"
+            ELSE
+               WRITE (io_unit, "(T2,A,1X,A,1X,A)") "Changing split factor of", TRIM(matrix2_in%matrix%name), ": No"
+            ENDIF
          ENDIF
       ELSE
 
