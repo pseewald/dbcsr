@@ -54,7 +54,8 @@ MODULE dbcsr_tensor_types
                                  combine_index, &
                                  ndims_mapping
    USE dbcsr_tas_split, ONLY: dbcsr_tas_create_split_rows_or_cols, &
-                              dbcsr_tas_release_info
+                              dbcsr_tas_release_info, &
+                              dbcsr_tas_info_hold
    USE dbcsr_kinds, ONLY: default_string_length, int_8
    USE dbcsr_mpiwrap, ONLY: mp_cart_create, &
                             mp_cart_rank, &
