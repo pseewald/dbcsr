@@ -27,7 +27,8 @@ MODULE dbcsr_tensor_types
                                        sum_of_arrays, &
                                        array_sublist, &
                                        get_arrays, &
-                                       get_ith_array
+                                       get_ith_array, &
+                                       array_eq_i
    USE dbcsr_api, ONLY: &
       dbcsr_distribution_get, &
       dbcsr_distribution_type, &
@@ -1106,10 +1107,17 @@ CONTAINS
       INTEGER, DIMENSION(:), INTENT(IN) :: map1_2d, map2_2d
       TYPE(dbcsr_t_pgrid_type), INTENT(OUT) :: pgrid_out
       INTEGER, DIMENSION(:), ALLOCATABLE :: dims
+      INTEGER, ALLOCATABLE, DIMENSION(:) :: map1_2d_old, map2_2d_old
 
       ALLOCATE (dims(SIZE(map1_2d) + SIZE(map2_2d)))
-      CALL dbcsr_t_get_mapping_info(pgrid_in%nd_index_grid, dims_nd=dims)
+      CALL dbcsr_t_get_mapping_info(pgrid_in%nd_index_grid, dims_nd=dims, map1_2d=map1_2d_old, map2_2d=map2_2d_old)
       CALL dbcsr_t_pgrid_create(pgrid_in%mp_comm_2d, dims, pgrid_out, map1_2d, map2_2d)
+      IF(array_eq_i(map1_2d_old, map1_2d) .AND. array_eq_i(map2_2d_old, map2_2d)) THEN
+         IF (ALLOCATED(pgrid_in%tas_split_info)) THEN
+            ALLOCATE (pgrid_out%tas_split_info, SOURCE=pgrid_in%tas_split_info)
+            CALL dbcsr_tas_info_hold(pgrid_out%tas_split_info)
+         ENDIF
+      ENDIF
    END SUBROUTINE
 
 ! **************************************************************************************************
