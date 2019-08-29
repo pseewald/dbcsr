@@ -54,7 +54,6 @@ MODULE dbcsr_tas_mm
                               dbcsr_tas_create_split, &
                               dbcsr_tas_mp_comm, &
                               dbcsr_tas_release_info, &
-                              dbcsr_tas_mp_dims, &
                               accept_pgrid_dims, &
                               dbcsr_tas_info_hold
    USE dbcsr_tas_util, ONLY: swap, &
@@ -152,7 +151,8 @@ CONTAINS
       INTEGER(KIND=int_8), DIMENSION(3)          :: dims
       INTEGER                                    :: max_mm_dim, data_type, mp_comm, comm_tmp, &
                                                     handle, handle2, io_unit_prv, nsplit, numproc, numproc_sub, iproc, &
-                                                    mp_comm_group, mp_comm_mm, split_rc, split_a, split_b, split_c
+                                                    mp_comm_group, mp_comm_mm, split_rc, split_a, split_b, split_c, &
+                                                    mp_comm_opt
       CHARACTER(LEN=1)                           :: tr_case, transa_prv, transb_prv, transc_prv
       TYPE(dbcsr_scalar_type)                    :: zero
       LOGICAL                                    :: new_a, new_b, new_c, simple_split_prv, opt_pgrid,&
@@ -342,10 +342,7 @@ CONTAINS
 
       END SELECT
 
-      IF(PRESENT(split_opt)) THEN
-         split_opt = info
-         CALL dbcsr_tas_info_hold(split_opt)
-      ENDIF
+
       CALL dbcsr_tas_get_split_info(info, nsplit=nsplit, mp_comm=mp_comm, mp_comm_group=mp_comm_group)
 
       CALL mp_environ(numproc, pdims, pcoord, mp_comm)
@@ -571,6 +568,12 @@ CONTAINS
       CALL mp_comm_free(mp_comm_mm)
 
       CALL dbcsr_tas_get_split_info(dbcsr_tas_info(matrix_c), mp_comm=mp_comm)
+
+      IF(PRESENT(split_opt)) THEN
+         mp_comm_opt = dbcsr_tas_mp_comm(mp_comm, split_rc, nsplit)
+         CALL dbcsr_tas_create_split(split_opt, mp_comm_opt, split_rc, nsplit, own_comm=.TRUE.)
+         CALL dbcsr_tas_info_hold(split_opt)
+      ENDIF
 
       IF (new_c) THEN
          CALL dbcsr_scale(matrix_c%matrix, beta)

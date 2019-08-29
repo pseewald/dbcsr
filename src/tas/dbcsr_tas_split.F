@@ -72,23 +72,35 @@ CONTAINS
 !> \param igroup my group ID
 !> \param split_rowcol split rows or columns
 ! **************************************************************************************************
-   SUBROUTINE dbcsr_tas_create_split_rows_or_cols(split_info, mp_comm, ngroup, igroup, split_rowcol)
+   SUBROUTINE dbcsr_tas_create_split_rows_or_cols(split_info, mp_comm, ngroup, igroup, split_rowcol, own_comm)
       TYPE(dbcsr_tas_create_split_info), INTENT(OUT)              :: split_info
       INTEGER, INTENT(IN)                                :: mp_comm
       INTEGER, INTENT(INOUT)                             :: ngroup
       INTEGER, INTENT(IN)                                :: igroup, split_rowcol
+      LOGICAL, INTENT(IN), OPTIONAL                      :: own_comm
 
       INTEGER :: &
          igroup_check, iproc, iproc_group, iproc_group_check, mp_comm_group, numproc, &
          numproc_group, numproc_group_check, handle
       INTEGER, DIMENSION(2)                              :: pcoord, pcoord_group, pdims, pdims_group
-      LOGICAL                                            :: to_assert
+      LOGICAL                                            :: to_assert, own_comm_prv
       CHARACTER(LEN=*), PARAMETER :: routineN = 'dbcsr_tas_create_split_rows_or_cols', &
                                      routineP = moduleN//':'//routineN
 
       CALL timeset(routineN, handle)
 
-      CALL mp_comm_dup(mp_comm, split_info%mp_comm)
+      IF(PRESENT(own_comm)) THEN
+         own_comm_prv = own_comm
+      ELSE
+         own_comm_prv = .FALSE.
+      ENDIF
+
+      IF(own_comm_prv) THEN
+         split_info%mp_comm = mp_comm
+      ELSE
+         CALL mp_comm_dup(mp_comm, split_info%mp_comm)
+      ENDIF
+
       split_info%igroup = igroup
       split_info%split_rowcol = split_rowcol
 
@@ -240,12 +252,13 @@ CONTAINS
 !> \param nsplit ...
 !> \param pdims_ratio ...
 ! **************************************************************************************************
-   SUBROUTINE dbcsr_tas_create_split(split_info, mp_comm, split_rowcol, nsplit, pdims_ratio)
+   SUBROUTINE dbcsr_tas_create_split(split_info, mp_comm, split_rowcol, nsplit, pdims_ratio, own_comm)
       TYPE(dbcsr_tas_create_split_info), INTENT(OUT)     :: split_info
       INTEGER, INTENT(IN)                                :: mp_comm
       INTEGER, INTENT(IN)                                :: split_rowcol
       INTEGER, INTENT(INOUT)                             :: nsplit
       REAL(KIND=real_8), INTENT(IN), OPTIONAL            :: pdims_ratio
+      LOGICAL, INTENT(IN), OPTIONAL                      :: own_comm
 
       CHARACTER(LEN=*), PARAMETER :: routineN = 'dbcsr_tas_create_split', routineP = moduleN//':'//routineN
 
@@ -307,7 +320,7 @@ CONTAINS
 
       igroup = pcoord(split_rowcol)/pdims_group(split_rowcol)
 
-      CALL dbcsr_tas_create_split_rows_or_cols(split_info, mp_comm, nsplit, igroup, split_rowcol)
+      CALL dbcsr_tas_create_split_rows_or_cols(split_info, mp_comm, nsplit, igroup, split_rowcol, own_comm=own_comm)
 
       CALL timestop(handle)
 
