@@ -108,6 +108,7 @@ MODULE dbcsr_tensor_types
    TYPE dbcsr_t_pgrid_type
       TYPE(nd_to_2d_mapping) :: nd_index_grid
       INTEGER                :: mp_comm_2d
+      TYPE(dbcsr_tas_create_split_info), ALLOCATABLE :: tas_split_info
    END TYPE
 
    TYPE dbcsr_t_type
@@ -453,14 +454,12 @@ CONTAINS
 !> \param dimsplit which dimension to split (1: row, 2: column)
 !> \param own_comm whether distribution should own communicator
 ! **************************************************************************************************
-   SUBROUTINE dbcsr_t_distribution_new(dist, pgrid, map1_2d, map2_2d, ${varlist("nd_dist")}$, ngroup, dimsplit, own_comm)
+   SUBROUTINE dbcsr_t_distribution_new(dist, pgrid, map1_2d, map2_2d, ${varlist("nd_dist")}$, own_comm)
 
       TYPE(dbcsr_t_distribution_type), INTENT(OUT)    :: dist
       TYPE(dbcsr_t_pgrid_type), INTENT(IN)            :: pgrid
       INTEGER, DIMENSION(:), INTENT(IN)               :: map1_2d, map2_2d
       INTEGER, DIMENSION(:), INTENT(IN), OPTIONAL     :: ${varlist("nd_dist")}$
-      INTEGER, INTENT(IN), OPTIONAL                   :: ngroup
-      INTEGER, INTENT(IN), OPTIONAL                   :: dimsplit
       LOGICAL, INTENT(IN), OPTIONAL                   :: own_comm
       INTEGER                                         :: ndims, comm_2d
       INTEGER, DIMENSION(2)                           :: pdims_2d_check, &
@@ -470,12 +469,11 @@ CONTAINS
       TYPE(array_list)                                :: nd_dist
       TYPE(nd_to_2d_mapping)                          :: map_blks, map_grid
       INTEGER                                         :: handle
-      TYPE(dbcsr_tas_dist_t)                            :: row_dist_obj, col_dist_obj
+      TYPE(dbcsr_tas_dist_t)                          :: row_dist_obj, col_dist_obj
       TYPE(dbcsr_t_pgrid_type)                        :: pgrid_prv
       LOGICAL                                         :: need_pgrid_remap
-      INTEGER, DIMENSION(:), ALLOCATABLE               :: map1_2d_check, map2_2d_check
-      INTEGER                                         :: igroup, ngroup_prv
-      TYPE(dbcsr_tas_create_split_info)                        :: split_info
+      INTEGER, DIMENSION(:), ALLOCATABLE              :: map1_2d_check, map2_2d_check
+      TYPE(dbcsr_tas_create_split_info)               :: split_info
       CHARACTER(LEN=*), PARAMETER :: routineN = 'dbcsr_t_distribution_new', &
                                      routineP = moduleN//':'//routineN
 
@@ -522,22 +520,8 @@ CONTAINS
          DBCSR_ABORT("inconsistent process grid dimensions")
       ENDIF
 
-      IF (PRESENT(ngroup)) THEN
-         DBCSR_ASSERT(PRESENT(dimsplit))
-
-         IF (MOD(pdims_2d(dimsplit), ngroup) .NE. 0) THEN
-            DBCSR_ABORT("split factor must divide process grid dimension")
-         ENDIF
-
-         igroup = task_coor_2d(dimsplit)/(pdims_2d(dimsplit)/ngroup)
-
-         ngroup_prv = ngroup
-         CALL dbcsr_tas_create_split_rows_or_cols(split_info, comm_2d, ngroup_prv, igroup, dimsplit)
-
-         DBCSR_ASSERT(ngroup_prv == ngroup)
-
+      IF(ALLOCATED(pgrid%tas_split_info)) THEN
          CALL dbcsr_tas_distribution_new(dist%dist, comm_2d, row_dist_obj, col_dist_obj, split_info=split_info)
-         CALL dbcsr_tas_release_info(split_info)
       ELSE
          CALL dbcsr_tas_distribution_new(dist%dist, comm_2d, row_dist_obj, col_dist_obj)
       ENDIF
@@ -1105,6 +1089,10 @@ CONTAINS
       ENDIF
       IF (.NOT. keep_comm_prv) CALL mp_comm_free(pgrid%mp_comm_2d)
       CALL destroy_nd_to_2d_mapping(pgrid%nd_index_grid)
+      IF(ALLOCATED(pgrid%tas_split_info) .AND. .NOT. keep_comm_prv) THEN
+         CALL dbcsr_tas_release_info(pgrid%tas_split_info)
+         DEALLOCATE(pgrid%tas_split_info)
+      ENDIF
    END SUBROUTINE
 
 ! **************************************************************************************************

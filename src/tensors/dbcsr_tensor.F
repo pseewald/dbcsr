@@ -35,6 +35,7 @@ MODULE dbcsr_tensor
       dbcsr_iterator_next_block, dbcsr_iterator_start, dbcsr_iterator_stop, &
       dbcsr_transpose, dbcsr_no_transpose, dbcsr_scalar, dbcsr_put_block, &
       ${uselist(dtype_float_param)}$, dbcsr_clear
+   USE dbcsr_tas_types, ONLY: dbcsr_tas_create_split_info
    USE dbcsr_tas_base, ONLY: &
       dbcsr_tas_copy, dbcsr_tas_finalize, dbcsr_tas_get_data_type, dbcsr_tas_get_info, dbcsr_tas_info
    USE dbcsr_tas_mm, ONLY: dbcsr_tas_multiply
@@ -82,7 +83,8 @@ MODULE dbcsr_tensor
    USE dbcsr_toollib, ONLY: sort
    USE dbcsr_tensor_reshape, ONLY: dbcsr_t_reshape
    USE dbcsr_mpiwrap, ONLY: mp_comm_free
-   USE dbcsr_tas_split, ONLY: dbcsr_tas_mp_comm, rowsplit, colsplit
+   USE dbcsr_tas_split, ONLY: &
+      dbcsr_tas_mp_comm, rowsplit, colsplit, dbcsr_tas_info_hold, dbcsr_tas_release_info
    USE dbcsr_data_types, ONLY: dbcsr_scalar_type
    USE dbcsr_tensor_split, ONLY: dbcsr_t_split_copyback, &
                                  dbcsr_t_make_compatible_blocks,&
@@ -405,8 +407,7 @@ CONTAINS
       INTEGER, DIMENSION(2, dbcsr_t_ndims(tensor_1)) :: bounds_t1
       INTEGER, DIMENSION(2, dbcsr_t_ndims(tensor_2)) :: bounds_t2
       LOGICAL :: do_crop_1, do_crop_2
-      INTEGER, DIMENSION(2) :: pdims_opt
-      INTEGER, DIMENSION(3) :: split_opt
+      TYPE(dbcsr_tas_create_split_info) :: split_opt
 
       CALL timeset(routineN, handle)
 
@@ -657,7 +658,7 @@ CONTAINS
                               beta, &
                               tensor_contr_3%matrix_rep, filter_eps=filter_eps, flop=flop, &
                               io_unit=unit_nr, log_verbose=log_verbose, &
-                              pdims_opt=pdims_opt, split_opt=split_opt, &
+                              split_opt=split_opt, &
                               move_data_a=move_data_1, move_data_b=move_data_2)
 
       IF(PRESENT(pgrid_opt_1)) THEN
@@ -665,7 +666,7 @@ CONTAINS
             CALL dbcsr_abort(__LOCATION__, &
                              "pgrid_opt_1 can not be returned because tensor_1 not in matrix multiplication compatible layout")
          ELSE
-            pgrid_opt_1 = opt_pgrid(tensor_1, pdims_opt, split_opt(1))
+            pgrid_opt_1 = opt_pgrid(tensor_1, split_opt)
          ENDIF
       ENDIF
 
@@ -674,7 +675,7 @@ CONTAINS
             CALL dbcsr_abort(__LOCATION__, &
                              "pgrid_opt_2 can not be returned because tensor_2 not in matrix multiplication compatible layout")
          ELSE
-            pgrid_opt_2 = opt_pgrid(tensor_2, pdims_opt, split_opt(2))
+            pgrid_opt_2 = opt_pgrid(tensor_2, split_opt)
          ENDIF
       ENDIF
 
@@ -683,9 +684,11 @@ CONTAINS
             CALL dbcsr_abort(__LOCATION__, &
                              "pgrid_opt_3 can not be returned because tensor_3 not in matrix multiplication compatible layout")
          ELSE
-            pgrid_opt_3 = opt_pgrid(tensor_3, pdims_opt, split_opt(3))
+            pgrid_opt_3 = opt_pgrid(tensor_3, split_opt)
          ENDIF
       ENDIF
+
+      CALL dbcsr_tas_release_info(split_opt)
 
       IF (PRESENT(unit_nr)) THEN
          CALL dbcsr_t_write_tensor_info(tensor_contr_3, unit_nr, full_info=log_verbose)
@@ -1136,27 +1139,18 @@ CONTAINS
 
    END SUBROUTINE
 
-   FUNCTION opt_pgrid(tensor, pdims_opt_2d, split_opt)
-      TYPE(dbcsr_t_type), INTENT(IN) :: tensor
-      INTEGER, DIMENSION(2), &
-         INTENT(IN)                  :: pdims_opt_2d
-      INTEGER, INTENT(IN)            :: split_opt
 
-      INTEGER, DIMENSION(2)          :: pdims_2d
+   FUNCTION opt_pgrid(tensor, tas_split_info)
+      TYPE(dbcsr_t_type), INTENT(IN) :: tensor
+      TYPE(dbcsr_tas_create_split_info), INTENT(IN) :: tas_split_info
       INTEGER, DIMENSION(:), ALLOCATABLE :: map1, map2
       TYPE(dbcsr_t_pgrid_type) :: opt_pgrid
 
       CALL dbcsr_t_get_mapping_info(tensor%pgrid%nd_index_grid, map1_2d=map1, map2_2d=map2)
+      opt_pgrid = dbcsr_t_nd_mp_comm(tas_split_info%mp_comm, map1, map2)
 
-      SELECT CASE(split_opt)
-      CASE(rowsplit)
-         pdims_2d = [MAXVAL(pdims_opt_2d), MINVAL(pdims_opt_2d)]
-      CASE(colsplit)
-         pdims_2d = [MINVAL(pdims_opt_2d), MAXVAL(pdims_opt_2d)]
-      CASE DEFAULT
-         DBCSR_ABORT("Should not happen")
-      END SELECT
-      opt_pgrid = dbcsr_t_nd_mp_comm(tensor%pgrid%mp_comm_2d, map1, map2, pdims_2d=pdims_2d)
+      ALLOCATE(opt_pgrid%tas_split_info, SOURCE = tas_split_info)
+      CALL dbcsr_tas_info_hold(opt_pgrid%tas_split_info)
    END FUNCTION
 
 ! **************************************************************************************************
@@ -1360,6 +1354,9 @@ CONTAINS
       tensor_out%nd_index = nd_index_rs
       tensor_out%nd_index_blk = nd_index_blk_rs
       tensor_out%pgrid%mp_comm_2d = tensor_in%pgrid%mp_comm_2d
+      IF(ALLOCATED(tensor_in%pgrid%tas_split_info)) THEN
+         ALLOCATE(tensor_out%pgrid%tas_split_info, SOURCE=tensor_in%pgrid%tas_split_info)
+      ENDIF
       tensor_out%refcount => tensor_in%refcount
       CALL dbcsr_t_hold(tensor_out)
 
