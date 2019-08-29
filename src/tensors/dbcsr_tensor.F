@@ -1139,7 +1139,6 @@ CONTAINS
 
    END SUBROUTINE
 
-
    FUNCTION opt_pgrid(tensor, tas_split_info)
       TYPE(dbcsr_t_type), INTENT(IN) :: tensor
       TYPE(dbcsr_tas_create_split_info), INTENT(IN) :: tas_split_info

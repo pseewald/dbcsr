@@ -473,7 +473,6 @@ CONTAINS
       TYPE(dbcsr_t_pgrid_type)                        :: pgrid_prv
       LOGICAL                                         :: need_pgrid_remap
       INTEGER, DIMENSION(:), ALLOCATABLE              :: map1_2d_check, map2_2d_check
-      TYPE(dbcsr_tas_create_split_info)               :: split_info
       CHARACTER(LEN=*), PARAMETER :: routineN = 'dbcsr_t_distribution_new', &
                                      routineP = moduleN//':'//routineN
 
@@ -520,8 +519,8 @@ CONTAINS
          DBCSR_ABORT("inconsistent process grid dimensions")
       ENDIF
 
-      IF(ALLOCATED(pgrid%tas_split_info)) THEN
-         CALL dbcsr_tas_distribution_new(dist%dist, comm_2d, row_dist_obj, col_dist_obj, split_info=split_info)
+      IF(ALLOCATED(pgrid_prv%tas_split_info)) THEN
+         CALL dbcsr_tas_distribution_new(dist%dist, comm_2d, row_dist_obj, col_dist_obj, split_info=pgrid_prv%tas_split_info)
       ELSE
          CALL dbcsr_tas_distribution_new(dist%dist, comm_2d, row_dist_obj, col_dist_obj)
       ENDIF
