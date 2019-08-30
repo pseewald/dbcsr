@@ -189,17 +189,25 @@ CONTAINS
 ! **************************************************************************************************
 !> \brief Print info on how matrix is split
 !> \param info ...
-!> \param name ...
 !> \param io_unit ...
+!> \param name ...
 ! **************************************************************************************************
-   SUBROUTINE dbcsr_tas_write_split_info(info, io_unit)
+   SUBROUTINE dbcsr_tas_write_split_info(info, io_unit, name)
       TYPE(dbcsr_tas_create_split_info), INTENT(IN)               :: info
       INTEGER, INTENT(IN) :: io_unit
+      CHARACTER(len=*), INTENT(IN), OPTIONAL             :: name
       INTEGER                                            :: groupsize, igroup, mp_comm, &
                                                             mp_comm_group, mynode, nsplit, &
                                                             numnodes, split_rowcol
       INTEGER, DIMENSION(2)                              :: coord, dims, groupcoord, groupdims, &
                                                             pgrid_offset
+      CHARACTER(len=default_string_length)               :: name_prv
+
+      IF(PRESENT(name)) THEN
+         name_prv = name
+      ELSE
+         name_prv = ""
+      ENDIF
 
       CALL dbcsr_tas_get_split_info(info, mp_comm, nsplit, igroup, mp_comm_group, split_rowcol, pgrid_offset)
       CALL mp_environ(numnodes, mynode, mp_comm)
@@ -209,11 +217,11 @@ CONTAINS
       IF (io_unit > 0) THEN
          SELECT CASE (split_rowcol)
          CASE (rowsplit)
-            WRITE (io_unit, "(T4,A,I4,1X,A,I4)") "splitting rows by factor", nsplit
+            WRITE (io_unit, "(T4,A,I4,1X,A,I4)") TRIM(name)//" splitting rows by factor", nsplit
          CASE (colsplit)
-            WRITE (io_unit, "(T4,A,I4,1X,A,I4)") "splitting columns by factor", nsplit
+            WRITE (io_unit, "(T4,A,I4,1X,A,I4)") TRIM(name)//" splitting columns by factor", nsplit
          END SELECT
-         WRITE (io_unit, "(T4,A, I4,A1,I4)") "global grid sizes:", dims(1), "x", dims(2)
+         WRITE (io_unit, "(T4,A, I4,A1,I4)") TRIM(name)//" global grid sizes:", dims(1), "x", dims(2)
       ENDIF
 
       IF (io_unit > 0) THEN

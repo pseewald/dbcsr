@@ -114,9 +114,6 @@ CONTAINS
 !> \param matrix_c ...
 !> \param optimize_dist Whether distribution should be optimized internally. Experimental and should
 !>        be used for dense matrices only.
-!> \param pdims_ratio max. ratio between optimal and actual process grid dimensions of submatrices
-!>                    to be accepted. If actual ratio greater than this number, process grid is redefined and
-!>                    all matrix data is redistributed  (for the sake of a more efficient matrix multiplication)
 !> \param pdims_opt process grid dimensions that would be optimal for the shape and sparsity of matrices. This
 !>                  can be used to choose optimal process grids for subsequent matrix multiplications.
 !> \param split_opt which dimension of each matrix is split, this is derived based on matrix occupancy numbers
@@ -128,13 +125,12 @@ CONTAINS
 !> \param log_verbose only for testing: verbose output
 ! **************************************************************************************************
    SUBROUTINE dbcsr_tas_multiply(transa, transb, transc, alpha, matrix_a, matrix_b, beta, matrix_c, &
-                                 optimize_dist, pdims_ratio, split_opt, filter_eps, flop, move_data_a, &
+                                 optimize_dist, split_opt, filter_eps, flop, move_data_a, &
                                  move_data_b, simple_split, io_unit, log_verbose)
       CHARACTER(LEN=1), INTENT(IN)               :: transa, transb, transc
       TYPE(dbcsr_scalar_type), INTENT(IN)        :: alpha, beta
       TYPE(dbcsr_tas_type), TARGET, INTENT(INOUT) :: matrix_a, matrix_b, matrix_c
       LOGICAL, INTENT(IN), OPTIONAL              :: optimize_dist
-      REAL(KIND=real_8), INTENT(IN), OPTIONAL        :: pdims_ratio
       TYPE(dbcsr_tas_create_split_info), INTENT(OUT), OPTIONAL :: split_opt
       REAL(KIND=real_8), INTENT(IN), OPTIONAL    :: filter_eps
       INTEGER(KIND=int_8), INTENT(OUT), OPTIONAL :: flop
@@ -145,7 +141,7 @@ CONTAINS
       TYPE(dbcsr_tas_type), POINTER              :: matrix_b_rs, matrix_a_rs, matrix_c_rs
       TYPE(dbcsr_tas_type)                       :: matrix_c_rep, matrix_b_rep, matrix_a_rep
 
-      REAL(KIND=real_8)                          :: filter_eps_prv, pdims_ratio_prv
+      REAL(KIND=real_8)                          :: filter_eps_prv
       INTEGER(KIND=int_8), DIMENSION(2)          :: dims_a, dims_b, dims_c
       INTEGER, DIMENSION(2)                      :: pdims, pcoord, pcoord_sub, pdims_sub
       INTEGER(KIND=int_8), DIMENSION(3)          :: dims
@@ -179,10 +175,8 @@ CONTAINS
          simple_split_prv = .FALSE.
       ENDIF
 
-      IF (PRESENT(pdims_ratio)) THEN
-         pdims_ratio_prv = MAX(pdims_ratio, 1.0_real_8/pdims_ratio)
-      ELSE
-         pdims_ratio_prv = 1.5_real_8
+      IF(simple_split_prv .AND. PRESENT(split_opt)) THEN
+         DBCSR_ABORT("incompatible dummy arguments split_opt and simple_split")
       ENDIF
 
       move_a = .FALSE.
@@ -259,7 +253,6 @@ CONTAINS
       ELSE
          nsplit = 0
          max_mm_dim = MAXLOC(dims, 1)
-         pdims_ratio_prv = REAL(numproc, KIND=real_8)
       ENDIF
 
       split_a = rowsplit; split_b=rowsplit; split_c=rowsplit
@@ -269,7 +262,7 @@ CONTAINS
          split_a = rowsplit; split_c = rowsplit
          CALL reshape_mm_compatible(matrix_a, matrix_c, matrix_a_rs, matrix_c_rs, &
                                     new_a, new_c, transa_prv, transc_prv, optimize_dist=optimize_dist, &
-                                    nsplit=nsplit, pdims_ratio=pdims_ratio_prv, &
+                                    nsplit=nsplit, &
                                     split_rc_1=split_a, split_rc_2=split_c, &
                                     nodata2=.TRUE., comm_new=comm_tmp, &
                                     move_data_1=move_a, unit_nr=io_unit)
@@ -295,7 +288,7 @@ CONTAINS
          split_a = colsplit; split_b=rowsplit
          CALL reshape_mm_compatible(matrix_a, matrix_b, matrix_a_rs, matrix_b_rs, new_a, new_b, transa_prv, transb_prv, &
                                     optimize_dist=optimize_dist, &
-                                    nsplit=nsplit, pdims_ratio=pdims_ratio_prv, &
+                                    nsplit=nsplit, &
                                     split_rc_1 = split_a, split_rc_2=split_b, &
                                     comm_new=comm_tmp, &
                                     move_data_1=move_a, move_data_2=move_b, unit_nr=io_unit)
@@ -321,7 +314,7 @@ CONTAINS
          split_b=colsplit; split_c=colsplit
          CALL reshape_mm_compatible(matrix_b, matrix_c, matrix_b_rs, matrix_c_rs, new_b, new_c, transb_prv, &
                                     transc_prv, optimize_dist=optimize_dist, &
-                                    nsplit=nsplit, pdims_ratio=pdims_ratio_prv, &
+                                    nsplit=nsplit, &
                                     split_rc_1=split_b, split_rc_2=split_c, &
                                     nodata2=.TRUE., comm_new=comm_tmp, &
                                     move_data_1=move_b, unit_nr=io_unit)
@@ -343,14 +336,13 @@ CONTAINS
 
       END SELECT
 
-
       CALL dbcsr_tas_get_split_info(info, nsplit=nsplit, mp_comm=mp_comm, mp_comm_group=mp_comm_group)
 
       CALL mp_environ(numproc, pdims, pcoord, mp_comm)
       CALL mp_environ(numproc_sub, pdims_sub, pcoord_sub, mp_comm_group)
 
       IF (.NOT. simple_split_prv) THEN
-         opt_pgrid = .NOT. accept_pgrid_dims(pdims_sub, pdims_ratio_prv, relative=.TRUE.)
+         opt_pgrid = .NOT. accept_pgrid_dims(pdims_sub, relative=.TRUE.)
       ELSE
          opt_pgrid = .FALSE.
       ENDIF
@@ -571,7 +563,7 @@ CONTAINS
       CALL dbcsr_tas_get_split_info(dbcsr_tas_info(matrix_c), mp_comm=mp_comm)
 
       IF(PRESENT(split_opt)) THEN
-         mp_comm_opt = dbcsr_tas_mp_comm(mp_comm, split_rc, nsplit)
+         mp_comm_opt = dbcsr_tas_mp_comm(mp_comm, split_rc, nsplit_opt)
          CALL dbcsr_tas_create_split(split_opt, mp_comm_opt, split_rc, nsplit_opt, own_comm=.TRUE.)
          CALL dbcsr_tas_info_hold(split_opt)
       ENDIF
@@ -717,15 +709,14 @@ CONTAINS
 !> \param unit_nr output unit
 ! **************************************************************************************************
    SUBROUTINE reshape_mm_compatible(matrix1_in, matrix2_in, matrix1_out, matrix2_out, new1, new2, trans1, trans2, &
-                                    optimize_dist, nsplit, pdims_ratio, split_rc_1, split_rc_2, nodata1, nodata2, &
+                                    optimize_dist, nsplit, split_rc_1, split_rc_2, nodata1, nodata2, &
                                     move_data_1, move_data_2, comm_new, unit_nr)
       TYPE(dbcsr_tas_type), TARGET, INTENT(INOUT) :: matrix1_in, matrix2_in
       TYPE(dbcsr_tas_type), POINTER, INTENT(OUT) :: matrix1_out, matrix2_out
       LOGICAL, INTENT(OUT) :: new1, new2
       CHARACTER(LEN=1), INTENT(INOUT) :: trans1, trans2
       LOGICAL, INTENT(IN), OPTIONAL :: optimize_dist
-      INTEGER, INTENT(INOUT), OPTIONAL :: nsplit
-      REAL(real_8), INTENT(IN), OPTIONAL :: pdims_ratio
+      INTEGER, INTENT(IN), OPTIONAL :: nsplit
       INTEGER, INTENT(INOUT) :: split_rc_1, split_rc_2
       INTEGER, INTENT(OUT), OPTIONAL :: comm_new
       LOGICAL, OPTIONAL, INTENT(IN) :: nodata1, nodata2
@@ -804,9 +795,9 @@ CONTAINS
 
       IF ((.NOT. optimize_dist_prv) .AND. dist_compatible(matrix1_in, matrix2_in)) THEN
          CALL change_split(matrix1_in, matrix1_out, nsplit_prv, split_rc_1, new1, &
-                           pdims_ratio=pdims_ratio, move_data=move_data_1, nodata=nodata1)
+                           move_data=move_data_1, nodata=nodata1)
          CALL change_split(matrix2_in, matrix2_out, nsplit_prv, split_rc_2, new2, &
-                           pdims_ratio=pdims_ratio, move_data=move_data_2, nodata=nodata2)
+                           move_data=move_data_2, nodata=nodata2)
          IF (io_unit > 0) THEN
             WRITE (io_unit, "(T2,A,1X,A,1X,A,1X,A)") "No redistribution of", TRIM(matrix1_in%matrix%name), &
                "and", TRIM(matrix2_in%matrix%name)
@@ -858,7 +849,7 @@ CONTAINS
 
             CALL dbcsr_tas_get_split_info(dbcsr_tas_info(matrix1_in), mp_comm=mp_comm)
             comm_new = dbcsr_tas_mp_comm(mp_comm, rowsplit, nsplit_prv)
-            CALL dbcsr_tas_create_split(split_info, comm_new, rowsplit, nsplit_prv, pdims_ratio=pdims_ratio)
+            CALL dbcsr_tas_create_split(split_info, comm_new, rowsplit, nsplit_prv)
 
             CALL mp_environ(numnodes, pdims, pcoord, comm_new)
 
@@ -909,7 +900,7 @@ CONTAINS
                ENDIF
 
                CALL change_split(matrix1_in, matrix1_out, nsplit_prv, split_rc_1, new1, &
-                                 pdims_ratio=pdims_ratio, move_data=move_data_1, nodata=nodata1)
+                                 move_data=move_data_1, nodata=nodata1)
 
                ALLOCATE (matrix2_out)
                CALL reshape_mm_template(matrix1_out, matrix2_in, matrix2_out, trans2, nodata=nodata2, move_data=move_data_2)
@@ -920,7 +911,7 @@ CONTAINS
                ENDIF
 
                CALL change_split(matrix2_in, matrix2_out, nsplit_prv, split_rc_2, new2, &
-                                 pdims_ratio=pdims_ratio, move_data=move_data_2, nodata=nodata2)
+                                 move_data=move_data_2, nodata=nodata2)
 
                ALLOCATE (matrix1_out)
                CALL reshape_mm_template(matrix2_out, matrix1_in, matrix1_out, trans1, nodata=nodata1, move_data=move_data_1)
@@ -928,8 +919,6 @@ CONTAINS
             END SELECT
          ENDIF
       ENDIF
-
-      IF(PRESENT(nsplit)) nsplit = nsplit_prv
 
       IF(PRESENT(move_data_1) .AND. new1) move_data_1 = .TRUE.
       IF(PRESENT(move_data_2) .AND. new2) move_data_2 = .TRUE.
@@ -939,19 +928,18 @@ CONTAINS
    END SUBROUTINE
 
    ! changes split without redistribution
-   SUBROUTINE change_split(matrix_in, matrix_out, nsplit, split_rowcol, is_new, pdims_ratio, move_data, nodata)
+   SUBROUTINE change_split(matrix_in, matrix_out, nsplit, split_rowcol, is_new, move_data, nodata)
       TYPE(dbcsr_tas_type), TARGET, INTENT(INOUT) :: matrix_in
       TYPE(dbcsr_tas_type), POINTER, INTENT(OUT) :: matrix_out
-      INTEGER, INTENT(INOUT) :: nsplit
+      INTEGER, INTENT(IN) :: nsplit
       INTEGER, INTENT(IN)    :: split_rowcol
       LOGICAL, INTENT(OUT) :: is_new
-      REAL(real_8), INTENT(IN), OPTIONAL :: pdims_ratio
       LOGICAL, INTENT(IN), OPTIONAL :: nodata
       LOGICAL, INTENT(INOUT), OPTIONAL :: move_data
       INTEGER :: mp_comm, split_rc, nsplit_old, handle
       TYPE(dbcsr_tas_create_split_info) :: split_info
       CHARACTER(len=default_string_length) :: name
-      INTEGER :: data_type
+      INTEGER :: data_type, nsplit_new
       INTEGER(KIND=int_8) :: nblkrows, nblkcols
       TYPE(dbcsr_tas_distribution_type) :: dist
       LOGICAL :: nodata_prv
@@ -983,9 +971,11 @@ CONTAINS
                               row_blk_size=rbsize, col_blk_size=cbsize, &
                               proc_row_dist=rdist, proc_col_dist=cdist)
 
-      CALL dbcsr_tas_create_split(split_info, mp_comm, split_rowcol, nsplit, pdims_ratio=pdims_ratio)
+      CALL dbcsr_tas_create_split(split_info, mp_comm, split_rowcol, nsplit)
 
-      IF(nsplit_old == nsplit .AND. split_rc == split_rowcol) THEN
+      CALL dbcsr_tas_get_split_info(split_info, nsplit=nsplit_new)
+
+      IF(nsplit_old == nsplit_new .AND. split_rc == split_rowcol) THEN
          matrix_out => matrix_in
          is_new = .FALSE.
          CALL dbcsr_tas_release_info(split_info)
