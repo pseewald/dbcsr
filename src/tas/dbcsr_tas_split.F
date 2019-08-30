@@ -50,13 +50,13 @@ MODULE dbcsr_tas_split
       mrowcol_to_group, &
       rowsplit, &
       world_to_group_proc_map, &
-      accept_pgrid_dims, &
-      default_pdims_accept_ratio
+      accept_pgrid_dims
 
    CHARACTER(len=*), PARAMETER, PRIVATE :: moduleN = 'dbcsr_tas_split'
 
    INTEGER, PARAMETER :: rowsplit = 1, colsplit = 2
    REAL(real_8), PARAMETER :: default_pdims_accept_ratio = 1.5_real_8
+   REAL(real_8), PARAMETER :: default_nsplit_accept_ratio = 2.5_real_8
 
    INTERFACE dbcsr_tas_mp_comm
       MODULE PROCEDURE dbcsr_tas_mp_comm
@@ -152,14 +152,12 @@ CONTAINS
 !> \param mp_comm ...
 !> \param split_rowcol ...
 !> \param nsplit ...
-!> \param accept_ratio ...
 !> \return new communicator
 ! **************************************************************************************************
-   FUNCTION dbcsr_tas_mp_comm(mp_comm, split_rowcol, nsplit, accept_ratio)
+   FUNCTION dbcsr_tas_mp_comm(mp_comm, split_rowcol, nsplit)
       INTEGER, INTENT(IN)                                :: mp_comm
       INTEGER, INTENT(IN)                                :: split_rowcol
       INTEGER, INTENT(INOUT)                             :: nsplit
-      REAL(KIND=real_8), INTENT(IN), OPTIONAL            :: accept_ratio
       INTEGER                                            :: dbcsr_tas_mp_comm
 
       CHARACTER(LEN=*), PARAMETER :: routineN = 'dbcsr_tas_mp_comm', &
@@ -167,19 +165,12 @@ CONTAINS
 
       INTEGER                                            :: handle, iproc, numproc
       INTEGER, DIMENSION(2)                              :: myploc, npdims
-      REAL(KIND=real_8)                                  :: ratio_prv
 
       CALL timeset(routineN, handle)
 
-      IF(.NOT. PRESENT(accept_ratio)) THEN
-         ratio_prv = default_pdims_accept_ratio
-      ELSE
-         ratio_prv = accept_ratio
-      ENDIF
-
       CALL mp_environ(numproc, iproc, mp_comm)
 
-      npdims = dbcsr_tas_mp_dims(numproc, split_rowcol, nsplit, ratio_prv)
+      npdims = dbcsr_tas_mp_dims(numproc, split_rowcol, nsplit)
 
       CALL mp_cart_create(mp_comm, 2, npdims, myploc, dbcsr_tas_mp_comm)
 
@@ -191,21 +182,19 @@ CONTAINS
 !> \param numproc ...
 !> \param split_rowcol ...
 !> \param nsplit ...
-!> \param accept_ratio ...
 !> \return ...
 ! **************************************************************************************************
-   FUNCTION dbcsr_tas_mp_dims(numproc, split_rowcol, nsplit, accept_ratio)
+   FUNCTION dbcsr_tas_mp_dims(numproc, split_rowcol, nsplit)
       INTEGER, INTENT(IN)                                :: numproc
       INTEGER, INTENT(IN)                                :: split_rowcol
       INTEGER, INTENT(IN)                                :: nsplit
-      REAL(KIND=real_8), INTENT(IN)                      :: accept_ratio
       INTEGER, DIMENSION(2)                              :: dbcsr_tas_mp_dims
 
       INTEGER                                            :: dbcsr_tas_mp_comm, nsplit_opt
       INTEGER                                            :: group_size
       INTEGER, DIMENSION(2)                              :: group_dims
 
-      nsplit_opt = opt_nsplit(numproc, nsplit, accept_ratio, split_pgrid = .FALSE.)
+      nsplit_opt = opt_nsplit(numproc, nsplit, split_pgrid = .FALSE.)
 
       group_size = numproc/nsplit_opt
       group_dims(:) = 0
@@ -234,29 +223,26 @@ CONTAINS
 !> \brief ...
 !> \param numproc total number of processes or (if split_pgrid == .TRUE.) process grid dimension to be split
 !> \param nsplit ...
-!> \param accept_ratio ...
 !> \param split_pgrid ...
 !> \param pdim_nonsplit ...
 !> \return ...
 ! **************************************************************************************************
-   FUNCTION opt_nsplit(numproc, nsplit, accept_ratio, split_pgrid, pdim_nonsplit)
+   FUNCTION opt_nsplit(numproc, nsplit, split_pgrid, pdim_nonsplit)
       INTEGER, INTENT(IN) :: numproc, nsplit
-      REAL(real_8), INTENT(IN) :: accept_ratio
       LOGICAL, INTENT(IN) :: split_pgrid
       INTEGER, INTENT(IN), OPTIONAL :: pdim_nonsplit
       INTEGER, ALLOCATABLE, DIMENSION(:) :: nsplit_list, nsplit_list_square, nsplit_list_accept
       INTEGER :: lb, ub, count, count_square, count_accept, split, minpos, opt_nsplit
       INTEGER, DIMENSION(2) :: dims_sub
 
-      DBCSR_ASSERT(accept_ratio .GE. 1.0)
       DBCSR_ASSERT(nsplit > 0)
 
       IF(split_pgrid) THEN
          DBCSR_ASSERT(PRESENT(pdim_nonsplit))
       ENDIF
 
-      lb = CEILING(REAL(nsplit, real_8)/accept_ratio)
-      ub = FLOOR(REAL(nsplit, real_8)*accept_ratio)
+      lb = CEILING(REAL(nsplit, real_8)/default_nsplit_accept_ratio)
+      ub = FLOOR(REAL(nsplit, real_8)*default_nsplit_accept_ratio)
 
       IF(ub < lb) ub = lb
 
@@ -281,7 +267,7 @@ CONTAINS
                nsplit_list_square(count_square) = split
                count_accept = count_accept + 1
                nsplit_list_accept(count_accept) = split
-            ELSEIF(accept_pgrid_dims(dims_sub, relative=.FALSE., accept_ratio=accept_ratio)) THEN
+            ELSEIF(accept_pgrid_dims(dims_sub, relative=.FALSE.)) THEN
                count_accept = count_accept + 1
                nsplit_list_accept(count_accept) = split
             ENDIF
@@ -313,15 +299,13 @@ CONTAINS
 !> \param mp_comm ...
 !> \param nblkrows ...
 !> \param nblkcols ...
-!> \param accept_ratio ...
 !> \return ...
 ! **************************************************************************************************
-   FUNCTION dbcsr_tas_mp_comm_from_matrix_sizes(mp_comm, nblkrows, nblkcols, accept_ratio) RESULT(mp_comm_new)
+   FUNCTION dbcsr_tas_mp_comm_from_matrix_sizes(mp_comm, nblkrows, nblkcols) RESULT(mp_comm_new)
       INTEGER, INTENT(IN)                                :: mp_comm
       INTEGER(KIND=int_8), INTENT(IN)                    :: nblkrows, nblkcols
       INTEGER                                            :: nsplit, split_rowcol
       INTEGER                                            :: mp_comm_new
-      REAL(KIND=real_8), INTENT(IN), OPTIONAL            :: accept_ratio
 
       IF(nblkrows >= nblkcols) THEN
          split_rowcol = rowsplit
@@ -331,7 +315,7 @@ CONTAINS
          nsplit = INT((nblkcols - 1)/nblkrows + 1)
       ENDIF
 
-      mp_comm_new = dbcsr_tas_mp_comm(mp_comm, split_rowcol, nsplit, accept_ratio)
+      mp_comm_new = dbcsr_tas_mp_comm(mp_comm, split_rowcol, nsplit)
    END FUNCTION
 
 ! **************************************************************************************************
@@ -341,15 +325,13 @@ CONTAINS
 !> \param mp_comm ...
 !> \param split_rowcol ...
 !> \param nsplit ...
-!> \param accept_ratio ...
 !> \param own_comm ...
 ! **************************************************************************************************
-   SUBROUTINE dbcsr_tas_create_split(split_info, mp_comm, split_rowcol, nsplit, accept_ratio, own_comm)
+   SUBROUTINE dbcsr_tas_create_split(split_info, mp_comm, split_rowcol, nsplit, own_comm)
       TYPE(dbcsr_tas_create_split_info), INTENT(OUT)     :: split_info
       INTEGER, INTENT(IN)                                :: mp_comm
       INTEGER, INTENT(IN)                                :: split_rowcol
       INTEGER, INTENT(IN)                                :: nsplit
-      REAL(KIND=real_8), INTENT(IN), OPTIONAL            :: accept_ratio
       LOGICAL, INTENT(IN), OPTIONAL                      :: own_comm
 
       CHARACTER(LEN=*), PARAMETER :: routineN = 'dbcsr_tas_create_split', routineP = moduleN//':'//routineN
@@ -358,15 +340,8 @@ CONTAINS
                                                             igroup, &
                                                             nsplit_opt, pdim_split, pdim_nonsplit
       INTEGER, DIMENSION(2)                              :: pcoord, pdims, pdims_group
-      REAL(KIND=real_8)                                  :: ratio_prv
 
       CALL timeset(routineN, handle)
-
-      IF(.NOT. PRESENT(accept_ratio)) THEN
-         ratio_prv = default_pdims_accept_ratio
-      ELSE
-         ratio_prv = accept_ratio
-      ENDIF
 
       CALL mp_environ(numproc, iproc, mp_comm)
       CALL mp_environ(numproc, pdims, pcoord, mp_comm)
@@ -380,7 +355,7 @@ CONTAINS
          pdim_nonsplit = pdims(1)
       END SELECT
 
-      nsplit_opt = opt_nsplit(pdim_split, nsplit, ratio_prv, split_pgrid=.TRUE., pdim_nonsplit=pdim_nonsplit)
+      nsplit_opt = opt_nsplit(pdim_split, nsplit, split_pgrid=.TRUE., pdim_nonsplit=pdim_nonsplit)
 
       SELECT CASE (split_rowcol)
       CASE (rowsplit)
@@ -401,32 +376,20 @@ CONTAINS
 !> \brief ...
 !> \param dims ...
 !> \param relative ...
-!> \param accept_ratio ...
 !> \return ...
 ! **************************************************************************************************
-   FUNCTION accept_pgrid_dims(dims, relative, accept_ratio)
+   FUNCTION accept_pgrid_dims(dims, relative)
       INTEGER, DIMENSION(2), INTENT(IN) :: dims
       LOGICAL, INTENT(IN) :: relative
-      REAL(real_8), INTENT(IN), OPTIONAL :: accept_ratio
       INTEGER, DIMENSION(2) :: dims_opt
       LOGICAL :: accept_pgrid_dims
-      REAL(real_8) :: ratio_prv
-
-      IF(.NOT. PRESENT(accept_ratio)) THEN
-         ratio_prv = default_pdims_accept_ratio
-      ELSE
-         ratio_prv = accept_ratio
-      ENDIF
-
-      DBCSR_ASSERT(ratio_prv .GE. 1.0)
 
       IF(relative) THEN
          dims_opt = 0
          CALL mp_dims_create(PRODUCT(dims), dims_opt)
-         accept_pgrid_dims = (MAXVAL(REAL(dims, real_8))/MAXVAL(dims_opt) .LT. ratio_prv)
+         accept_pgrid_dims = (MAXVAL(REAL(dims, real_8))/MAXVAL(dims_opt) .LT. default_pdims_accept_ratio)
       ELSE
-         ratio_prv = ratio_prv**2
-         accept_pgrid_dims = (MAXVAL(REAL(dims, real_8))/MINVAL(dims) .LT. ratio_prv)
+         accept_pgrid_dims = (MAXVAL(REAL(dims, real_8))/MINVAL(dims) .LT. default_pdims_accept_ratio**2)
       ENDIF
    END FUNCTION
 
