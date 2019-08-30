@@ -565,7 +565,6 @@ CONTAINS
       IF(PRESENT(split_opt)) THEN
          mp_comm_opt = dbcsr_tas_mp_comm(mp_comm, split_rc, nsplit_opt)
          CALL dbcsr_tas_create_split(split_opt, mp_comm_opt, split_rc, nsplit_opt, own_comm=.TRUE.)
-         CALL dbcsr_tas_info_hold(split_opt)
       ENDIF
 
       IF (new_c) THEN
