@@ -232,82 +232,7 @@ CONTAINS
 
 ! **************************************************************************************************
 !> \brief ...
-!> \param nsplit_square ...
-!> \param nsplit_accept ...
 !> \param numproc total number of processes or (if split_pgrid == .TRUE.) process grid dimension to be split
-!> \param nsplit_in ...
-!> \param accept_ratio ...
-!> \param split_pgrid ...
-!> \param pdim_nonsplit ...
-! **************************************************************************************************
-   SUBROUTINE get_opt_nsplits(nsplit_square, nsplit_accept, numproc, nsplit_in, accept_ratio, split_pgrid, pdim_nonsplit)
-      INTEGER, INTENT(OUT) :: nsplit_square, nsplit_accept
-      INTEGER, INTENT(IN) :: numproc, nsplit_in
-      REAL(real_8), INTENT(IN) :: accept_ratio
-      LOGICAL, INTENT(IN) :: split_pgrid
-      INTEGER, INTENT(IN), OPTIONAL :: pdim_nonsplit
-      INTEGER, ALLOCATABLE, DIMENSION(:) :: nsplit_list, nsplit_list_square, nsplit_list_accept
-      INTEGER :: lb, ub, count, count_square, count_accept, nsplit, minpos
-      INTEGER, DIMENSION(2) :: dims_sub
-
-      DBCSR_ASSERT(accept_ratio .GE. 1.0)
-      DBCSR_ASSERT(nsplit_in > 0)
-
-      IF(split_pgrid) THEN
-         DBCSR_ASSERT(PRESENT(pdim_nonsplit))
-      ENDIF
-
-      lb = CEILING(REAL(nsplit_in, real_8)/accept_ratio)
-      ub = FLOOR(REAL(nsplit_in, real_8)*accept_ratio)
-
-      IF(ub < lb) ub = lb
-
-      ALLOCATE(nsplit_list(1:ub-lb+1), nsplit_list_square(1:ub-lb+1), nsplit_list_accept(1:ub-lb+1))
-      count = 0
-      count_square = 0
-      count_accept = 0
-      DO nsplit = lb, ub
-         IF (MOD(numproc, nsplit) == 0) THEN
-            count = count + 1
-            nsplit_list(count) = nsplit
-
-            dims_sub = 0
-            IF (.NOT. split_pgrid) THEN
-               CALL mp_dims_create(numproc/nsplit, dims_sub)
-            ELSE
-               dims_sub = [numproc, pdim_nonsplit]
-            ENDIF
-
-            IF (dims_sub(1) == dims_sub(2)) THEN
-               count_square = count_square + 1
-               nsplit_list_square(count_square) = nsplit
-               count_accept = count_accept + 1
-               nsplit_list_accept(count_accept) = nsplit
-            ELSEIF(accept_pgrid_dims(dims_sub, relative=.FALSE., accept_ratio=accept_ratio)) THEN
-               count_accept = count_accept + 1
-               nsplit_list_accept(count_accept) = nsplit
-            ENDIF
-
-         ENDIF
-      ENDDO
-
-      nsplit_square = 0; nsplit_accept = 0
-
-      IF(count_square > 0) THEN
-         minpos = MINLOC(ABS(nsplit_list_square(1:count_square) - nsplit_in), DIM=1)
-         nsplit_square = nsplit_list_square(minpos)
-      ENDIF
-
-      IF(count_accept > 0) THEN
-         minpos = MINLOC(ABS(nsplit_list_accept(1:count_accept) - nsplit_in), DIM=1)
-         nsplit_accept = nsplit_list_accept(minpos)
-      ENDIF
-
-   END SUBROUTINE
-
-! **************************************************************************************************
-!> \brief ...
-!> \param numproc ...
 !> \param nsplit ...
 !> \param accept_ratio ...
 !> \param split_pgrid ...
@@ -316,24 +241,70 @@ CONTAINS
 ! **************************************************************************************************
    FUNCTION opt_nsplit(numproc, nsplit, accept_ratio, split_pgrid, pdim_nonsplit)
       INTEGER, INTENT(IN) :: numproc, nsplit
-      REAL(KIND=real_8), INTENT(IN) :: accept_ratio
+      REAL(real_8), INTENT(IN) :: accept_ratio
       LOGICAL, INTENT(IN) :: split_pgrid
       INTEGER, INTENT(IN), OPTIONAL :: pdim_nonsplit
-      INTEGER :: opt_nsplit
+      INTEGER, ALLOCATABLE, DIMENSION(:) :: nsplit_list, nsplit_list_square, nsplit_list_accept
+      INTEGER :: lb, ub, count, count_square, count_accept, split, minpos, opt_nsplit
+      INTEGER, DIMENSION(2) :: dims_sub
 
-      INTEGER :: nsplit_square, nsplit_accept
+      DBCSR_ASSERT(accept_ratio .GE. 1.0)
+      DBCSR_ASSERT(nsplit > 0)
 
-      CALL get_opt_nsplits(nsplit_square, nsplit_accept, numproc, nsplit, accept_ratio, split_pgrid, pdim_nonsplit)
-      IF(nsplit_square > 0) THEN
-         opt_nsplit = nsplit_square
-      ELSEIF(nsplit_accept > 0) THEN
-         opt_nsplit = nsplit_accept
+      IF(split_pgrid) THEN
+         DBCSR_ASSERT(PRESENT(pdim_nonsplit))
+      ENDIF
+
+      lb = CEILING(REAL(nsplit, real_8)/accept_ratio)
+      ub = FLOOR(REAL(nsplit, real_8)*accept_ratio)
+
+      IF(ub < lb) ub = lb
+
+      ALLOCATE(nsplit_list(1:ub-lb+1), nsplit_list_square(1:ub-lb+1), nsplit_list_accept(1:ub-lb+1))
+      count = 0
+      count_square = 0
+      count_accept = 0
+      DO split = lb, ub
+         IF (MOD(numproc, split) == 0) THEN
+            count = count + 1
+            nsplit_list(count) = split
+
+            dims_sub = 0
+            IF (.NOT. split_pgrid) THEN
+               CALL mp_dims_create(numproc/split, dims_sub)
+            ELSE
+               dims_sub = [numproc, pdim_nonsplit]
+            ENDIF
+
+            IF (dims_sub(1) == dims_sub(2)) THEN
+               count_square = count_square + 1
+               nsplit_list_square(count_square) = split
+               count_accept = count_accept + 1
+               nsplit_list_accept(count_accept) = split
+            ELSEIF(accept_pgrid_dims(dims_sub, relative=.FALSE., accept_ratio=accept_ratio)) THEN
+               count_accept = count_accept + 1
+               nsplit_list_accept(count_accept) = split
+            ENDIF
+
+         ENDIF
+      ENDDO
+
+      IF(count_square > 0) THEN
+         minpos = MINLOC(ABS(nsplit_list_square(1:count_square) - nsplit), DIM=1)
+         opt_nsplit = nsplit_list_square(minpos)
+      ELSEIF(count_accept > 0) THEN
+         minpos = MINLOC(ABS(nsplit_list_accept(1:count_accept) - nsplit), DIM=1)
+         opt_nsplit = nsplit_list_accept(minpos)
+      ELSEIF(count > 0) THEN
+         minpos = MINLOC(ABS(nsplit_list(1:count) - nsplit), DIM=1)
+         opt_nsplit = nsplit_list(minpos)
       ELSE
          opt_nsplit = nsplit
          DO WHILE (MOD(numproc, opt_nsplit) .NE. 0)
             opt_nsplit = opt_nsplit - 1
          ENDDO
       ENDIF
+
    END FUNCTION
 
 ! todo this should be used in testing only
