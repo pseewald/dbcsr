@@ -150,7 +150,7 @@ CONTAINS
       INTEGER, DIMENSION(2)                      :: pdims, pcoord, pcoord_sub, pdims_sub
       INTEGER(KIND=int_8), DIMENSION(3)          :: dims
       INTEGER                                    :: max_mm_dim, data_type, mp_comm, comm_tmp, &
-                                                    handle, handle2, io_unit_prv, nsplit, numproc, numproc_sub, iproc, &
+                                                    handle, handle2, io_unit_prv, nsplit, nsplit_opt, numproc, numproc_sub, iproc, &
                                                     mp_comm_group, mp_comm_mm, split_rc, split_a, split_b, split_c, &
                                                     mp_comm_opt
       CHARACTER(LEN=1)                           :: tr_case, transa_prv, transb_prv, transc_prv
@@ -244,6 +244,7 @@ CONTAINS
          nze_c = result_sparsity_estimate(transa, transb, transc, matrix_a, matrix_b, matrix_c, filter_eps)
 
          nsplit = split_factor_estimate(nze_a, nze_b, nze_c, numproc)
+         nsplit_opt = nsplit
          max_mm_dim = MINLOC([nze_b, nze_c, nze_a], 1)
 
          IF (io_unit_prv > 0) THEN
@@ -571,7 +572,7 @@ CONTAINS
 
       IF(PRESENT(split_opt)) THEN
          mp_comm_opt = dbcsr_tas_mp_comm(mp_comm, split_rc, nsplit)
-         CALL dbcsr_tas_create_split(split_opt, mp_comm_opt, split_rc, nsplit, own_comm=.TRUE.)
+         CALL dbcsr_tas_create_split(split_opt, mp_comm_opt, split_rc, nsplit_opt, own_comm=.TRUE.)
          CALL dbcsr_tas_info_hold(split_opt)
       ENDIF
 
