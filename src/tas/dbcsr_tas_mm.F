@@ -56,7 +56,7 @@ MODULE dbcsr_tas_mm
                               dbcsr_tas_release_info, &
                               accept_pgrid_dims, &
                               dbcsr_tas_info_hold, &
-                              default_nsplit_accept_ratio
+                              default_nsplit_accept_ratio_1
    USE dbcsr_tas_util, ONLY: swap, &
                              invert_transpose_flag, &
                              array_eq_i8, &
@@ -1215,7 +1215,7 @@ CONTAINS
       ! nsplit_memory protects against excess memory usage
       ! actual split factor may be up to default_nsplit_accept_ratio times larger, so the largest nsplit
       ! that fits into memory used by A or B needs to be divided by this factor
-      nsplit_memory = CEILING(REAL((max_nze - 1)/min_nze + 1, real_8)/default_nsplit_accept_ratio)
+      nsplit_memory = CEILING(REAL((max_nze - 1)/min_nze + 1, real_8)/default_nsplit_accept_ratio_1)
 
       nsplit = MIN(nsplit_comm, nsplit_memory)
 

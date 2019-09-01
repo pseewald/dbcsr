@@ -51,13 +51,14 @@ MODULE dbcsr_tas_split
       rowsplit, &
       world_to_group_proc_map, &
       accept_pgrid_dims, &
-      default_nsplit_accept_ratio
+      default_nsplit_accept_ratio_1
 
    CHARACTER(len=*), PARAMETER, PRIVATE :: moduleN = 'dbcsr_tas_split'
 
    INTEGER, PARAMETER :: rowsplit = 1, colsplit = 2
    REAL(real_8), PARAMETER :: default_pdims_accept_ratio = 1.5_real_8
-   REAL(real_8), PARAMETER :: default_nsplit_accept_ratio = 2.5_real_8
+   REAL(real_8), PARAMETER :: default_nsplit_accept_ratio_1 = 1.5_real_8
+   REAL(real_8), PARAMETER :: default_nsplit_accept_ratio_2 = 2.5_real_8
 
    INTERFACE dbcsr_tas_mp_comm
       MODULE PROCEDURE dbcsr_tas_mp_comm
@@ -235,6 +236,7 @@ CONTAINS
       INTEGER, ALLOCATABLE, DIMENSION(:) :: nsplit_list, nsplit_list_square, nsplit_list_accept
       INTEGER :: lb, ub, count, count_square, count_accept, split, minpos, opt_nsplit
       INTEGER, DIMENSION(2) :: dims_sub
+      REAL(KIND=real_8) :: nsplit_accept_ratio
 
       DBCSR_ASSERT(nsplit > 0)
 
@@ -242,8 +244,18 @@ CONTAINS
          DBCSR_ASSERT(PRESENT(pdim_nonsplit))
       ENDIF
 
-      lb = CEILING(REAL(nsplit, real_8)/default_nsplit_accept_ratio)
-      ub = FLOOR(REAL(nsplit, real_8)*default_nsplit_accept_ratio)
+      IF(split_pgrid) THEN
+         ! if process grid dimensions are fixed, we need more flexibility in split factor in order
+         ! to obtain balanced grid dimensions --> larger accept ratio
+         nsplit_accept_ratio = default_nsplit_accept_ratio_2
+      ELSE
+         ! if process grid dimensions are flexible, less flexibility in split factor sufficient in
+         ! order to obtain balanced grid dimensions --> smaller accept ratio
+         nsplit_accept_ratio = default_nsplit_accept_ratio_1
+      ENDIF
+
+      lb = CEILING(REAL(nsplit, real_8)/nsplit_accept_ratio)
+      ub = FLOOR(REAL(nsplit, real_8)*nsplit_accept_ratio)
 
       IF(ub < lb) ub = lb
 
