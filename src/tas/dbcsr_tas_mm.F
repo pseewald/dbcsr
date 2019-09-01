@@ -1248,7 +1248,9 @@ CONTAINS
       ${dtype}$, DIMENSION(:, :), POINTER        :: block_put_${dsuffix}$
 #:endfor
       LOGICAL                                    :: tr, nodata_prv, found
-      REAL(real_8)                               :: rn(2)
+      REAL(real_8), DIMENSION(:), ALLOCATABLE    :: rn_row, rn_col
+      INTEGER                                    :: nblkrows_local, nblkcols_local, &
+                                                    row_local, col_local
 
       DBCSR_ASSERT(matrix_in%valid)
 
@@ -1266,7 +1268,8 @@ CONTAINS
       IF(PRESENT(sample_col)) sample(2) = 1._real_8/sample_col
 
       CALL dbcsr_tas_get_info(matrix_in, data_type=data_type, name=name, &
-                              nblkrows_total=nblkrows, nblkcols_total=nblkcols)
+                              nblkrows_total=nblkrows, nblkcols_total=nblkcols, &
+                              nblkrows_local=nblkrows_local, nblkcols_local=nblkcols_local)
 
       row_blk_size = dbcsr_tas_blk_size_one(nblkrows)
       col_blk_size = dbcsr_tas_blk_size_one(nblkcols)
@@ -1280,7 +1283,11 @@ CONTAINS
          CALL dbcsr_tas_reserve_blocks(matrix_in, matrix_out)
          CALL dbcsr_tas_set(matrix_out, 0.0_real_8)
 
-         CALL random_seed
+         ALLOCATE(rn_row(nblkrows_local), rn_col(nblkcols_local))
+
+         CALL random_seed()
+         CALL random_number(rn_row)
+         CALL random_number(rn_col)
 
          CALL dbcsr_tas_iterator_start(iter, matrix_in)
 
@@ -1288,10 +1295,10 @@ CONTAINS
 
 #:for dparam, dtype, dsuffix in dtype_float_list
             IF (data_type == ${dparam}$) THEN
-               CALL dbcsr_tas_iterator_next_block(iter, row, column, block_get_${dsuffix}$, tr)
+               CALL dbcsr_tas_iterator_next_block(iter, row, column, block_get_${dsuffix}$, tr, &
+                                                  row_local=row_local, col_local=col_local)
 
-               CALL random_number(rn)
-               IF (rn(1) < sample(1) .AND. rn(2) < sample(2)) THEN
+               IF (rn_row(row_local) < sample(1) .AND. rn_col(col_local) < sample(2)) THEN
                   CALL dbcsr_tas_get_block_p(matrix_out, row, column, block_put_${dsuffix}$, tr, found)
                   DBCSR_ASSERT(found)
                   block_put_${dsuffix}$ (1, 1) = SQRT(SUM(block_get_${dsuffix}$**2)) ! norm2 works only for real

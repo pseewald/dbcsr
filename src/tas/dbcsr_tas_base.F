@@ -766,12 +766,14 @@ CONTAINS
 !> \param col_size ...
 ! **************************************************************************************************
    SUBROUTINE dbcsr_tas_iterator_next_area_block(iterator, row, column, block, transposed, block_number, &
-                                                 row_size, col_size)
+                                                 row_size, col_size, &
+                                                 row_local, col_local)
       TYPE(dbcsr_tas_iterator), INTENT(INOUT)              :: iterator
       INTEGER(KIND=int_8), INTENT(OUT)                   :: row, column
       TYPE(dbcsr_data_obj), INTENT(INOUT)                :: block
       LOGICAL, INTENT(OUT)                               :: transposed
-      INTEGER, INTENT(OUT), OPTIONAL                     :: block_number, row_size, col_size
+      INTEGER, INTENT(OUT), OPTIONAL                     :: block_number, row_size, col_size, &
+                                                            row_local, col_local
 
       CHARACTER(LEN=*), PARAMETER :: routineN = 'dbcsr_tas_iterator_next_area_block', &
                                      routineP = moduleN//':'//routineN
@@ -785,6 +787,8 @@ CONTAINS
 
       CALL block_index_local_to_global(iterator%dist%info, iterator%dist, row_group=row_group, column_group=column_group, &
                                        row=row, column=column)
+      IF(PRESENT(row_local)) row_local = row_group
+      IF(PRESENT(col_local)) col_local = column_group
 
       CALL timestop(handle)
    END SUBROUTINE
@@ -801,12 +805,14 @@ CONTAINS
 !> \param col_size ...
 ! **************************************************************************************************
    SUBROUTINE dbcsr_tas_iterator_next_block_index(iterator, row, column, block_number, &
-                                                  transposed, blk_p, row_size, col_size)
+                                                  transposed, blk_p, row_size, col_size, &
+                                                  row_local, col_local)
       TYPE(dbcsr_tas_iterator), INTENT(INOUT)              :: iterator
       INTEGER(KIND=int_8), INTENT(OUT)                   :: row, column
       INTEGER, INTENT(OUT)                               :: block_number
       LOGICAL, INTENT(OUT), OPTIONAL                     :: transposed
       INTEGER, INTENT(OUT), OPTIONAL                     :: blk_p, row_size, col_size
+      INTEGER, INTENT(OUT), OPTIONAL                     :: row_local, col_local
 
       CHARACTER(LEN=*), PARAMETER :: routineN = 'dbcsr_tas_iterator_next_block_index', &
                                      routineP = moduleN//':'//routineN
@@ -819,6 +825,9 @@ CONTAINS
 
       CALL block_index_local_to_global(iterator%dist%info, iterator%dist, row_group=row_group, column_group=column_group, &
                                        row=row, column=column)
+
+      IF(PRESENT(row_local)) row_local = row_group
+      IF(PRESENT(col_local)) col_local = column_group
 
       CALL timestop(handle)
 
@@ -874,7 +883,7 @@ CONTAINS
 ! **************************************************************************************************
    SUBROUTINE dbcsr_tas_put_block_area(matrix, row, col, block, transposed, summation, &
                                        scale)
-      TYPE(dbcsr_tas_type), INTENT(INOUT)                  :: matrix
+      TYPE(dbcsr_tas_type), INTENT(INOUT)                :: matrix
       INTEGER(KIND=int_8), INTENT(IN)                    :: row, col
       TYPE(dbcsr_data_obj)                               :: block
       LOGICAL, INTENT(IN), OPTIONAL                      :: transposed, summation
@@ -1286,13 +1295,14 @@ CONTAINS
 !> \param col_size ...
 ! **************************************************************************************************
    SUBROUTINE dbcsr_tas_iterator_next_block_${dsuffix}$ (iterator, row, column, block, transposed, block_number, &
-                                                         row_size, col_size)
+                                                         row_size, col_size, row_local, col_local)
       TYPE(dbcsr_tas_iterator), INTENT(INOUT) :: iterator
       INTEGER(KIND=int_8), INTENT(OUT)      :: row, column
       ${dtype}$, DIMENSION(:, :), POINTER   :: block
       LOGICAL, INTENT(OUT)                  :: transposed
       INTEGER, INTENT(OUT), OPTIONAL        :: block_number
-      INTEGER, INTENT(OUT), OPTIONAL        :: row_size, col_size
+      INTEGER, INTENT(OUT), OPTIONAL        :: row_size, col_size, &
+                                               row_local, col_local
 
       INTEGER                               :: row_group, column_group
       CHARACTER(LEN=*), PARAMETER           :: routineN = 'dbcsr_tas_iterator_next_block_${dsuffix}$', &
@@ -1305,6 +1315,9 @@ CONTAINS
 
       CALL block_index_local_to_global(iterator%dist%info, iterator%dist, row_group=row_group, column_group=column_group, &
                                        row=row, column=column)
+
+      IF(PRESENT(row_local)) row_local = row_group
+      IF(PRESENT(col_local)) col_local = column_group
 
       CALL timestop(handle)
    END SUBROUTINE
