@@ -34,8 +34,7 @@ MODULE dbcsr_tas_mm
       dbcsr_tas_get_data_type, dbcsr_tas_info, dbcsr_tas_nblkcols_total, &
       dbcsr_tas_nblkrows_total, dbcsr_tas_filter, dbcsr_tas_get_info, dbcsr_tas_iterator_blocks_left, &
       dbcsr_tas_get_nze_total, dbcsr_tas_reserve_blocks, dbcsr_tas_iterator_start, dbcsr_tas_iterator_next_block, &
-      dbcsr_tas_iterator_stop, dbcsr_tas_copy, dbcsr_tas_get_block_p, dbcsr_tas_clear, dbcsr_tas_get_nze, &
-      dbcsr_tas_set, dbcsr_tas_nblkrows_local, dbcsr_tas_nblkcols_local
+      dbcsr_tas_iterator_stop, dbcsr_tas_copy, dbcsr_tas_get_block_p, dbcsr_tas_clear, dbcsr_tas_get_nze
    USE dbcsr_tas_types, ONLY: dbcsr_tas_distribution_type, &
                               dbcsr_tas_create_split_info, &
                               dbcsr_tas_type, &
@@ -1165,22 +1164,17 @@ CONTAINS
       CHARACTER(LEN=1), INTENT(IN)               :: transa, transb, transc
       TYPE(dbcsr_tas_type), INTENT(INOUT)        :: matrix_a, matrix_b, matrix_c
       TYPE(dbcsr_tas_type)                       :: matrix_a_bnorm, matrix_b_bnorm, matrix_c_bnorm
-      REAL(KIND=real_8), INTENT(IN)              :: filter_eps
+      REAL(KIND=real_8), INTENT(IN), OPTIONAL    :: filter_eps
       INTEGER(KIND=int_8)                        :: row, col, nze
       INTEGER                                    :: bn, row_size, col_size, mp_comm, handle
       TYPE(dbcsr_tas_iterator)                   :: iter
       CHARACTER(LEN=*), PARAMETER :: routineN = 'result_sparsity_estimate', &
                                      routineP = moduleN//':'//routineN
-      INTEGER                                    :: sample_factor
-
-      ! sampling is applied to the 2 outer matrix dimensions and speeds up the sparsity estimate
-      ! by a factor of 9
-      sample_factor=3
 
       CALL timeset(routineN, handle)
 
-      CALL create_block_norms_matrix(matrix_a, matrix_a_bnorm, sample_row=sample_factor, filter_eps=filter_eps)
-      CALL create_block_norms_matrix(matrix_b, matrix_b_bnorm, sample_col=sample_factor, filter_eps=filter_eps)
+      CALL create_block_norms_matrix(matrix_a, matrix_a_bnorm)
+      CALL create_block_norms_matrix(matrix_b, matrix_b_bnorm)
       CALL create_block_norms_matrix(matrix_c, matrix_c_bnorm, nodata=.TRUE.)
 
       CALL dbcsr_tas_multiply(transa, transb, transc, dbcsr_scalar(1.0_real_8), matrix_a_bnorm, &
@@ -1200,8 +1194,6 @@ CONTAINS
 
       CALL dbcsr_tas_get_split_info(dbcsr_tas_info(matrix_a), mp_comm=mp_comm)
       CALL mp_sum(nze, mp_comm)
-
-      nze = nze*sample_factor**2
 
       CALL dbcsr_tas_destroy(matrix_a_bnorm)
       CALL dbcsr_tas_destroy(matrix_b_bnorm)
@@ -1229,19 +1221,15 @@ CONTAINS
 
    END FUNCTION
 
-   SUBROUTINE create_block_norms_matrix(matrix_in, matrix_out, sample_row, sample_col, nodata, filter_eps)
-      TYPE(dbcsr_tas_type), INTENT(INOUT)        :: matrix_in
+   SUBROUTINE create_block_norms_matrix(matrix_in, matrix_out, nodata)
+      TYPE(dbcsr_tas_type), INTENT(INOUT)           :: matrix_in
       TYPE(dbcsr_tas_type), INTENT(OUT)          :: matrix_out
-      INTEGER, INTENT(IN), OPTIONAL              :: sample_row
-      INTEGER, INTENT(IN), OPTIONAL              :: sample_col
       LOGICAL, INTENT(IN), OPTIONAL              :: nodata
-      REAL(KIND=real_8), INTENT(IN), OPTIONAL    :: filter_eps
       TYPE(dbcsr_tas_blk_size_one)               :: row_blk_size, col_blk_size
       TYPE(dbcsr_tas_iterator)                   :: iter
       INTEGER(KIND=int_8)                        :: row, column, nblkrows, nblkcols
       CHARACTER(len=default_string_length)       :: name
       INTEGER                                    :: data_type
-      INTEGER(int_8), DIMENSION(2)               :: sample
 
 #:for dparam, dtype, dsuffix in dtype_float_list
       ${dtype}$, DIMENSION(:, :), POINTER        :: block_get_${dsuffix}$
@@ -1257,13 +1245,6 @@ CONTAINS
          nodata_prv = .FALSE.
       ENDIF
 
-      sample = [1, 1]
-      IF(PRESENT(sample_row) .OR. PRESENT(sample_col)) THEN
-         DBCSR_ASSERT(PRESENT(filter_eps))
-      ENDIF
-      IF(PRESENT(sample_row)) sample(1) = sample_row
-      IF(PRESENT(sample_col)) sample(2) = sample_col
-
       CALL dbcsr_tas_get_info(matrix_in, data_type=data_type, name=name, &
                               nblkrows_total=nblkrows, nblkcols_total=nblkcols)
 
@@ -1277,7 +1258,6 @@ CONTAINS
 
       IF (.NOT. nodata_prv) THEN
          CALL dbcsr_tas_reserve_blocks(matrix_in, matrix_out)
-         CALL dbcsr_tas_set(matrix_out, 0.0_real_8)
 
          CALL dbcsr_tas_iterator_start(iter, matrix_in)
 
@@ -1286,19 +1266,14 @@ CONTAINS
 #:for dparam, dtype, dsuffix in dtype_float_list
             IF (data_type == ${dparam}$) THEN
                CALL dbcsr_tas_iterator_next_block(iter, row, column, block_get_${dsuffix}$, tr)
-
-               IF (MOD(row, sample(1)) == 0 .AND. MOD(column, sample(2)) == 0) THEN
-                  CALL dbcsr_tas_get_block_p(matrix_out, row, column, block_put_${dsuffix}$, tr, found)
-                  DBCSR_ASSERT(found)
-                  block_put_${dsuffix}$ (1, 1) = SQRT(SUM(block_get_${dsuffix}$**2)) ! norm2 works only for real
-               ENDIF
+               CALL dbcsr_tas_get_block_p(matrix_out, row, column, block_put_${dsuffix}$, tr, found)
+               DBCSR_ASSERT(found)
+               block_put_${dsuffix}$ (1, 1) = SQRT(SUM(block_get_${dsuffix}$**2)) ! norm2 works only for real
             ENDIF
 #:endfor
          ENDDO
          CALL dbcsr_tas_iterator_stop(iter)
       ENDIF
-
-      IF(PRESENT(filter_eps)) CALL dbcsr_tas_filter(matrix_out, filter_eps)
 
    END SUBROUTINE
 
