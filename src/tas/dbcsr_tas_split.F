@@ -356,7 +356,11 @@ CONTAINS
          pdim_nonsplit = pdims(1)
       END SELECT
 
-      nsplit_opt = opt_nsplit(pdim_split, nsplit, split_pgrid=.TRUE., pdim_nonsplit=pdim_nonsplit)
+      IF (nsplit > 0) THEN
+         nsplit_opt = opt_nsplit(pdim_split, nsplit, split_pgrid=.TRUE., pdim_nonsplit=pdim_nonsplit)
+      ELSE
+         nsplit_opt = 1
+      ENDIF
 
       SELECT CASE (split_rowcol)
       CASE (rowsplit)

@@ -440,7 +440,7 @@ CONTAINS
             nsplit = INT((col_dist%nmrowcol - 1)/row_dist%nmrowcol + 1)
          ENDIF
          IF(PRESENT(nosplit)) THEN
-            IF(nosplit) nsplit=1
+            IF(nosplit) nsplit=0
          ENDIF
          CALL dbcsr_tas_create_split(split_info_prv, mp_comm, split_rowcol, nsplit=nsplit)
       ENDIF
