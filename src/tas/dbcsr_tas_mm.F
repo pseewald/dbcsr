@@ -35,7 +35,7 @@ MODULE dbcsr_tas_mm
       dbcsr_tas_nblkrows_total, dbcsr_tas_filter, dbcsr_tas_get_info, dbcsr_tas_iterator_blocks_left, &
       dbcsr_tas_get_nze_total, dbcsr_tas_reserve_blocks, dbcsr_tas_iterator_start, dbcsr_tas_iterator_next_block, &
       dbcsr_tas_iterator_stop, dbcsr_tas_copy, dbcsr_tas_get_block_p, dbcsr_tas_clear, dbcsr_tas_get_nze, &
-      dbcsr_tas_set
+      dbcsr_tas_set, dbcsr_tas_nblkrows_local, dbcsr_tas_nblkcols_local
    USE dbcsr_tas_types, ONLY: dbcsr_tas_distribution_type, &
                               dbcsr_tas_create_split_info, &
                               dbcsr_tas_type, &
@@ -1241,16 +1241,13 @@ CONTAINS
       INTEGER(KIND=int_8)                        :: row, column, nblkrows, nblkcols
       CHARACTER(len=default_string_length)       :: name
       INTEGER                                    :: data_type
-      REAL(real_8), DIMENSION(2)                 :: sample
+      INTEGER(int_8), DIMENSION(2)               :: sample
 
 #:for dparam, dtype, dsuffix in dtype_float_list
       ${dtype}$, DIMENSION(:, :), POINTER        :: block_get_${dsuffix}$
       ${dtype}$, DIMENSION(:, :), POINTER        :: block_put_${dsuffix}$
 #:endfor
       LOGICAL                                    :: tr, nodata_prv, found
-      REAL(real_8), DIMENSION(:), ALLOCATABLE    :: rn_row, rn_col
-      INTEGER                                    :: nblkrows_local, nblkcols_local, &
-                                                    row_local, col_local
 
       DBCSR_ASSERT(matrix_in%valid)
 
@@ -1260,16 +1257,15 @@ CONTAINS
          nodata_prv = .FALSE.
       ENDIF
 
-      sample = [1.0_real_8, 1.0_real_8]
+      sample = [1, 1]
       IF(PRESENT(sample_row) .OR. PRESENT(sample_col)) THEN
          DBCSR_ASSERT(PRESENT(filter_eps))
       ENDIF
-      IF(PRESENT(sample_row)) sample(1) = 1._real_8/sample_row
-      IF(PRESENT(sample_col)) sample(2) = 1._real_8/sample_col
+      IF(PRESENT(sample_row)) sample(1) = sample_row
+      IF(PRESENT(sample_col)) sample(2) = sample_col
 
       CALL dbcsr_tas_get_info(matrix_in, data_type=data_type, name=name, &
-                              nblkrows_total=nblkrows, nblkcols_total=nblkcols, &
-                              nblkrows_local=nblkrows_local, nblkcols_local=nblkcols_local)
+                              nblkrows_total=nblkrows, nblkcols_total=nblkcols)
 
       row_blk_size = dbcsr_tas_blk_size_one(nblkrows)
       col_blk_size = dbcsr_tas_blk_size_one(nblkcols)
@@ -1283,22 +1279,15 @@ CONTAINS
          CALL dbcsr_tas_reserve_blocks(matrix_in, matrix_out)
          CALL dbcsr_tas_set(matrix_out, 0.0_real_8)
 
-         ALLOCATE(rn_row(nblkrows_local), rn_col(nblkcols_local))
-
-         CALL random_seed()
-         CALL random_number(rn_row)
-         CALL random_number(rn_col)
-
          CALL dbcsr_tas_iterator_start(iter, matrix_in)
 
          DO WHILE (dbcsr_tas_iterator_blocks_left(iter))
 
 #:for dparam, dtype, dsuffix in dtype_float_list
             IF (data_type == ${dparam}$) THEN
-               CALL dbcsr_tas_iterator_next_block(iter, row, column, block_get_${dsuffix}$, tr, &
-                                                  row_local=row_local, col_local=col_local)
+               CALL dbcsr_tas_iterator_next_block(iter, row, column, block_get_${dsuffix}$, tr)
 
-               IF (rn_row(row_local) < sample(1) .AND. rn_col(col_local) < sample(2)) THEN
+               IF (MOD(row, sample(1)) == 0 .AND. MOD(column, sample(2)) == 0) THEN
                   CALL dbcsr_tas_get_block_p(matrix_out, row, column, block_put_${dsuffix}$, tr, found)
                   DBCSR_ASSERT(found)
                   block_put_${dsuffix}$ (1, 1) = SQRT(SUM(block_get_${dsuffix}$**2)) ! norm2 works only for real
