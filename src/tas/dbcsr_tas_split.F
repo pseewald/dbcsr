@@ -16,7 +16,7 @@
 MODULE dbcsr_tas_split
 
    USE dbcsr_tas_types, ONLY: dbcsr_tas_distribution_type, &
-                              dbcsr_tas_create_split_info
+                              dbcsr_tas_split_info
    USE dbcsr_tas_global, ONLY: dbcsr_tas_distribution
    USE dbcsr_tas_util, ONLY: swap
    USE dbcsr_toollib, ONLY: sort
@@ -78,7 +78,7 @@ CONTAINS
 !> \param own_comm ...
 ! **************************************************************************************************
    SUBROUTINE dbcsr_tas_create_split_rows_or_cols(split_info, mp_comm, ngroup, igroup, split_rowcol, own_comm)
-      TYPE(dbcsr_tas_create_split_info), INTENT(OUT)              :: split_info
+      TYPE(dbcsr_tas_split_info), INTENT(OUT)            :: split_info
       INTEGER, INTENT(IN)                                :: mp_comm
       INTEGER, INTENT(INOUT)                             :: ngroup
       INTEGER, INTENT(IN)                                :: igroup, split_rowcol
@@ -341,7 +341,7 @@ CONTAINS
 !> \param own_comm ...
 ! **************************************************************************************************
    SUBROUTINE dbcsr_tas_create_split(split_info, mp_comm, split_rowcol, nsplit, own_comm)
-      TYPE(dbcsr_tas_create_split_info), INTENT(OUT)     :: split_info
+      TYPE(dbcsr_tas_split_info), INTENT(OUT)     :: split_info
       INTEGER, INTENT(IN)                                :: mp_comm
       INTEGER, INTENT(IN)                                :: split_rowcol
       INTEGER, INTENT(IN)                                :: nsplit
@@ -421,7 +421,7 @@ CONTAINS
 !> \param pgrid_offset group-local offset in process grid
 ! **************************************************************************************************
    SUBROUTINE dbcsr_tas_get_split_info(info, mp_comm, nsplit, igroup, mp_comm_group, split_rowcol, pgrid_offset)
-      TYPE(dbcsr_tas_create_split_info), INTENT(IN)               :: info
+      TYPE(dbcsr_tas_split_info), INTENT(IN)               :: info
       INTEGER, INTENT(OUT), OPTIONAL                     :: mp_comm, nsplit, igroup, mp_comm_group, &
                                                             split_rowcol
       INTEGER, DIMENSION(2), INTENT(OUT), OPTIONAL       :: pgrid_offset
@@ -448,7 +448,7 @@ CONTAINS
 !> \param split_info ...
 ! **************************************************************************************************
    SUBROUTINE dbcsr_tas_release_info(split_info)
-      TYPE(dbcsr_tas_create_split_info), INTENT(INOUT)            :: split_info
+      TYPE(dbcsr_tas_split_info), INTENT(INOUT)            :: split_info
       LOGICAL                                            :: abort
 
       abort = .FALSE.
@@ -477,7 +477,7 @@ CONTAINS
 !> \param split_info ...
 ! **************************************************************************************************
    SUBROUTINE dbcsr_tas_info_hold(split_info)
-      TYPE(dbcsr_tas_create_split_info), INTENT(IN)               :: split_info
+      TYPE(dbcsr_tas_split_info), INTENT(IN)               :: split_info
 
       INTEGER, POINTER                                   :: ref => NULL()
 
@@ -575,7 +575,7 @@ CONTAINS
 ! **************************************************************************************************
    SUBROUTINE block_index_local_to_global(info, dist, row_group, column_group, &
                                           row, column)
-      TYPE(dbcsr_tas_create_split_info), INTENT(IN)               :: info
+      TYPE(dbcsr_tas_split_info), INTENT(IN)               :: info
       TYPE(dbcsr_tas_distribution_type), INTENT(IN)        :: dist
       INTEGER, INTENT(IN), OPTIONAL                      :: row_group, column_group
       INTEGER(KIND=int_8), INTENT(OUT), OPTIONAL         :: row, column
@@ -611,7 +611,7 @@ CONTAINS
 !> \param column_group ...
 ! **************************************************************************************************
    SUBROUTINE block_index_global_to_local(info, dist, row, column, row_group, column_group)
-      TYPE(dbcsr_tas_create_split_info), INTENT(IN)               :: info
+      TYPE(dbcsr_tas_split_info), INTENT(IN)               :: info
       TYPE(dbcsr_tas_distribution_type), INTENT(IN)        :: dist
       INTEGER(KIND=int_8), INTENT(IN), OPTIONAL          :: row, column
       INTEGER, INTENT(OUT), OPTIONAL                     :: row_group, column_group
@@ -695,7 +695,7 @@ CONTAINS
 !> \param rowcols rows/ columns on this group
 ! **************************************************************************************************
    SUBROUTINE group_to_mrowcol(info, rowcol_dist, igroup, rowcols)
-      TYPE(dbcsr_tas_create_split_info), INTENT(IN)                        :: info
+      TYPE(dbcsr_tas_split_info), INTENT(IN)                        :: info
       CLASS(dbcsr_tas_distribution), INTENT(IN)                     :: rowcol_dist
       INTEGER, INTENT(IN)                                         :: igroup
       INTEGER(KIND=int_8), DIMENSION(:), ALLOCATABLE, INTENT(OUT) :: rowcols

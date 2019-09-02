@@ -15,7 +15,7 @@
 
 MODULE dbcsr_tas_io
    USE dbcsr_tas_types, ONLY: &
-      dbcsr_tas_type, dbcsr_tas_create_split_info
+      dbcsr_tas_type, dbcsr_tas_split_info
    USE dbcsr_tas_global, ONLY: &
       dbcsr_tas_rowcol_data, dbcsr_tas_distribution
    USE dbcsr_kinds, ONLY: &
@@ -193,7 +193,7 @@ CONTAINS
 !> \param name ...
 ! **************************************************************************************************
    SUBROUTINE dbcsr_tas_write_split_info(info, io_unit, name)
-      TYPE(dbcsr_tas_create_split_info), INTENT(IN)               :: info
+      TYPE(dbcsr_tas_split_info), INTENT(IN)               :: info
       INTEGER, INTENT(IN) :: io_unit
       CHARACTER(len=*), INTENT(IN), OPTIONAL             :: name
       INTEGER                                            :: groupsize, igroup, mp_comm, &

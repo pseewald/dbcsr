@@ -53,7 +53,7 @@ MODULE dbcsr_tas_reshape_ops
       dbcsr_repl_get_stored_coordinates, dbcsr_tas_clear
    USE dbcsr_tas_types, ONLY: dbcsr_tas_distribution_type, &
                               dbcsr_tas_iterator, &
-                              dbcsr_tas_create_split_info, &
+                              dbcsr_tas_split_info, &
                               dbcsr_tas_type
    USE dbcsr_tas_global, ONLY: dbcsr_tas_blk_size_arb, &
                                dbcsr_tas_blk_size_repl, &
@@ -146,7 +146,7 @@ CONTAINS
       TYPE(block_buffer_type), ALLOCATABLE, DIMENSION(:) :: buffer_recv, buffer_send
       TYPE(dbcsr_data_obj)                               :: block
       TYPE(dbcsr_tas_iterator)                             :: iter
-      TYPE(dbcsr_tas_create_split_info)                           :: info
+      TYPE(dbcsr_tas_split_info)                           :: info
 
       CALL timeset(routineN, handle)
 
@@ -303,7 +303,7 @@ CONTAINS
 ! **************************************************************************************************
    SUBROUTINE dbcsr_tas_replicate(matrix_in, info, matrix_out, nodata, move_data)
       TYPE(dbcsr_type), INTENT(INOUT)                    :: matrix_in
-      TYPE(dbcsr_tas_create_split_info), INTENT(IN)               :: info
+      TYPE(dbcsr_tas_split_info), INTENT(IN)               :: info
       TYPE(dbcsr_tas_type), INTENT(OUT)                    :: matrix_out
       LOGICAL, INTENT(IN), OPTIONAL                      :: nodata
       LOGICAL, INTENT(IN), OPTIONAL                      :: move_data
@@ -529,7 +529,7 @@ CONTAINS
       TYPE(block_buffer_type), ALLOCATABLE, DIMENSION(:) :: buffer_recv, buffer_send
       TYPE(dbcsr_data_obj)                               :: block
       TYPE(dbcsr_iterator)                               :: iter
-      TYPE(dbcsr_tas_create_split_info)                           :: info
+      TYPE(dbcsr_tas_split_info)                           :: info
 
       CALL timeset(routineN, handle)
 

@@ -43,7 +43,8 @@ MODULE dbcsr_tensor_types
       dbcsr_tas_destroy, dbcsr_tas_get_stored_coordinates, dbcsr_tas_set, dbcsr_tas_filter, &
       dbcsr_tas_get_num_blocks, dbcsr_tas_get_num_blocks_total, dbcsr_tas_get_data_size, dbcsr_tas_get_nze, &
       dbcsr_tas_get_nze_total, dbcsr_tas_clear
-   USE dbcsr_tas_types, ONLY: dbcsr_tas_type, dbcsr_tas_distribution_type, dbcsr_tas_create_split_info
+   USE dbcsr_tas_types, ONLY: &
+      dbcsr_tas_type, dbcsr_tas_distribution_type, dbcsr_tas_split_info
    USE dbcsr_tensor_index, ONLY: get_2d_indices, &
                                  get_nd_indices, &
                                  create_nd_to_2d_mapping, &
@@ -110,7 +111,7 @@ MODULE dbcsr_tensor_types
    TYPE dbcsr_t_pgrid_type
       TYPE(nd_to_2d_mapping) :: nd_index_grid
       INTEGER                :: mp_comm_2d
-      TYPE(dbcsr_tas_create_split_info), ALLOCATABLE :: tas_split_info
+      TYPE(dbcsr_tas_split_info), ALLOCATABLE :: tas_split_info
    END TYPE
 
    TYPE dbcsr_t_type

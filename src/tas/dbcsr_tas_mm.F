@@ -36,7 +36,7 @@ MODULE dbcsr_tas_mm
       dbcsr_tas_get_nze_total, dbcsr_tas_reserve_blocks, dbcsr_tas_iterator_start, dbcsr_tas_iterator_next_block, &
       dbcsr_tas_iterator_stop, dbcsr_tas_copy, dbcsr_tas_get_block_p, dbcsr_tas_clear, dbcsr_tas_get_nze
    USE dbcsr_tas_types, ONLY: dbcsr_tas_distribution_type, &
-                              dbcsr_tas_create_split_info, &
+                              dbcsr_tas_split_info, &
                               dbcsr_tas_type, &
                               dbcsr_tas_iterator
    USE dbcsr_tas_global, ONLY: dbcsr_tas_dist_cyclic, &
@@ -132,7 +132,7 @@ CONTAINS
       TYPE(dbcsr_scalar_type), INTENT(IN)        :: alpha, beta
       TYPE(dbcsr_tas_type), TARGET, INTENT(INOUT) :: matrix_a, matrix_b, matrix_c
       LOGICAL, INTENT(IN), OPTIONAL              :: optimize_dist
-      TYPE(dbcsr_tas_create_split_info), INTENT(OUT), OPTIONAL :: split_opt
+      TYPE(dbcsr_tas_split_info), INTENT(OUT), OPTIONAL :: split_opt
       REAL(KIND=real_8), INTENT(IN), OPTIONAL    :: filter_eps
       INTEGER(KIND=int_8), INTENT(OUT), OPTIONAL :: flop
       LOGICAL, INTENT(IN), OPTIONAL              :: move_data_a, move_data_b, simple_split
@@ -154,7 +154,7 @@ CONTAINS
       TYPE(dbcsr_scalar_type)                    :: zero
       LOGICAL                                    :: new_a, new_b, new_c, simple_split_prv, opt_pgrid,&
                                                     move_a, move_b
-      TYPE(dbcsr_tas_create_split_info)          :: info
+      TYPE(dbcsr_tas_split_info)          :: info
       CHARACTER(LEN=*), PARAMETER                :: routineN = 'dbcsr_tas_multiply', &
                                                     routineP = moduleN//':'//routineN
       INTEGER(KIND=int_8)                        :: nze_a, nze_b, nze_c, nze_result
@@ -417,7 +417,7 @@ CONTAINS
             CALL timestop(handle2)
          END SELECT
 
-         CALL dbcsr_clear_mempools() ! todo: more systematic solution, this is not safe for gpus
+         CALL dbcsr_clear_mempools() ! todo: more systematic solution
 
          IF (opt_pgrid) THEN
             CALL dbcsr_release(matrix_a_mm)
@@ -732,7 +732,7 @@ CONTAINS
       LOGICAL :: optimize_dist_prv, trans1_newdist, trans2_newdist
       TYPE(dbcsr_tas_dist_cyclic) :: row_dist_1, col_dist_1, row_dist_2, col_dist_2
       TYPE(dbcsr_tas_distribution_type) :: dist_1, dist_2
-      TYPE(dbcsr_tas_create_split_info) :: split_info
+      TYPE(dbcsr_tas_split_info) :: split_info
       INTEGER(KIND=int_8)               :: nze1, nze2
       LOGICAL                           :: nodata1_prv, nodata2_prv
 
@@ -857,7 +857,6 @@ CONTAINS
             ! sizes are not equal. However we can not use arbitrary distributions
             ! for large dimensions since this would require storing distribution vectors as arrays
             ! which can not be stored for large dimensions.
-            ! todo: this could be done better, we can define an a priori distribution based on block sizes!
             row_dist_1 = dbcsr_tas_dist_cyclic(1, pdims(1), dims1(1))
             col_dist_1 = dbcsr_tas_dist_cyclic(1, pdims(2), dims1(2))
 
@@ -937,7 +936,7 @@ CONTAINS
       LOGICAL, INTENT(IN), OPTIONAL :: nodata
       LOGICAL, INTENT(INOUT), OPTIONAL :: move_data
       INTEGER :: mp_comm, split_rc, nsplit_old, handle
-      TYPE(dbcsr_tas_create_split_info) :: split_info
+      TYPE(dbcsr_tas_split_info) :: split_info
       CHARACTER(len=default_string_length) :: name
       INTEGER :: data_type, nsplit_new
       INTEGER(KIND=int_8) :: nblkrows, nblkcols
@@ -1018,7 +1017,7 @@ CONTAINS
       LOGICAL                                            :: dist_compatible
 
       INTEGER                                            :: res, same_local_rowcols
-      TYPE(dbcsr_tas_create_split_info)                           :: info_a, info_b
+      TYPE(dbcsr_tas_split_info)                           :: info_a, info_b
       INTEGER :: io_unit_prv, numproc, iproc
 
       IF (PRESENT(io_unit)) THEN
@@ -1089,7 +1088,7 @@ CONTAINS
       CLASS(dbcsr_tas_distribution), ALLOCATABLE :: row_dist, col_dist
 
       TYPE(dbcsr_tas_distribution_type) :: dist_new
-      TYPE(dbcsr_tas_create_split_info) :: info_template, info_matrix
+      TYPE(dbcsr_tas_split_info) :: info_template, info_matrix
       INTEGER :: mp_comm, dim_split_template, dim_split_matrix
       LOGICAL :: nodata_prv
       INTEGER, DIMENSION(2)                              :: pcoord, pdims

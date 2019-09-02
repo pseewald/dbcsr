@@ -45,7 +45,7 @@ MODULE dbcsr_tas_base
                                dbcsr_clear
    USE dbcsr_tas_types, ONLY: dbcsr_tas_distribution_type, &
                               dbcsr_tas_iterator, &
-                              dbcsr_tas_create_split_info, &
+                              dbcsr_tas_split_info, &
                               dbcsr_tas_type
    USE dbcsr_tas_global, ONLY: dbcsr_tas_blk_size_arb, &
                                dbcsr_tas_dist_arb, &
@@ -193,7 +193,7 @@ CONTAINS
       CLASS(dbcsr_tas_rowcol_data), INTENT(IN)         :: row_blk_size, col_blk_size
       LOGICAL, INTENT(IN), OPTIONAL                  :: own_dist
 
-      TYPE(dbcsr_tas_create_split_info)                       :: info
+      TYPE(dbcsr_tas_split_info)                       :: info
 
       INTEGER, DIMENSION(:), POINTER                 :: row_blk_size_vec => NULL(), col_blk_size_vec => NULL()
       INTEGER                                        :: nrows, ncols, irow, col, icol, row
@@ -413,10 +413,10 @@ CONTAINS
       TYPE(dbcsr_tas_distribution_type), INTENT(OUT)   :: dist
       INTEGER, INTENT(IN)                            :: mp_comm
       CLASS(dbcsr_tas_distribution), INTENT(IN)        :: row_dist, col_dist
-      TYPE(dbcsr_tas_create_split_info), INTENT(IN), OPTIONAL :: split_info
+      TYPE(dbcsr_tas_split_info), INTENT(IN), OPTIONAL :: split_info
       LOGICAL, INTENT(IN), OPTIONAL                           :: nosplit
 
-      TYPE(dbcsr_tas_create_split_info)                           :: split_info_prv
+      TYPE(dbcsr_tas_split_info)                           :: split_info_prv
 
       INTEGER, DIMENSION(:), POINTER :: row_dist_vec => NULL()
       INTEGER, DIMENSION(:), POINTER :: col_dist_vec => NULL()
@@ -517,7 +517,7 @@ CONTAINS
       INTEGER, INTENT(OUT)                               :: processor
 
       INTEGER, DIMENSION(2)                              :: pcoord
-      TYPE(dbcsr_tas_create_split_info)                           :: info
+      TYPE(dbcsr_tas_split_info)                           :: info
 
       pcoord(1) = matrix%dist%row_dist%dist(row)
       pcoord(2) = matrix%dist%col_dist%dist(column)
@@ -542,7 +542,7 @@ CONTAINS
       INTEGER                                            :: igroup
       INTEGER(KIND=int_8)                                :: col_s, row_s
       INTEGER, DIMENSION(2)                              :: pcoord
-      TYPE(dbcsr_tas_create_split_info)                           :: info
+      TYPE(dbcsr_tas_split_info)                           :: info
 
       row_s = INT(row, KIND=int_8); col_s = INT(column, KIND=int_8)
 
@@ -585,7 +585,7 @@ CONTAINS
       TYPE(dbcsr_distribution_obj)                       :: dist
       TYPE(dbcsr_mp_obj)                                 :: mp_environ_tmp
       TYPE(dbcsr_tas_iterator)                             :: iter
-      TYPE(dbcsr_tas_create_split_info)                           :: info
+      TYPE(dbcsr_tas_split_info)                           :: info
       INTEGER                                            :: block_number, rb_count, nblks_local
       INTEGER, DIMENSION(:), ALLOCATABLE                 :: nz_rows, nz_cols
 
@@ -662,7 +662,7 @@ CONTAINS
 !> \param matrix_dbcsr ...
 ! **************************************************************************************************
    SUBROUTINE dbcsr_tas_convert_to_tas(info, matrix_rect, matrix_dbcsr)
-      TYPE(dbcsr_tas_create_split_info), INTENT(IN)               :: info
+      TYPE(dbcsr_tas_split_info), INTENT(IN)               :: info
       TYPE(dbcsr_tas_type), INTENT(OUT)                    :: matrix_rect
       TYPE(dbcsr_type), INTENT(IN)                       :: matrix_dbcsr
 
@@ -986,7 +986,7 @@ CONTAINS
 ! **************************************************************************************************
    FUNCTION dbcsr_tas_info(matrix)
       TYPE(dbcsr_tas_type), INTENT(IN)                     :: matrix
-      TYPE(dbcsr_tas_create_split_info)                           :: dbcsr_tas_info
+      TYPE(dbcsr_tas_split_info)                           :: dbcsr_tas_info
 
       dbcsr_tas_info = matrix%dist%info
    END FUNCTION
@@ -1118,7 +1118,7 @@ CONTAINS
    FUNCTION dbcsr_tas_get_num_blocks_total(matrix) RESULT(num_blocks)
       TYPE(dbcsr_tas_type), INTENT(IN) :: matrix
       INTEGER(KIND=int_8)            :: num_blocks
-      TYPE(dbcsr_tas_create_split_info) :: info
+      TYPE(dbcsr_tas_split_info) :: info
 
       info = dbcsr_tas_info(matrix)
       num_blocks = dbcsr_tas_get_num_blocks(matrix)
@@ -1147,7 +1147,7 @@ CONTAINS
    FUNCTION dbcsr_tas_get_nze_total(matrix)
       TYPE(dbcsr_tas_type), INTENT(IN) :: matrix
       INTEGER(KIND=int_8) :: dbcsr_tas_get_nze_total
-      TYPE(dbcsr_tas_create_split_info) :: info
+      TYPE(dbcsr_tas_split_info) :: info
 
       dbcsr_tas_get_nze_total = dbcsr_tas_get_nze(matrix)
       info = dbcsr_tas_info(matrix)
@@ -1226,7 +1226,7 @@ CONTAINS
       CHARACTER, OPTIONAL                                             :: matrix_type
       INTEGER, OPTIONAL                                               :: data_type
 
-      TYPE(dbcsr_tas_create_split_info)                                        :: info
+      TYPE(dbcsr_tas_split_info)                                        :: info
       INTEGER                                                         :: numnodes, irow, icol
       INTEGER, DIMENSION(2)                                           :: pdims, pcoord
       INTEGER, DIMENSION(:), POINTER                                  :: local_rows_local => NULL(), local_cols_local => NULL()

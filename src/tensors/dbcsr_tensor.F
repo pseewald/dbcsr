@@ -35,7 +35,7 @@ MODULE dbcsr_tensor
       dbcsr_iterator_next_block, dbcsr_iterator_start, dbcsr_iterator_stop, &
       dbcsr_transpose, dbcsr_no_transpose, dbcsr_scalar, dbcsr_put_block, &
       ${uselist(dtype_float_param)}$, dbcsr_clear
-   USE dbcsr_tas_types, ONLY: dbcsr_tas_create_split_info
+   USE dbcsr_tas_types, ONLY: dbcsr_tas_split_info
    USE dbcsr_tas_base, ONLY: &
       dbcsr_tas_copy, dbcsr_tas_finalize, dbcsr_tas_get_data_type, dbcsr_tas_get_info, dbcsr_tas_info
    USE dbcsr_tas_mm, ONLY: dbcsr_tas_multiply
@@ -407,7 +407,7 @@ CONTAINS
       INTEGER, DIMENSION(2, dbcsr_t_ndims(tensor_1)) :: bounds_t1
       INTEGER, DIMENSION(2, dbcsr_t_ndims(tensor_2)) :: bounds_t2
       LOGICAL :: do_crop_1, do_crop_2
-      TYPE(dbcsr_tas_create_split_info) :: split_opt
+      TYPE(dbcsr_tas_split_info) :: split_opt
 
       CALL timeset(routineN, handle)
 
@@ -1141,7 +1141,7 @@ CONTAINS
 
    FUNCTION opt_pgrid(tensor, tas_split_info)
       TYPE(dbcsr_t_type), INTENT(IN) :: tensor
-      TYPE(dbcsr_tas_create_split_info), INTENT(IN) :: tas_split_info
+      TYPE(dbcsr_tas_split_info), INTENT(IN) :: tas_split_info
       INTEGER, DIMENSION(:), ALLOCATABLE :: map1, map2
       TYPE(dbcsr_t_pgrid_type) :: opt_pgrid
 
