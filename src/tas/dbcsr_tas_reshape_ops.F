@@ -315,6 +315,7 @@ CONTAINS
       LOGICAL :: tr, nodata_prv, move_prv
       INTEGER(KIND=int_8), ALLOCATABLE, DIMENSION(:, :) :: index_recv
       INTEGER :: ndata
+      CHARACTER :: matrix_type
 
       TYPE(dbcsr_data_obj) :: block
 
@@ -339,7 +340,8 @@ CONTAINS
 
       CALL dbcsr_get_info(matrix_in, distribution=dbcsr_dist, data_type=data_type, &
                           nblkrows_total=nblkrows, nblkcols_total=nblkcols, &
-                          row_blk_size=row_blk_size, col_blk_size=col_blk_size)
+                          row_blk_size=row_blk_size, col_blk_size=col_blk_size,&
+                          matrix_type=matrix_type)
       row_dist => dbcsr_distribution_row_dist(dbcsr_dist)
       col_dist => dbcsr_distribution_col_dist(dbcsr_dist)
 
@@ -371,7 +373,8 @@ CONTAINS
 
       CALL dbcsr_tas_distribution_new(dist, mp_comm, row_dist_obj, col_dist_obj, split_info=info)
       CALL dbcsr_tas_create(matrix_out, TRIM(matrix_in%name)//" replicated", &
-                            dist, data_type, row_bsize_obj, col_bsize_obj, own_dist=.TRUE.)
+                            dist, matrix_type, data_type, &
+                            row_bsize_obj, col_bsize_obj, own_dist=.TRUE.)
 
       IF (nodata_prv) THEN
          CALL dbcsr_tas_finalize(matrix_out)

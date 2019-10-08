@@ -22,7 +22,7 @@ MODULE dbcsr_tensor_types
       array_list, array_offsets, create_array_list, destroy_array_list, get_array_elements, &
       sizes_of_arrays, sum_of_arrays, array_sublist, get_arrays, get_ith_array, array_eq_i
    USE dbcsr_api, ONLY: &
-      dbcsr_distribution_get, dbcsr_distribution_type, dbcsr_get_info, dbcsr_type, &
+      dbcsr_distribution_get, dbcsr_distribution_type, dbcsr_get_info, dbcsr_type, dbcsr_type_no_symmetry, &
       ${uselist(dtype_float_param)}$
    USE dbcsr_kinds, ONLY: &
       ${uselist(dtype_float_prec)}$, &
@@ -39,8 +39,7 @@ MODULE dbcsr_tensor_types
       get_2d_indices, get_nd_indices, create_nd_to_2d_mapping, destroy_nd_to_2d_mapping, &
       dbcsr_t_get_mapping_info, nd_to_2d_mapping, split_index, combine_index, ndims_mapping
    USE dbcsr_tas_split, ONLY: &
-      dbcsr_tas_create_split_rows_or_cols, dbcsr_tas_release_info, dbcsr_tas_info_hold, &
-      dbcsr_tas_create_split
+      dbcsr_tas_release_info, dbcsr_tas_info_hold, dbcsr_tas_create_split
    USE dbcsr_kinds, ONLY: default_string_length, int_8
    USE dbcsr_mpiwrap, ONLY: &
       mp_cart_create, mp_cart_rank, mp_environ, mp_dims_create, mp_comm_free, mp_comm_dup, mp_sum, mp_max
@@ -603,15 +602,17 @@ CONTAINS
 !> \param data_type ...
 !> \param blk_size_1 blk sizes in each dimension
 !> \param blk_size_2 ...
+!> \param matrix_type symmetry, only for 2-rank tensors
 ! **************************************************************************************************
    SUBROUTINE dbcsr_t_create_new(tensor, name, dist, map1_2d, map2_2d, data_type, &
-                                 ${varlist("blk_size")}$)
+                                 ${varlist("blk_size")}$, matrix_type)
       TYPE(dbcsr_t_type), INTENT(OUT)                   :: tensor
       CHARACTER(len=*), INTENT(IN)                      :: name
       TYPE(dbcsr_t_distribution_type), INTENT(INOUT)    :: dist
       INTEGER, DIMENSION(:), INTENT(IN)                 :: map1_2d, map2_2d
       INTEGER, INTENT(IN), OPTIONAL                     :: data_type
       INTEGER, DIMENSION(:), INTENT(IN), OPTIONAL       :: ${varlist("blk_size")}$
+      CHARACTER, INTENT(IN), OPTIONAL                   :: matrix_type
       INTEGER                                           :: ndims
       INTEGER(KIND=int_8), DIMENSION(2)                             :: dims_2d
       INTEGER, DIMENSION(SIZE(map1_2d) + SIZE(map2_2d)) :: dims, pdims, task_coor
@@ -625,6 +626,7 @@ CONTAINS
       INTEGER, DIMENSION(:), ALLOCATABLE              :: ${varlist("dist")}$
       INTEGER                                         :: iblk_count, iblk
       INTEGER, DIMENSION(:), ALLOCATABLE              :: nblks_local, nfull_local
+      CHARACTER                                       :: matrix_type_prv
 
       CALL timeset(routineN, handle)
       ndims = SIZE(map1_2d) + SIZE(map2_2d)
@@ -637,13 +639,20 @@ CONTAINS
       row_blk_size_obj = dbcsr_tas_blk_size_t(blk_size, map, 1)
       col_blk_size_obj = dbcsr_tas_blk_size_t(blk_size, map, 2)
 
+      IF(PRESENT(matrix_type)) THEN
+         matrix_type_prv = matrix_type
+      ELSE
+         matrix_type_prv = dbcsr_type_no_symmetry
+      ENDIF
+
       ALLOCATE (tensor%matrix_rep)
       CALL dbcsr_tas_create(matrix=tensor%matrix_rep, &
                             name=TRIM(name)//" matrix", &
                             dist=dist%dist, &
                             row_blk_size=row_blk_size_obj, &
                             col_blk_size=col_blk_size_obj, &
-                            data_type=data_type)
+                            data_type=data_type, &
+                            matrix_type=matrix_type_prv)
       tensor%owns_matrix = .TRUE.
 
       tensor%nd_index_blk = map
@@ -798,6 +807,7 @@ CONTAINS
                                      routineP = moduleN//':'//routineN
       TYPE(dbcsr_t_pgrid_type)                  :: comm_nd
       INTEGER, DIMENSION(2)                     :: pdims_2d
+      CHARACTER                                 :: matrix_type
 
       CALL timeset(routineN, handle)
       IF (PRESENT(name)) THEN
@@ -832,7 +842,8 @@ CONTAINS
                               [order_in(1)], [order_in(2)], &
                               data_type, &
                               row_blk_size, &
-                              col_blk_size)
+                              col_blk_size, &
+                              matrix_type=matrix_type)
 
       CALL dbcsr_t_distribution_destroy(dist)
       CALL timestop(handle)
@@ -1027,7 +1038,7 @@ CONTAINS
       TYPE(dbcsr_t_pgrid_type), INTENT(OUT) :: pgrid
       INTEGER, DIMENSION(:), INTENT(IN), OPTIONAL :: map1_2d, map2_2d
       INTEGER, INTENT(IN), OPTIONAL :: nsplit, dimsplit
-      INTEGER :: nproc, iproc, ndims, i, handle
+      INTEGER :: nproc, iproc, ndims, i, handle, dimsplit_prv
       INTEGER, DIMENSION(2) :: pdims_2d, pos
       INTEGER, DIMENSION(:), ALLOCATABLE :: map1_2d_prv, map2_2d_prv
       TYPE(dbcsr_tas_split_info) :: info

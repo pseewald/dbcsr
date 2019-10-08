@@ -43,6 +43,7 @@ MODULE dbcsr_tensor_split
                                  dbcsr_t_blk_offsets, &
                                  dbcsr_t_blk_sizes
    USE dbcsr_api, ONLY: ${uselist(dtype_float_param)}$
+   USE dbcsr_tas_base, ONLY: dbcsr_tas_get_matrix_type
    USE dbcsr_kinds, ONLY: ${uselist(dtype_float_prec)}$
 
 #include "base/dbcsr_base_uses.f90"
@@ -160,7 +161,8 @@ CONTAINS
          CALL dbcsr_t_distribution_new(dist_split, tensor_in%pgrid, map1_2d, map2_2d, &
                                        ${varlist("nd_dist_split", nmax=ndim)}$)
          CALL dbcsr_t_create(tensor_out, tensor_in%name, dist_split, map1_2d, map2_2d, &
-                             dbcsr_t_get_data_type(tensor_in), ${varlist("nd_blk_size_split", nmax=ndim)}$)
+                             dbcsr_t_get_data_type(tensor_in), ${varlist("nd_blk_size_split", nmax=ndim)}$, &
+                             matrix_type=dbcsr_tas_get_matrix_type(tensor_in%matrix_rep))
       ENDIF
 #:endfor
 

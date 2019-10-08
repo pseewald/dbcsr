@@ -32,7 +32,7 @@ MODULE dbcsr_tas_mm
       dbcsr_tas_get_data_type, dbcsr_tas_info, dbcsr_tas_nblkcols_total, &
       dbcsr_tas_nblkrows_total, dbcsr_tas_filter, dbcsr_tas_get_info, dbcsr_tas_iterator_blocks_left, &
       dbcsr_tas_get_nze_total, dbcsr_tas_reserve_blocks, dbcsr_tas_iterator_start, dbcsr_tas_iterator_next_block, &
-      dbcsr_tas_iterator_stop, dbcsr_tas_copy, dbcsr_tas_get_block_p, dbcsr_tas_clear
+      dbcsr_tas_iterator_stop, dbcsr_tas_copy, dbcsr_tas_get_block_p, dbcsr_tas_clear, dbcsr_tas_get_matrix_type
    USE dbcsr_tas_types, ONLY: &
       dbcsr_tas_distribution_type, dbcsr_tas_split_info, dbcsr_tas_type, dbcsr_tas_iterator
    USE dbcsr_tas_global, ONLY: &
@@ -637,13 +637,15 @@ CONTAINS
          new_row_dist = dbcsr_tas_dist_arb_default(pdims(1), dims(1), matrix_in%row_blk_size)
          new_col_dist = dbcsr_tas_dist_arb_default(pdims(2), dims(2), matrix_in%col_blk_size)
          CALL dbcsr_tas_distribution_new(dist, mp_comm, new_row_dist, new_col_dist, nosplit=.TRUE.)
-         CALL dbcsr_tas_create(matrix_out, matrix_in%matrix%name, dist, dbcsr_tas_get_data_type(matrix_in), &
+         CALL dbcsr_tas_create(matrix_out, matrix_in%matrix%name, dist, &
+                               dbcsr_tas_get_matrix_type(matrix_in), dbcsr_tas_get_data_type(matrix_in), &
                                matrix_in%row_blk_size, matrix_in%col_blk_size, own_dist=.TRUE.)
       ELSE
          new_row_dist = dbcsr_tas_dist_arb_default(pdims(1), dims(1), matrix_in%col_blk_size)
          new_col_dist = dbcsr_tas_dist_arb_default(pdims(2), dims(2), matrix_in%row_blk_size)
          CALL dbcsr_tas_distribution_new(dist, mp_comm, new_row_dist, new_col_dist, nosplit=.TRUE.)
-         CALL dbcsr_tas_create(matrix_out, matrix_in%matrix%name, dist, dbcsr_tas_get_data_type(matrix_in), &
+         CALL dbcsr_tas_create(matrix_out, matrix_in%matrix%name, dist, &
+                               dbcsr_tas_get_matrix_type(matrix_in), dbcsr_tas_get_data_type(matrix_in), &
                                matrix_in%col_blk_size, matrix_in%row_blk_size, own_dist=.TRUE.)
 
       ENDIF
@@ -838,20 +840,24 @@ CONTAINS
 
             ALLOCATE (matrix1_out)
             IF (.NOT. trans1_newdist) THEN
-               CALL dbcsr_tas_create(matrix1_out, matrix1_in%matrix%name, dist_1, dbcsr_tas_get_data_type(matrix1_in), &
+               CALL dbcsr_tas_create(matrix1_out, matrix1_in%matrix%name, dist_1, &
+                                     dbcsr_type_no_symmetry, dbcsr_tas_get_data_type(matrix1_in), &
                                      matrix1_in%row_blk_size, matrix1_in%col_blk_size, own_dist=.TRUE.)
 
             ELSE
-               CALL dbcsr_tas_create(matrix1_out, matrix1_in%matrix%name, dist_1, dbcsr_tas_get_data_type(matrix1_in), &
+               CALL dbcsr_tas_create(matrix1_out, matrix1_in%matrix%name, dist_1, &
+                                     dbcsr_type_no_symmetry, dbcsr_tas_get_data_type(matrix1_in), &
                                      matrix1_in%col_blk_size, matrix1_in%row_blk_size, own_dist=.TRUE.)
             ENDIF
 
             ALLOCATE (matrix2_out)
             IF (.NOT. trans2_newdist) THEN
-               CALL dbcsr_tas_create(matrix2_out, matrix2_in%matrix%name, dist_2, dbcsr_tas_get_data_type(matrix2_in), &
+               CALL dbcsr_tas_create(matrix2_out, matrix2_in%matrix%name, dist_2, &
+                                     dbcsr_type_no_symmetry, dbcsr_tas_get_data_type(matrix2_in), &
                                      matrix2_in%row_blk_size, matrix2_in%col_blk_size, own_dist=.TRUE.)
             ELSE
-               CALL dbcsr_tas_create(matrix2_out, matrix2_in%matrix%name, dist_2, dbcsr_tas_get_data_type(matrix2_in), &
+               CALL dbcsr_tas_create(matrix2_out, matrix2_in%matrix%name, dist_2, &
+                                     dbcsr_type_no_symmetry, dbcsr_tas_get_data_type(matrix2_in), &
                                      matrix2_in%col_blk_size, matrix2_in%row_blk_size, own_dist=.TRUE.)
             ENDIF
 
@@ -928,6 +934,7 @@ CONTAINS
       CLASS(dbcsr_tas_rowcol_data), ALLOCATABLE  :: rbsize, cbsize
       CHARACTER(LEN=*), PARAMETER                :: routineN = 'change_split', &
                                                     routineP = moduleN//':'//routineN
+
       NULLIFY (matrix_out)
 
       is_new = .TRUE.
@@ -969,7 +976,7 @@ CONTAINS
 
       ALLOCATE (matrix_out)
       CALL dbcsr_tas_create(matrix_out, name, dist, &
-                            data_type, &
+                            dbcsr_type_no_symmetry, data_type, &
                             rbsize, cbsize, own_dist=.TRUE.)
 
       IF (.NOT. nodata_prv) CALL dbcsr_tas_copy(matrix_out, matrix_in)
@@ -1131,10 +1138,12 @@ CONTAINS
       CALL dbcsr_tas_get_split_info(info_template, mp_comm=mp_comm)
       CALL dbcsr_tas_distribution_new(dist_new, mp_comm, row_dist, col_dist, split_info=info_template)
       IF (.NOT. transposed) THEN
-         CALL dbcsr_tas_create(matrix_out, matrix_in%matrix%name, dist_new, dbcsr_tas_get_data_type(matrix_in), &
+         CALL dbcsr_tas_create(matrix_out, matrix_in%matrix%name, dist_new, &
+                               dbcsr_type_no_symmetry, dbcsr_tas_get_data_type(matrix_in), &
                                matrix_in%row_blk_size, matrix_in%col_blk_size, own_dist=.TRUE.)
       ELSE
-         CALL dbcsr_tas_create(matrix_out, matrix_in%matrix%name, dist_new, dbcsr_tas_get_data_type(matrix_in), &
+         CALL dbcsr_tas_create(matrix_out, matrix_in%matrix%name, dist_new, &
+                               dbcsr_type_no_symmetry, dbcsr_tas_get_data_type(matrix_in), &
                                matrix_in%col_blk_size, matrix_in%row_blk_size, own_dist=.TRUE.)
       ENDIF
 
@@ -1250,6 +1259,7 @@ CONTAINS
       ${dtype}$, DIMENSION(:, :), POINTER        :: block_put_${dsuffix}$
 #:endfor
       LOGICAL                                    :: tr, nodata_prv, found
+      CHARACTER                                  :: matrix_type
 
       DBCSR_ASSERT(matrix_in%valid)
 
@@ -1260,14 +1270,15 @@ CONTAINS
       ENDIF
 
       CALL dbcsr_tas_get_info(matrix_in, data_type=data_type, name=name, &
-                              nblkrows_total=nblkrows, nblkcols_total=nblkcols)
+                              nblkrows_total=nblkrows, nblkcols_total=nblkcols, &
+                              matrix_type=matrix_type)
 
       row_blk_size = dbcsr_tas_blk_size_one(nblkrows)
       col_blk_size = dbcsr_tas_blk_size_one(nblkcols)
 
       ! not sure if assumption that same distribution can be taken still holds
       CALL dbcsr_tas_create(matrix_out, name, matrix_in%dist, &
-                            data_type, &
+                            matrix_type, data_type, &
                             row_blk_size, col_blk_size)
 
       IF (.NOT. nodata_prv) THEN
@@ -1317,6 +1328,7 @@ CONTAINS
       LOGICAL                                    :: nodata_prv, optimize_pgrid_prv
       CHARACTER(LEN=*), PARAMETER                :: routineN = 'convert_to_new_pgrid', &
                                                     routineP = moduleN//':'//routineN
+      CHARACTER                                  :: matrix_type
 
       NULLIFY (row_dist, col_dist, rbsize, rcsize)
 
@@ -1343,7 +1355,7 @@ CONTAINS
 
       CALL dbcsr_get_info(matrix_in, nblkrows_total=nbrows, nblkcols_total=nbcols, &
                           row_blk_size=rbsize, col_blk_size=rcsize, &
-                          data_type=data_type, distribution=dist_old, name=name)
+                          data_type=data_type, distribution=dist_old, matrix_type=matrix_type, name=name)
       CALL mp_environ(nproc, pdims, pcoord, mp_comm_cart)
 
       ALLOCATE (row_dist(nbrows), col_dist(nbcols))
@@ -1354,7 +1366,7 @@ CONTAINS
       CALL dbcsr_distribution_new(dist, mp_obj, row_dist, col_dist, reuse_arrays=.TRUE.)
       CALL dbcsr_mp_release(mp_obj)
 
-      CALL dbcsr_create(matrix_out, name, dist, 'N', rbsize, rcsize, data_type=data_type)
+      CALL dbcsr_create(matrix_out, name, dist, matrix_type, rbsize, rcsize, data_type=data_type)
       CALL dbcsr_distribution_release(dist)
 
       IF (.NOT. nodata_prv) THEN

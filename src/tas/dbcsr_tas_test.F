@@ -12,7 +12,7 @@
 ! **************************************************************************************************
 
 MODULE dbcsr_tas_test
-   USE dbcsr_types, ONLY: dbcsr_type_real_8
+   USE dbcsr_types, ONLY: dbcsr_type_real_8, dbcsr_type_no_symmetry
    USE dbcsr_data_methods, ONLY: dbcsr_scalar
    USE dbcsr_methods, ONLY: &
       dbcsr_release, dbcsr_nblkcols_total, dbcsr_nblkrows_total, dbcsr_row_block_sizes, dbcsr_col_block_sizes, &
@@ -127,7 +127,7 @@ CONTAINS
       cbsize_obj = dbcsr_tas_blk_size_arb(cbsizes)
 
       CALL dbcsr_tas_distribution_new(dist, mp_comm_out, row_dist_obj, col_dist_obj)
-      CALL dbcsr_tas_create(matrix, name, dist=dist, data_type=dbcsr_type_real_8, &
+      CALL dbcsr_tas_create(matrix, name, dist=dist, matrix_type = dbcsr_type_no_symmetry, data_type=dbcsr_type_real_8, &
                             row_blk_size=rbsize_obj, col_blk_size=cbsize_obj, own_dist=.TRUE.)
 
       max_row_size = MAXVAL(rbsizes)

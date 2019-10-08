@@ -37,7 +37,8 @@ MODULE dbcsr_tensor
       ${uselist(dtype_float_param)}$, dbcsr_clear
    USE dbcsr_tas_types, ONLY: dbcsr_tas_split_info
    USE dbcsr_tas_base, ONLY: &
-      dbcsr_tas_copy, dbcsr_tas_finalize, dbcsr_tas_get_data_type, dbcsr_tas_get_info, dbcsr_tas_info
+      dbcsr_tas_copy, dbcsr_tas_finalize, dbcsr_tas_get_data_type, dbcsr_tas_get_info, dbcsr_tas_info,&
+      dbcsr_tas_get_matrix_type
    USE dbcsr_tas_mm, ONLY: dbcsr_tas_multiply
    USE dbcsr_tensor_block, ONLY: dbcsr_t_iterator_type, &
                                  dbcsr_t_get_block, &
@@ -1284,7 +1285,8 @@ CONTAINS
       IF (ndims_tensor(tensor_in) == ${ndim}$) THEN
          CALL dbcsr_t_create(tensor_out, name_tmp, dist, &
                              map1_2d, map2_2d, dbcsr_tas_get_data_type(tensor_in%matrix_rep), &
-                             ${varlist("blk_sizes", nmax=ndim)}$)
+                             ${varlist("blk_sizes", nmax=ndim)}$, &
+                             matrix_type=dbcsr_tas_get_matrix_type(tensor_in%matrix_rep))
       ENDIF
 #:endfor
 

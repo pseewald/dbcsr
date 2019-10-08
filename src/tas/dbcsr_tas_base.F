@@ -32,7 +32,7 @@ MODULE dbcsr_tas_base
    USE dbcsr_methods, ONLY: &
       dbcsr_distribution_release, dbcsr_get_data_type, dbcsr_mp_release, dbcsr_nblkcols_total, &
       dbcsr_nblkrows_total, dbcsr_nfullrows_total, dbcsr_nfullcols_total, dbcsr_release, &
-      dbcsr_get_data_size, dbcsr_get_num_blocks, dbcsr_get_nze
+      dbcsr_get_data_size, dbcsr_get_num_blocks, dbcsr_get_nze, dbcsr_get_matrix_type
    USE dbcsr_operations, ONLY: &
       dbcsr_get_info, dbcsr_set, dbcsr_filter, dbcsr_clear
    USE dbcsr_tas_types, ONLY: &
@@ -62,6 +62,7 @@ MODULE dbcsr_tas_base
 
    PUBLIC :: &
       ! DBCSR wrappers / interface routines
+      dbcsr_repl_get_stored_coordinates, &
       dbcsr_tas_blk_sizes, &
       dbcsr_tas_clear, &
       dbcsr_tas_copy, &
@@ -75,10 +76,11 @@ MODULE dbcsr_tas_base
       dbcsr_tas_get_data_size, &
       dbcsr_tas_get_data_type, &
       dbcsr_tas_get_info, &
+      dbcsr_tas_get_matrix_type, &
       dbcsr_tas_get_num_blocks, &
+      dbcsr_tas_get_num_blocks_total, &
       dbcsr_tas_get_nze, &
       dbcsr_tas_get_nze_total, &
-      dbcsr_tas_get_num_blocks_total, &
       dbcsr_tas_get_stored_coordinates, &
       dbcsr_tas_info, &
       dbcsr_tas_iterator_blocks_left, &
@@ -91,8 +93,8 @@ MODULE dbcsr_tas_base
       dbcsr_tas_nblkrows_total, &
       dbcsr_tas_put_block, &
       dbcsr_tas_reserve_blocks, &
-      dbcsr_tas_set, &
-      dbcsr_repl_get_stored_coordinates
+      dbcsr_tas_set
+
    PUBLIC :: &
       ! conversion routines
       dbcsr_tas_convert_to_dbcsr, &
@@ -166,11 +168,12 @@ CONTAINS
 !> \param col_blk_size ...
 !> \param own_dist whether matrix should own distribution
 ! **************************************************************************************************
-   SUBROUTINE dbcsr_tas_create_new(matrix, name, dist, data_type, &
+   SUBROUTINE dbcsr_tas_create_new(matrix, name, dist, matrix_type, data_type, &
                                    row_blk_size, col_blk_size, own_dist)
       TYPE(dbcsr_tas_type), INTENT(OUT)              :: matrix
       CHARACTER(len=*), INTENT(IN)                   :: name
       TYPE(dbcsr_tas_distribution_type), INTENT(INOUT) :: dist
+      CHARACTER, INTENT(IN)                          :: matrix_type
       INTEGER, INTENT(IN)                            :: data_type
       CLASS(dbcsr_tas_rowcol_data), INTENT(IN)       :: row_blk_size, col_blk_size
       LOGICAL, INTENT(IN), OPTIONAL                  :: own_dist
@@ -181,11 +184,26 @@ CONTAINS
       INTEGER                                        :: nrows, ncols, irow, col, icol, row
       CHARACTER(LEN=*), PARAMETER                    :: routineN = 'dbcsr_tas_create_new', &
                                                         routineP = moduleN//':'//routineN
-      INTEGER                                        :: handle
+      INTEGER                                        :: handle, mp_comm, split_rc, nsplit_old
+      TYPE(dbcsr_tas_split_info)                     :: info
 
       CALL timeset(routineN, handle)
 
-      CALL dbcsr_tas_copy_distribution(dist, matrix%dist, own_dist)
+      IF(matrix_type == dbcsr_type_no_symmetry)
+         CALL dbcsr_tas_copy_distribution(dist, matrix%dist, own_dist)
+      ELSE
+         ! if symmetric, need to make sure that nsplit == 1
+         CALL dbcsr_tas_get_split_info(dist%info, mp_comm=mp_comm, split_rowcol=split_rc, split_old=nsplit_old)
+         IF (nsplit_old /= 1) THEN
+            CALL dbcsr_tas_create_split(info, mp_comm, split_rc, 1, opt_nsplit=.FALSE.)
+            CALL dbcsr_tas_distribution_new(matrix%dist, mp_comm, dist%row_dist, dist%col_dist, &
+                                            split_info=info)
+            CALL dbcsr_tas_distribution_destroy(dist)
+         ELSE
+            CALL dbcsr_tas_copy_distribution(dist, matrix%dist, own_dist=own_dist)
+         ENDIF
+      ENDIF
+
       matrix%nblkrows = row_blk_size%nmrowcol
       matrix%nblkcols = col_blk_size%nmrowcol
 
@@ -236,7 +254,7 @@ CONTAINS
       CALL dbcsr_create(matrix=matrix%matrix, &
                         name=name, &
                         dist=dist%dbcsr_dist, &
-                        matrix_type='N', &
+                        matrix_type=matrix_type, &
                         row_blk_size=row_blk_size_vec, &
                         col_blk_size=col_blk_size_vec, &
                         data_type=data_type, &
@@ -312,17 +330,21 @@ CONTAINS
       LOGICAL :: transposed
       INTEGER   :: data_type
       INTEGER(KIND=int_8)                                :: row, column
+      CHARACTER                                          :: matrix_type_a, matrix_type_b
 
       CALL timeset(routineN, handle)
       DBCSR_ASSERT(matrix_b%valid)
 
-      CALL dbcsr_tas_get_info(matrix_a, data_type=data_type)
+      CALL dbcsr_tas_get_info(matrix_a, data_type=data_type, matrix_type=matrix_type_a)
+      CALL dbcsr_tas_get_info(matrix_b, matrix_type=matrix_type_b)
 
       IF (PRESENT(summation)) THEN
          IF (.NOT. summation) CALL dbcsr_tas_clear(matrix_b)
       ELSE
          CALL dbcsr_tas_clear(matrix_b)
       ENDIF
+
+
 
       CALL dbcsr_tas_reserve_blocks(matrix_a, matrix_b)
 
@@ -605,7 +627,7 @@ CONTAINS
       CALL dbcsr_create(matrix=matrix_dbcsr, &
                         name=TRIM(matrix_rect%matrix%name), &
                         dist=dist, &
-                        matrix_type='N', &
+                        matrix_type=dbcsr_get_matrix_type(matrix_rect%matrix), &
                         row_blk_size=row_size_vec, &
                         col_blk_size=col_size_vec, &
                         data_type=dbcsr_get_data_type(matrix_rect%matrix), &
@@ -689,7 +711,7 @@ CONTAINS
       CALL dbcsr_tas_distribution_new(dist, info%mp_comm, row_dist_obj, col_dist_obj)
 
       CALL dbcsr_tas_create(matrix_rect, TRIM(name)//"_compressed", &
-                            dist, data_type, row_blk_size_obj, col_blk_size_obj)
+                            dist, dbcsr_get_matrix_type(matrix_dbcsr), data_type, row_blk_size_obj, col_blk_size_obj)
 
       CALL dbcsr_data_init(block)
 
@@ -991,6 +1013,13 @@ CONTAINS
       INTEGER                                            :: data_type
 
       CALL dbcsr_get_info(matrix%matrix, data_type=data_type)
+   END FUNCTION
+
+   FUNCTION dbcsr_tas_get_matrix_type(matrix) RESULT(matrix_type)
+      TYPE(dbcsr_tas_type), INTENT(IN) :: matrix
+      CHARACTER :: matrix_type
+
+      matrix_type=dbcsr_get_matrix_type(matrix%matrix)
    END FUNCTION
 
 ! **************************************************************************************************
