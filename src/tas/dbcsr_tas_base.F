@@ -30,7 +30,7 @@ MODULE dbcsr_tas_base
       dbcsr_nblkrows_total, dbcsr_nfullrows_total, dbcsr_nfullcols_total, dbcsr_release, &
       dbcsr_get_data_size, dbcsr_get_num_blocks, dbcsr_get_nze
    USE dbcsr_operations, ONLY: &
-      dbcsr_get_info, dbcsr_set, dbcsr_filter, dbcsr_clear
+      dbcsr_get_info, dbcsr_set, dbcsr_filter, dbcsr_clear, dbcsr_norm_scalar
    USE dbcsr_tas_types, ONLY: &
       dbcsr_tas_distribution_type, dbcsr_tas_iterator, dbcsr_tas_split_info, dbcsr_tas_type
    USE dbcsr_tas_global, ONLY: &
@@ -42,7 +42,8 @@ MODULE dbcsr_tas_base
    USE dbcsr_tas_util, ONLY: &
       dbcsr_mp_environ, index_unique
    USE dbcsr_types, ONLY: &
-      dbcsr_distribution_obj, dbcsr_iterator, dbcsr_mp_obj, dbcsr_type, dbcsr_type_no_symmetry
+      dbcsr_distribution_obj, dbcsr_iterator, dbcsr_mp_obj, dbcsr_type, dbcsr_type_no_symmetry, &
+      dbcsr_norm_frobenius, dbcsr_norm_maxabsnorm
    USE dbcsr_work_operations, ONLY: &
       dbcsr_create, dbcsr_finalize
    USE dbcsr_kinds, ONLY: &
@@ -58,6 +59,7 @@ MODULE dbcsr_tas_base
 
    PUBLIC :: &
       ! DBCSR wrappers / interface routines
+      dbcsr_repl_get_stored_coordinates,&
       dbcsr_tas_blk_sizes, &
       dbcsr_tas_clear, &
       dbcsr_tas_copy, &
@@ -72,9 +74,9 @@ MODULE dbcsr_tas_base
       dbcsr_tas_get_data_type, &
       dbcsr_tas_get_info, &
       dbcsr_tas_get_num_blocks, &
+      dbcsr_tas_get_num_blocks_total, &
       dbcsr_tas_get_nze, &
       dbcsr_tas_get_nze_total, &
-      dbcsr_tas_get_num_blocks_total, &
       dbcsr_tas_get_stored_coordinates, &
       dbcsr_tas_info, &
       dbcsr_tas_iterator_blocks_left, &
@@ -85,10 +87,10 @@ MODULE dbcsr_tas_base
       dbcsr_tas_nblkcols_total, &
       dbcsr_tas_nblkrows_local, &
       dbcsr_tas_nblkrows_total, &
+      dbcsr_tas_norm, &
       dbcsr_tas_put_block, &
       dbcsr_tas_reserve_blocks, &
-      dbcsr_tas_set, &
-      dbcsr_repl_get_stored_coordinates
+      dbcsr_tas_set
    PUBLIC :: &
       ! conversion routines
       dbcsr_tas_convert_to_dbcsr, &
@@ -837,6 +839,37 @@ CONTAINS
       ENDIF
 
       dist_out = dist_in
+   END SUBROUTINE
+
+   SUBROUTINE dbcsr_tas_norm(matrix, which_norm, norm_scalar)
+      !! compute a norm of a DBCSR TAS matrix
+      TYPE(dbcsr_tas_type), INTENT(INOUT) :: matrix
+      INTEGER, INTENT(IN) :: which_norm
+         !! either dbcsr_norm_frobenius or dbcsr_norm_maxabsnorm
+      REAL(KIND=real_8), INTENT(OUT) :: norm_scalar
+      REAL(KIND=real_8) :: norm_scalar_sub
+      TYPE(dbcsr_tas_split_info) :: info
+      INTEGER :: nproc_sub, iproc_sub
+
+      info = dbcsr_tas_info(matrix)
+
+      CALL dbcsr_norm_scalar(matrix%matrix, which_norm, norm_scalar_sub)
+
+      ! define norm of submatrix only once per subgroup
+      CALL mp_environ(nproc_sub, iproc_sub, info%mp_comm_group)
+      IF (iproc_sub /= 0) norm_scalar_sub = 0
+
+      SELECT CASE (which_norm)
+      CASE (dbcsr_norm_frobenius)
+         norm_scalar_sub = norm_scalar_sub**2
+         CALL mp_sum(norm_scalar_sub, info%mp_comm)
+         norm_scalar = SQRT(norm_scalar_sub)
+      CASE (dbcsr_norm_maxabsnorm)
+         CALL mp_max(norm_scalar_sub, info%mp_comm)
+         norm_scalar = norm_scalar_sub
+      CASE DEFAULT
+         DBCSR_ABORT("this norm is NYI")
+      END SELECT
    END SUBROUTINE
 
    SUBROUTINE dbcsr_tas_blk_sizes(matrix, row, col, row_size, col_size)

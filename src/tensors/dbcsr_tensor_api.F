@@ -28,7 +28,7 @@ MODULE dbcsr_tensor_api
       dbcsr_t_pgrid_type, dbcsr_t_pgrid_create, dbcsr_t_pgrid_destroy, dbcsr_t_set, dbcsr_t_filter, &
       dbcsr_t_mp_environ_pgrid => mp_environ_pgrid, dbcsr_t_blk_sizes, dbcsr_t_get_info, &
       dbcsr_t_finalize, dbcsr_t_scale, dbcsr_t_get_nze, dbcsr_t_get_nze_total, &
-      dbcsr_t_get_num_blocks, dbcsr_t_get_num_blocks_total, dbcsr_t_clear
+      dbcsr_t_get_num_blocks, dbcsr_t_get_num_blocks_total, dbcsr_t_clear, dbcsr_t_norm
    USE dbcsr_tensor_test, ONLY: &
       dbcsr_t_contract_test, dbcsr_t_checksum
    USE dbcsr_tensor_split, ONLY: &
@@ -84,5 +84,6 @@ MODULE dbcsr_tensor_api
    PUBLIC :: dbcsr_t_get_mapping_info
    PUBLIC :: dbcsr_t_write_split_info
    PUBLIC :: dbcsr_t_write_blocks
+   PUBLIC :: dbcsr_t_norm
 
 END MODULE dbcsr_tensor_api

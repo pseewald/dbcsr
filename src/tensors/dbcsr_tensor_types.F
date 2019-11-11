@@ -30,7 +30,7 @@ MODULE dbcsr_tensor_types
       dbcsr_tas_distribution_destroy, dbcsr_tas_finalize, dbcsr_tas_get_info, &
       dbcsr_tas_destroy, dbcsr_tas_get_stored_coordinates, dbcsr_tas_set, dbcsr_tas_filter, &
       dbcsr_tas_get_num_blocks, dbcsr_tas_get_num_blocks_total, dbcsr_tas_get_data_size, dbcsr_tas_get_nze, &
-      dbcsr_tas_get_nze_total, dbcsr_tas_clear
+      dbcsr_tas_get_nze_total, dbcsr_tas_clear, dbcsr_tas_norm
    USE dbcsr_tas_types, ONLY: &
       dbcsr_tas_type, dbcsr_tas_distribution_type, dbcsr_tas_split_info
    USE dbcsr_tensor_index, ONLY: &
@@ -76,6 +76,7 @@ MODULE dbcsr_tensor_types
       dbcsr_t_hold, &
       dbcsr_t_nd_mp_comm, &
       dbcsr_t_nd_mp_free, &
+      dbcsr_t_norm, &
       dbcsr_t_pgrid_create, &
       dbcsr_t_pgrid_destroy, &
       dbcsr_t_pgrid_type, &
@@ -1038,6 +1039,16 @@ CONTAINS
       CALL mp_environ(nproc, dims_2d, task_coor_2d, pgrid%mp_comm_2d)
       CALL dbcsr_t_get_mapping_info(pgrid%nd_index_grid, dims_nd=dims)
       task_coor = get_nd_indices(pgrid%nd_index_grid, INT(task_coor_2d, KIND=int_8))
+   END SUBROUTINE
+
+   SUBROUTINE dbcsr_t_norm(tensor, which_norm, norm_scalar)
+      !! calculate tensor norm
+      TYPE(dbcsr_t_type), INTENT(INOUT) :: tensor
+      INTEGER, INTENT(IN) :: which_norm
+         !! either dbcsr_norm_frobenius or dbcsr_norm_maxabsnorm
+      REAL(KIND=real_8), INTENT(OUT) :: norm_scalar
+
+      CALL dbcsr_tas_norm(tensor%matrix_rep, which_norm, norm_scalar)
    END SUBROUTINE
 
 #:for dparam, dtype, dsuffix in dtype_float_list
