@@ -496,7 +496,6 @@ CONTAINS
          ALLOCATE (tensor_crop_1)
          CALL dbcsr_t_crop(tensor_1, tensor_crop_1, bounds_t1, move_data=move_data_1)
          move_data_1 = .TRUE.
-         IF(tensor_1%matrix_rep%do_batched) CALL dbcsr_tas_batched_mm_finalize(tensor_1%matrix_rep)
       ELSE
          tensor_crop_1 => tensor_1
       ENDIF
@@ -505,7 +504,6 @@ CONTAINS
          ALLOCATE (tensor_crop_2)
          CALL dbcsr_t_crop(tensor_2, tensor_crop_2, bounds_t2, move_data=move_data_2)
          move_data_2 = .TRUE.
-         IF(tensor_2%matrix_rep%do_batched) CALL dbcsr_tas_batched_mm_finalize(tensor_2%matrix_rep)
       ELSE
          tensor_crop_2 => tensor_2
       ENDIF
@@ -760,11 +758,21 @@ CONTAINS
       CALL dbcsr_t_destroy(tensor_algn_3)
 
       IF (do_crop_1) THEN
+         IF(tensor_1%matrix_rep%do_batched) THEN
+            ! transfer data for batched contraction
+            DEALLOCATE(tensor_1%matrix_rep%mm_storage)
+            ALLOCATE(tensor_1%matrix_rep%mm_storage, SOURCE=tensor_crop_1%matrix_rep%mm_storage)
+         ENDIF
          CALL dbcsr_t_destroy(tensor_crop_1)
          DEALLOCATE (tensor_crop_1)
       ENDIF
 
       IF (do_crop_2) THEN
+         IF(tensor_2%matrix_rep%do_batched) THEN
+            ! transfer data for batched contraction
+            DEALLOCATE(tensor_2%matrix_rep%mm_storage)
+            ALLOCATE(tensor_2%matrix_rep%mm_storage, SOURCE=tensor_crop_2%matrix_rep%mm_storage)
+         ENDIF
          CALL dbcsr_t_destroy(tensor_crop_2)
          DEALLOCATE (tensor_crop_2)
       ENDIF
