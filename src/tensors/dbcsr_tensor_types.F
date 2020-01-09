@@ -537,14 +537,9 @@ CONTAINS
       TYPE(dbcsr_t_pgrid_type), INTENT(IN)            :: pgrid
       INTEGER, DIMENSION(:), INTENT(IN), OPTIONAL     :: ${varlist("nd_dist")}$
       INTEGER, DIMENSION(:), ALLOCATABLE :: map1_2d, map2_2d
-      INTEGER :: i, ndims
+      INTEGER :: ndims
 
-      CALL dbcsr_t_get_mapping_info(pgrid%nd_index_grid, ndim_nd=ndims)
-
-      ALLOCATE (map1_2d(ndims/2))
-      ALLOCATE (map2_2d(ndims - ndims/2))
-      map1_2d(:) = (/(i, i=1, SIZE(map1_2d))/)
-      map2_2d(:) = (/(i, i=SIZE(map1_2d) + 1, SIZE(map1_2d) + SIZE(map2_2d))/)
+      CALL dbcsr_t_get_mapping_info(pgrid%nd_index_grid, map1_2d=map1_2d, map2_2d=map2_2d, ndim_nd=ndims)
 
       CALL dbcsr_t_distribution_new_expert(dist, pgrid, map1_2d, map2_2d, ${varlist("nd_dist")}$)
 
