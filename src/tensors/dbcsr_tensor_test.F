@@ -324,6 +324,7 @@ CONTAINS
 #:for ndim in ndims
             IF (ndims == ${ndim}$) THEN
                CALL dbcsr_t_distribution_new(dist2, comm_nd, ${varlist("dist2", nmax=ndim)}$)
+               DEALLOCATE(${varlist("dist2", nmax=ndim)}$)
                CALL dbcsr_t_create(tensor2, "Ref", dist2, map1_ref, map2_ref, &
                                    dbcsr_type_real_8, ${varlist("blk_size", nmax=ndim)}$)
                CALL dbcsr_t_setup_test_tensor(tensor2, comm_nd%mp_comm_2d, .TRUE., ${varlist("blk_ind", nmax=ndim)}$)
@@ -335,6 +336,7 @@ CONTAINS
 #:for ndim in ndims
             IF (ndims == ${ndim}$) THEN
                CALL dbcsr_t_distribution_new(dist1, comm_nd, ${varlist("dist1", nmax=ndim)}$)
+               DEALLOCATE(${varlist("dist1", nmax=ndim)}$)
                CALL dbcsr_t_create(tensor1, tensor_name, dist1, map1, map2, &
                                    dbcsr_type_real_8, ${varlist("blk_size", nmax=ndim)}$)
                CALL dbcsr_t_setup_test_tensor(tensor1, comm_nd%mp_comm_2d, .TRUE., ${varlist("blk_ind", nmax=ndim)}$)
@@ -358,12 +360,6 @@ CONTAINS
 
             CALL dbcsr_t_destroy(tensor2)
             CALL dbcsr_t_distribution_destroy(dist2)
-
-#:for dim in range(1, maxdim+1)
-            IF (${dim}$ <= ndims) THEN
-               DEALLOCATE (dist1_${dim}$, dist2_${dim}$)
-            ENDIF
-#:endfor
 
          ENDDO
       ENDDO
