@@ -442,15 +442,9 @@ CONTAINS
    SUBROUTINE dbcsr_tas_distribution_destroy(dist)
       TYPE(dbcsr_tas_distribution_type), INTENT(INOUT)     :: dist
 
-      IF (ALLOCATED(dist%row_dist)) THEN
-         DEALLOCATE (dist%row_dist)
-      ENDIF
-      IF (ALLOCATED(dist%col_dist)) THEN
-         DEALLOCATE (dist%col_dist)
-      ENDIF
-      IF (ALLOCATED(dist%local_rowcols)) THEN
-         DEALLOCATE (dist%local_rowcols)
-      ENDIF
+      DEALLOCATE (dist%row_dist)
+      DEALLOCATE (dist%col_dist)
+      DEALLOCATE (dist%local_rowcols)
       CALL dbcsr_tas_release_info(dist%info)
       CALL dbcsr_distribution_release(dist%dbcsr_dist)
    END SUBROUTINE
