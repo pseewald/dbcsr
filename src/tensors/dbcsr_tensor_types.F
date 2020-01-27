@@ -651,7 +651,7 @@ CONTAINS
 
       CALL timeset(routineN, handle)
       CALL dbcsr_tas_distribution_destroy(dist%dist)
-      CALL destroy_array_list(dist%nd_dist)
+      !CALL destroy_array_list(dist%nd_dist)
 
       abort = .FALSE.
       IF (.NOT. ASSOCIATED(dist%refcount)) THEN
