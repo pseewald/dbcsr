@@ -37,7 +37,8 @@ MODULE dbcsr_array_list_methods
       reorder_arrays, &
       sizes_of_arrays, &
       sum_of_arrays, &
-      check_equal
+      check_equal, &
+      copy_arrays
 
    TYPE array_list
       INTEGER, DIMENSION(:), ALLOCATABLE :: col_data
@@ -243,6 +244,15 @@ CONTAINS
                                 ${varlist("data", nmax=ndim)}$)
       ENDIF
 #:endfor
+
+   END SUBROUTINE
+
+   SUBROUTINE copy_arrays(list_in, list_out)
+      TYPE(array_list), INTENT(IN)                     :: list_in
+      TYPE(array_list), INTENT(OUT)                    :: list_out
+
+      CALL allocate_any(list_out%col_data, source=list_in%col_data)
+      CALL allocate_any(list_out%ptr, source=list_in%ptr)
 
    END SUBROUTINE
 
