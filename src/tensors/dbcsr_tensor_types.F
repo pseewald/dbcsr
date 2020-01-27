@@ -17,7 +17,7 @@ MODULE dbcsr_tensor_types
 
    USE dbcsr_array_list_methods, ONLY: &
       array_list, array_offsets, create_array_list, destroy_array_list, get_array_elements, &
-      sizes_of_arrays, sum_of_arrays, array_sublist, get_arrays, get_ith_array, array_eq_i, copy_arrays
+      sizes_of_arrays, sum_of_arrays, array_sublist, get_arrays, get_ith_array, array_eq_i
    USE dbcsr_api, ONLY: &
       dbcsr_distribution_get, dbcsr_distribution_type, dbcsr_get_info, dbcsr_type, &
       ${uselist(dtype_float_param)}$
@@ -651,7 +651,7 @@ CONTAINS
 
       CALL timeset(routineN, handle)
       CALL dbcsr_tas_distribution_destroy(dist%dist)
-      !CALL destroy_array_list(dist%nd_dist)
+      CALL destroy_array_list(dist%nd_dist)
 
       abort = .FALSE.
       IF (.NOT. ASSOCIATED(dist%refcount)) THEN
@@ -804,8 +804,7 @@ CONTAINS
 
       tensor%blks_local = blks_local
 
-      CALL copy_arrays(dist_new%nd_dist, tensor%nd_dist)
-      !tensor%nd_dist = dist_new%nd_dist
+      tensor%nd_dist = dist_new%nd_dist
       tensor%pgrid = dist_new%pgrid
 
       CALL dbcsr_t_distribution_hold(dist_new)
