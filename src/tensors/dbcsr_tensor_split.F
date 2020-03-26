@@ -72,7 +72,6 @@ CONTAINS
       TYPE(dbcsr_t_distribution_type)                 :: dist_old, dist_split
       TYPE(dbcsr_t_iterator_type)                     :: iter
       INTEGER, DIMENSION(:), ALLOCATABLE              :: ${varlist("nd_dist_split")}$
-      INTEGER, DIMENSION(:), ALLOCATABLE              :: ${varlist("nd_blk_size_split")}$
       INTEGER, DIMENSION(:), ALLOCATABLE              :: ${varlist("index_split_offset")}$
       INTEGER, DIMENSION(:), ALLOCATABLE              :: ${varlist("inblock_offset")}$
       INTEGER, DIMENSION(:), ALLOCATABLE              :: ${varlist("blk_nsplit")}$
@@ -82,7 +81,7 @@ CONTAINS
       INTEGER, DIMENSION(:), ALLOCATABLE :: dist_d, blk_size_d, blk_size_split_d, dist_split_d
       INTEGER, DIMENSION(ndims_matrix_row(tensor_in)) :: map1_2d
       INTEGER, DIMENSION(ndims_matrix_column(tensor_in)) :: map2_2d
-      INTEGER, DIMENSION(ndims_tensor(tensor_in)) :: blk_index, blk_size, blk_offset, &
+      INTEGER, DIMENSION(ndims_tensor(tensor_in)) :: blk_index, blk_offset, &
                                                      blk_shape
       INTEGER, DIMENSION(${maxdim}$) :: bi_split, inblock_offset
       LOGICAL :: found
@@ -143,7 +142,6 @@ CONTAINS
 #:for idim in range(1, maxdim+1)
          IF (idim == ${idim}$) THEN
             CALL allocate_any(nd_dist_split_${idim}$, source=dist_split_d)
-            CALL allocate_any(nd_blk_size_split_${idim}$, source=blk_size_split_d)
          ENDIF
 #:endfor
          DEALLOCATE (dist_split_d)
@@ -158,7 +156,7 @@ CONTAINS
          CALL dbcsr_t_distribution_new_expert(dist_split, tensor_in%pgrid, map1_2d, map2_2d, &
                                               ${varlist("nd_dist_split", nmax=ndim)}$)
          CALL dbcsr_t_create(tensor_out, tensor_in%name, dist_split, map1_2d, map2_2d, &
-                             dbcsr_t_get_data_type(tensor_in), ${varlist("nd_blk_size_split", nmax=ndim)}$)
+                             dbcsr_t_get_data_type(tensor_in), ${varlist("blk_size", nmax=ndim)}$)
       ENDIF
 #:endfor
 
@@ -175,7 +173,7 @@ CONTAINS
 
       bcount = 0
       DO WHILE (dbcsr_t_iterator_blocks_left(iter))
-         CALL dbcsr_t_iterator_next_block(iter, blk_index, blk, blk_size=blk_size)
+         CALL dbcsr_t_iterator_next_block(iter, blk_index, blk)
 #:for ndim in ndims
          IF (ndims_tensor(tensor_in) == ${ndim}$) THEN
 #:for idim in range(1,ndim+1)
@@ -196,7 +194,7 @@ CONTAINS
 
       bcount = 0
       DO WHILE (dbcsr_t_iterator_blocks_left(iter))
-         CALL dbcsr_t_iterator_next_block(iter, blk_index, blk, blk_size=blk_size, blk_offset=blk_offset)
+         CALL dbcsr_t_iterator_next_block(iter, blk_index, blk, blk_offset=blk_offset)
 
 #:for ndim in ndims
          IF (ndims_tensor(tensor_in) == ${ndim}$) THEN
@@ -220,7 +218,7 @@ CONTAINS
       CALL dbcsr_t_iterator_start(iter, tensor_in)
 
       DO WHILE (dbcsr_t_iterator_blocks_left(iter))
-         CALL dbcsr_t_iterator_next_block(iter, blk_index, blk, blk_size=blk_size, blk_offset=blk_offset)
+         CALL dbcsr_t_iterator_next_block(iter, blk_index, blk, blk_offset=blk_offset)
 #:for dparam, dtype, dsuffix in dtype_float_list
          IF (dbcsr_t_get_data_type(tensor_in) == ${dparam}$) THEN
 #:for ndim in ndims

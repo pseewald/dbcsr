@@ -30,7 +30,7 @@ MODULE dbcsr_tas_mm
       dbcsr_tas_get_nze_total, dbcsr_tas_reserve_blocks, dbcsr_tas_iterator_start, dbcsr_tas_iterator_next_block, &
       dbcsr_tas_iterator_stop, dbcsr_tas_copy, dbcsr_tas_get_block_p, dbcsr_tas_clear, dbcsr_tas_get_num_blocks
    USE dbcsr_tas_types, ONLY: &
-      dbcsr_tas_distribution_type, dbcsr_tas_split_info, dbcsr_tas_type, dbcsr_tas_iterator
+      dbcsr_tas_distribution_type, dbcsr_tas_split_info, dbcsr_tas_type, dbcsr_tas_iterator, dbcsr_tas_static_block_size
    USE dbcsr_tas_global, ONLY: &
       dbcsr_tas_dist_cyclic, dbcsr_tas_dist_arb, dbcsr_tas_distribution, dbcsr_tas_dist_arb_default, &
       dbcsr_tas_rowcol_data, dbcsr_tas_blk_size_one, cyclic_weighted_dist
@@ -43,7 +43,9 @@ MODULE dbcsr_tas_mm
       swap, invert_transpose_flag, array_eq, dbcsr_mp_environ
    USE dbcsr_types, ONLY: &
       dbcsr_no_transpose, dbcsr_transpose, dbcsr_type, dbcsr_distribution_obj, dbcsr_mp_obj, &
-      dbcsr_type_no_symmetry
+      dbcsr_type_no_symmetry, dbcsr_iterator
+   USE dbcsr_iterator_operations, ONLY: &
+      dbcsr_iterator_stop, dbcsr_iterator_start, dbcsr_iterator_blocks_left, dbcsr_iterator_next_block
    USE dbcsr_kinds, ONLY: &
       int_8, real_8, real_4, default_string_length
    USE dbcsr_mpiwrap, ONLY: &
@@ -53,10 +55,14 @@ MODULE dbcsr_tas_mm
    USE dbcsr_tas_io, ONLY: &
       dbcsr_tas_write_dist, dbcsr_tas_write_matrix_info, dbcsr_tas_write_split_info
    USE dbcsr_work_operations, ONLY: dbcsr_create, dbcsr_finalize
-   USE dbcsr_transformations, ONLY: dbcsr_redistribute
-   USE dbcsr_dist_methods, ONLY: dbcsr_distribution_new
+   USE dbcsr_transformations, ONLY: dbcsr_redistribute, dbcsr_complete_redistribute
+   USE dbcsr_dist_methods, ONLY: dbcsr_distribution_new, dbcsr_distribution_mp, &
+      dbcsr_distribution_get
    USE dbcsr_methods, ONLY: &
-      dbcsr_mp_release, dbcsr_release, dbcsr_distribution_release, dbcsr_get_nze
+      dbcsr_mp_release, dbcsr_release, dbcsr_distribution_release, dbcsr_get_nze, dbcsr_get_matrix_type, &
+      dbcsr_get_data_type
+   USE dbcsr_block_access, ONLY: &
+      dbcsr_reserve_blocks, dbcsr_put_block
 #include "base/dbcsr_base_uses.f90"
 
    IMPLICIT NONE
@@ -113,7 +119,7 @@ CONTAINS
       TYPE(dbcsr_scalar_type)                    :: zero
       LOGICAL                                    :: new_a, new_b, new_c, simple_split_prv, opt_pgrid, &
                                                     move_a, move_b, do_batched, simple_split_save, &
-                                                    nodata_3
+                                                    nodata_3, split_dbcsr_blocks
       TYPE(dbcsr_tas_split_info)                 :: info, info_a, info_b, info_c
       CHARACTER(LEN=*), PARAMETER                :: routineN = 'dbcsr_tas_multiply', &
                                                     routineP = moduleN//':'//routineN
@@ -130,8 +136,11 @@ CONTAINS
          io_unit_prv = 0
       ENDIF
 
+      split_dbcsr_blocks = .TRUE.
+
       IF (PRESENT(simple_split)) THEN
          simple_split_prv = simple_split
+         split_dbcsr_blocks = .NOT. simple_split
       ELSE
          simple_split_prv = .FALSE.
 
@@ -307,7 +316,7 @@ CONTAINS
                                     nodata2=nodata_3, comm_new=comm_tmp, &
                                     move_data_1=move_a, unit_nr=io_unit)
 
-         info = dbcsr_tas_info(matrix_a_rs)
+         info = dbcsr_tas_info(matrix_a_rs); CALL dbcsr_tas_info_hold(info)
          CALL dbcsr_tas_get_split_info(info, split_rowcol=split_rc, mp_comm=mp_comm)
 
          new_b = .FALSE.
@@ -338,7 +347,7 @@ CONTAINS
                                     comm_new=comm_tmp, &
                                     move_data_1=move_a, move_data_2=move_b, unit_nr=io_unit)
 
-         info = dbcsr_tas_info(matrix_a_rs)
+         info = dbcsr_tas_info(matrix_a_rs); CALL dbcsr_tas_info_hold(info)
          CALL dbcsr_tas_get_split_info(info, split_rowcol=split_rc, mp_comm=mp_comm)
 
          IF (matrix_c%do_batched <= 1) THEN
@@ -372,7 +381,7 @@ CONTAINS
                                     split_rc_1=split_b, split_rc_2=split_c, &
                                     nodata2=nodata_3, comm_new=comm_tmp, &
                                     move_data_1=move_b, unit_nr=io_unit)
-         info = dbcsr_tas_info(matrix_b_rs)
+         info = dbcsr_tas_info(matrix_b_rs); CALL dbcsr_tas_info_hold(info)
          CALL dbcsr_tas_get_split_info(info, split_rowcol=split_rc, mp_comm=mp_comm)
 
          new_a = .FALSE.
@@ -456,21 +465,25 @@ CONTAINS
             CALL dbcsr_tas_write_dist(matrix_b_rep, io_unit, full_info=log_verbose)
          ENDIF
 
-         CALL convert_to_new_pgrid(mp_comm_mm, matrix_a_rs%matrix, matrix_a_mm, optimize_pgrid=opt_pgrid, move_data=move_a)
+         CALL prep_for_matmul(mp_comm_mm, matrix_a_rs%matrix, matrix_a_mm, &
+                              split_blocks=split_dbcsr_blocks, optimize_pgrid=opt_pgrid, move_data=move_a)
 
-         IF (new_a .AND. opt_pgrid) THEN
+         IF (new_a .AND. split_dbcsr_blocks) THEN
             CALL dbcsr_tas_destroy(matrix_a_rs)
             DEALLOCATE (matrix_a_rs)
          ENDIF
-         CALL convert_to_new_pgrid(mp_comm_mm, matrix_b_rep%matrix, matrix_b_mm, optimize_pgrid=opt_pgrid, &
-                                   move_data=matrix_b%do_batched == 0)
 
-         IF (opt_pgrid .AND. matrix_b%do_batched == 0) THEN
+         CALL prep_for_matmul(mp_comm_mm, matrix_b_rep%matrix, matrix_b_mm, &
+                              split_blocks=split_dbcsr_blocks, optimize_pgrid=opt_pgrid, &
+                              move_data=matrix_b%do_batched == 0)
+
+         IF (split_dbcsr_blocks .AND. matrix_b%do_batched == 0) THEN
             CALL dbcsr_tas_destroy(matrix_b_rep)
             DEALLOCATE (matrix_b_rep)
          ENDIF
 
-         CALL convert_to_new_pgrid(mp_comm_mm, matrix_c_rs%matrix, matrix_c_mm, nodata=nodata_3, optimize_pgrid=opt_pgrid)
+         CALL prep_for_matmul(mp_comm_mm, matrix_c_rs%matrix, matrix_c_mm, nodata=nodata_3, &
+                              split_blocks=split_dbcsr_blocks, optimize_pgrid=opt_pgrid)
 
          SELECT CASE (tr_case)
          CASE (dbcsr_no_transpose)
@@ -489,7 +502,7 @@ CONTAINS
             CALL timestop(handle2)
          END SELECT
 
-         IF (opt_pgrid) THEN
+         IF (split_dbcsr_blocks) THEN
             CALL dbcsr_release(matrix_a_mm)
             CALL dbcsr_release(matrix_b_mm)
             IF (.NOT. new_c) THEN
@@ -533,19 +546,22 @@ CONTAINS
             CALL dbcsr_tas_write_dist(matrix_b_rs, io_unit)
          ENDIF
 
-         CALL convert_to_new_pgrid(mp_comm_mm, matrix_a_rs%matrix, matrix_a_mm, optimize_pgrid=opt_pgrid, move_data=move_a)
-         IF (new_a .AND. opt_pgrid) THEN
+         CALL prep_for_matmul(mp_comm_mm, matrix_a_rs%matrix, matrix_a_mm, &
+                              split_blocks=split_dbcsr_blocks, optimize_pgrid=opt_pgrid, move_data=move_a)
+         IF (new_a .AND. split_dbcsr_blocks) THEN
             CALL dbcsr_tas_destroy(matrix_a_rs)
             DEALLOCATE (matrix_a_rs)
          ENDIF
 
-         CALL convert_to_new_pgrid(mp_comm_mm, matrix_b_rs%matrix, matrix_b_mm, optimize_pgrid=opt_pgrid, move_data=move_b)
-         IF (new_b .AND. opt_pgrid) THEN
+         CALL prep_for_matmul(mp_comm_mm, matrix_b_rs%matrix, matrix_b_mm, &
+                              split_blocks=split_dbcsr_blocks, optimize_pgrid=opt_pgrid, move_data=move_b)
+         IF (new_b .AND. split_dbcsr_blocks) THEN
             CALL dbcsr_tas_destroy(matrix_b_rs)
             DEALLOCATE (matrix_b_rs)
          ENDIF
 
-         CALL convert_to_new_pgrid(mp_comm_mm, matrix_c_rep%matrix, matrix_c_mm, nodata=nodata_3, optimize_pgrid=opt_pgrid)
+         CALL prep_for_matmul(mp_comm_mm, matrix_c_rep%matrix, matrix_c_mm, &
+                              nodata=nodata_3, split_blocks=split_dbcsr_blocks, optimize_pgrid=opt_pgrid)
 
          CALL timeset(routineN//"_mm_2", handle2)
          CALL dbcsr_multiply(transa=transa_prv, transb=transb_prv, alpha=alpha, matrix_a=matrix_a_mm, &
@@ -553,7 +569,7 @@ CONTAINS
                              filter_eps=filter_eps_prv/REAL(nsplit, KIND=real_8), retain_sparsity=retain_sparsity, flop=flop)
          CALL timestop(handle2)
 
-         IF (opt_pgrid) THEN
+         IF(split_dbcsr_blocks) THEN
             CALL dbcsr_release(matrix_a_mm)
             CALL dbcsr_release(matrix_b_mm)
             CALL redistribute_and_sum(matrix_c_mm, matrix_c_rep%matrix, alpha=beta)
@@ -603,21 +619,25 @@ CONTAINS
             CALL dbcsr_tas_write_dist(matrix_b_rs, io_unit)
          ENDIF
 
-         CALL convert_to_new_pgrid(mp_comm_mm, matrix_a_rep%matrix, matrix_a_mm, optimize_pgrid=opt_pgrid, &
-                                   move_data=matrix_a%do_batched == 0)
+         CALL prep_for_matmul(mp_comm_mm, matrix_a_rep%matrix, matrix_a_mm, &
+                              split_blocks=split_dbcsr_blocks, optimize_pgrid=opt_pgrid, &
+                              move_data=matrix_a%do_batched == 0)
 
-         IF (opt_pgrid .AND. matrix_a%do_batched == 0) THEN
+         IF (split_dbcsr_blocks .AND. matrix_a%do_batched == 0) THEN
             CALL dbcsr_tas_destroy(matrix_a_rep)
             DEALLOCATE(matrix_a_rep)
          ENDIF
 
-         CALL convert_to_new_pgrid(mp_comm_mm, matrix_b_rs%matrix, matrix_b_mm, optimize_pgrid=opt_pgrid, move_data=move_b)
+         CALL prep_for_matmul(mp_comm_mm, matrix_b_rs%matrix, matrix_b_mm, &
+                              split_blocks=split_dbcsr_blocks, optimize_pgrid=opt_pgrid, move_data=move_b)
 
-         IF (new_b .AND. opt_pgrid) THEN
+         IF (new_b .AND. split_dbcsr_blocks) THEN
             CALL dbcsr_tas_destroy(matrix_b_rs)
             DEALLOCATE (matrix_b_rs)
          ENDIF
-         CALL convert_to_new_pgrid(mp_comm_mm, matrix_c_rs%matrix, matrix_c_mm, nodata=nodata_3, optimize_pgrid=opt_pgrid)
+
+         CALL prep_for_matmul(mp_comm_mm, matrix_c_rs%matrix, matrix_c_mm, nodata=nodata_3, &
+                              split_blocks=split_dbcsr_blocks, optimize_pgrid=opt_pgrid)
 
          SELECT CASE (tr_case)
          CASE (dbcsr_no_transpose)
@@ -634,7 +654,7 @@ CONTAINS
             CALL timestop(handle2)
          END SELECT
 
-         IF (opt_pgrid) THEN
+         IF (split_dbcsr_blocks) THEN
             CALL dbcsr_release(matrix_a_mm)
             CALL dbcsr_release(matrix_b_mm)
 
@@ -664,6 +684,7 @@ CONTAINS
       END SELECT
 
       CALL mp_comm_free(mp_comm_mm)
+      CALL dbcsr_tas_release_info(info)
 
       CALL dbcsr_tas_get_split_info(dbcsr_tas_info(matrix_c), mp_comm=mp_comm)
 
@@ -721,7 +742,7 @@ CONTAINS
       TYPE(dbcsr_type) :: matrix_tmp
 
       CALL dbcsr_create(matrix_tmp, matrix_out)
-      CALL dbcsr_redistribute(matrix_in, matrix_tmp)
+      CALL dbcsr_complete_redistribute(matrix_in, matrix_tmp)
       CALL dbcsr_add(matrix_out, matrix_tmp, alpha_scalar=alpha)
       CALL dbcsr_release(matrix_tmp)
 
@@ -1454,7 +1475,7 @@ CONTAINS
 
    END SUBROUTINE
 
-   SUBROUTINE convert_to_new_pgrid(mp_comm_cart, matrix_in, matrix_out, move_data, nodata, optimize_pgrid)
+   SUBROUTINE prep_for_matmul(mp_comm_cart, matrix_in, matrix_out, move_data, nodata, split_blocks, optimize_pgrid)
       !! Convert a DBCSR matrix to a new process grid
 
       INTEGER, INTENT(IN)                        :: mp_comm_cart
@@ -1464,6 +1485,8 @@ CONTAINS
       LOGICAL, INTENT(IN), OPTIONAL              :: move_data, nodata
          !! memory optimization: move data such that matrix_in is empty on return.
          !! Data of matrix_in should not be copied to matrix_out
+      LOGICAL, INTENT(IN), OPTIONAL              :: split_blocks
+         !! Whether to split blocks
       LOGICAL, INTENT(IN), OPTIONAL              :: optimize_pgrid
          !! Whether to change process grid
 
@@ -1474,11 +1497,29 @@ CONTAINS
       TYPE(dbcsr_distribution_obj)               :: dist, dist_old
       TYPE(dbcsr_mp_obj)                         :: mp_obj
       CHARACTER(len=default_string_length)       :: name
-      LOGICAL                                    :: nodata_prv, optimize_pgrid_prv
-      CHARACTER(LEN=*), PARAMETER                :: routineN = 'convert_to_new_pgrid', &
+      LOGICAL                                    :: nodata_prv, optimize_pgrid_prv, split_blocks_prv
+      CHARACTER(LEN=*), PARAMETER                :: routineN = 'prep_for_matmul', &
                                                     routineP = moduleN//':'//routineN
+      TYPE(dbcsr_type), POINTER                  :: matrix_split
 
       NULLIFY (row_dist, col_dist, rbsize, rcsize)
+
+      CALL timeset(routineN, handle)
+
+      IF(PRESENT(split_blocks)) THEN
+         split_blocks_prv = split_blocks
+      ELSE
+         split_blocks_prv = .TRUE.
+      ENDIF
+
+      IF(.NOT. split_blocks_prv) THEN
+         matrix_out => matrix_in
+         CALL timestop(handle)
+         RETURN
+      ENDIF
+
+      ALLOCATE(matrix_split)
+      CALL dbcsr_split_blocks(matrix_in, matrix_split, dbcsr_tas_static_block_size, dbcsr_tas_static_block_size, nodata=nodata)
 
       IF (PRESENT(optimize_pgrid)) THEN
          optimize_pgrid_prv = optimize_pgrid
@@ -1487,11 +1528,14 @@ CONTAINS
       ENDIF
 
       IF (.NOT. optimize_pgrid_prv) THEN
-         matrix_out => matrix_in
+         matrix_out => matrix_split
+         IF (PRESENT(move_data)) THEN
+            IF (move_data) CALL dbcsr_clear(matrix_in)
+         ENDIF
+         CALL timestop(handle)
          RETURN
       ENDIF
 
-      CALL timeset(routineN, handle)
 
       IF (PRESENT(nodata)) THEN
          nodata_prv = nodata
@@ -1501,7 +1545,7 @@ CONTAINS
 
       ALLOCATE (matrix_out)
 
-      CALL dbcsr_get_info(matrix_in, nblkrows_total=nbrows, nblkcols_total=nbcols, &
+      CALL dbcsr_get_info(matrix_split, nblkrows_total=nbrows, nblkcols_total=nbcols, &
                           row_blk_size=rbsize, col_blk_size=rcsize, &
                           data_type=data_type, distribution=dist_old, name=name)
       CALL mp_environ(nproc, pdims, pcoord, mp_comm_cart)
@@ -1518,11 +1562,10 @@ CONTAINS
       CALL dbcsr_distribution_release(dist)
 
       IF (.NOT. nodata_prv) THEN
-         CALL dbcsr_redistribute(matrix_in, matrix_out)
-         IF (PRESENT(move_data)) THEN
-            IF (move_data) CALL dbcsr_clear(matrix_in)
-         ENDIF
+         CALL dbcsr_redistribute(matrix_split, matrix_out)
       ENDIF
+      CALL dbcsr_release(matrix_split)
+      DEALLOCATE(matrix_split)
 
       CALL timestop(handle)
    END SUBROUTINE
@@ -1560,5 +1603,320 @@ CONTAINS
       matrix%do_batched = 0
 
    END SUBROUTINE
+
+   SUBROUTINE dbcsr_split_blocks(matrix_in, matrix_out, row_blk_size, col_blk_size, nodata)
+      TYPE(dbcsr_type), INTENT(INOUT) :: matrix_in
+      TYPE(dbcsr_type), INTENT(OUT) :: matrix_out
+      INTEGER, INTENT(IN) :: row_blk_size, col_blk_size
+      LOGICAL, INTENT(IN), OPTIONAL :: nodata
+      INTEGER, DIMENSION(:), POINTER :: &
+         row_blk_sizes_in, col_blk_sizes_in, row_blk_sizes_split, col_blk_sizes_split, row_dist, col_dist, &
+         row_dist_split, col_dist_split
+      INTEGER, DIMENSION(:), ALLOCATABLE :: row_index_split_offset, col_index_split_offset, &
+                                            row_blk_nsplit, col_blk_nsplit, &
+                                            row_inblock_offset, col_inblock_offset, &
+                                            row_blks_to_allocate, col_blks_to_allocate
+      INTEGER :: handle, isplit_sum, i, isplit, nsplit, blk_remainder, splitsum, row, col, blk, &
+                 bcount, row_split_blk, col_split_blk, row_offset, col_offset, &
+                 row_bi_split, col_bi_split, row_blk_shape, col_blk_shape
+      TYPE(dbcsr_distribution_obj) :: dist
+      TYPE(dbcsr_iterator) :: iter
+      LOGICAL :: tr
+#:for dparam, dtype, dsuffix in dtype_float_list
+      ${dtype}$, DIMENSION(:,:), POINTER :: block_${dsuffix}$
+#:endfor
+      CHARACTER(LEN=*), PARAMETER :: routineN = 'dbcsr_split_blocks', &
+                                     routineP = moduleN//':'//routineN
+
+      CALL timeset(routineN, handle)
+
+      CALL dbcsr_get_info(matrix_in, row_blk_size=row_blk_sizes_in, col_blk_size=col_blk_sizes_in)
+
+      isplit_sum = 0
+      DO i = 1, SIZE(row_blk_sizes_in)
+         nsplit = (row_blk_sizes_in(i) + row_blk_size - 1)/row_blk_size
+         isplit_sum = isplit_sum + nsplit
+      ENDDO
+
+      ALLOCATE (row_blk_sizes_split(isplit_sum))
+
+      isplit_sum = 0
+      DO i = 1, SIZE(row_blk_sizes_in)
+         nsplit = (row_blk_sizes_in(i) + row_blk_size - 1)/row_blk_size
+         blk_remainder = row_blk_sizes_in(i)
+         DO isplit = 1, nsplit
+            isplit_sum = isplit_sum + 1
+            row_blk_sizes_split(isplit_sum) = MIN(row_blk_size, blk_remainder)
+            blk_remainder = blk_remainder - row_blk_size
+         ENDDO
+      ENDDO
+
+      isplit_sum = 0
+      DO i = 1, SIZE(col_blk_sizes_in)
+         nsplit = (col_blk_sizes_in(i) + col_blk_size - 1)/col_blk_size
+         isplit_sum = isplit_sum + nsplit
+      ENDDO
+
+      ALLOCATE (col_blk_sizes_split(isplit_sum))
+
+      isplit_sum = 0
+      DO i = 1, SIZE(col_blk_sizes_in)
+         nsplit = (col_blk_sizes_in(i) + col_blk_size - 1)/col_blk_size
+         blk_remainder = col_blk_sizes_in(i)
+         DO isplit = 1, nsplit
+            isplit_sum = isplit_sum + 1
+            col_blk_sizes_split(isplit_sum) = MIN(col_blk_size, blk_remainder)
+            blk_remainder = blk_remainder - col_blk_size
+         ENDDO
+      ENDDO
+
+      CALL dbcsr_distribution_get(matrix_in%dist, row_dist, col_dist)
+
+      ALLOCATE (row_index_split_offset(SIZE(row_dist)))
+      ALLOCATE (row_blk_nsplit(SIZE(row_dist)))
+      ALLOCATE (row_inblock_offset(SIZE(row_blk_sizes_split)))
+      ALLOCATE (row_dist_split(SIZE(row_blk_sizes_split)))
+
+      isplit_sum = 0
+      DO i = 1, SIZE(row_blk_sizes_in)
+         nsplit = 0
+         splitsum = 0
+         DO WHILE (splitsum < row_blk_sizes_in(i))
+            nsplit = nsplit + 1
+            isplit_sum = isplit_sum + 1
+            row_inblock_offset(isplit_sum) = splitsum
+            row_dist_split(isplit_sum) = row_dist(i)
+            splitsum = splitsum + row_blk_sizes_split(isplit_sum)
+         ENDDO
+
+         row_blk_nsplit(i) = nsplit
+         row_index_split_offset(i) = isplit_sum - nsplit
+      ENDDO
+
+      ALLOCATE (col_index_split_offset(SIZE(col_dist)))
+      ALLOCATE (col_blk_nsplit(SIZE(col_dist)))
+      ALLOCATE (col_inblock_offset(SIZE(col_blk_sizes_split)))
+      ALLOCATE (col_dist_split(SIZE(col_blk_sizes_split)))
+
+      isplit_sum = 0
+      DO i = 1, SIZE(col_blk_sizes_in)
+         nsplit = 0
+         splitsum = 0
+         DO WHILE (splitsum < col_blk_sizes_in(i))
+            nsplit = nsplit + 1
+            isplit_sum = isplit_sum + 1
+            col_inblock_offset(isplit_sum) = splitsum
+            col_dist_split(isplit_sum) = col_dist(i)
+            splitsum = splitsum + col_blk_sizes_split(isplit_sum)
+         ENDDO
+
+         col_blk_nsplit(i) = nsplit
+         col_index_split_offset(i) = isplit_sum - nsplit
+      ENDDO
+
+      CALL dbcsr_distribution_new(dist, dbcsr_distribution_mp(matrix_in%dist), row_dist_split, col_dist_split)
+
+      CALL dbcsr_create(matrix_out, matrix_in%name, dist, dbcsr_get_matrix_type(matrix_in), &
+                        row_blk_sizes_split, col_blk_sizes_split, data_type=dbcsr_get_data_type(matrix_in))
+
+      CALL dbcsr_distribution_release(dist)
+      DEALLOCATE(row_dist_split, col_dist_split)
+
+      IF(PRESENT(nodata)) THEN
+         IF(nodata) THEN
+            CALL timestop(handle)
+            DEALLOCATE(row_blk_sizes_split, col_blk_sizes_split)
+            RETURN
+         ENDIF
+      ENDIF
+
+      CALL dbcsr_iterator_start(iter, matrix_in)
+
+      bcount = 0
+      DO WHILE (dbcsr_iterator_blocks_left(iter))
+         CALL dbcsr_iterator_next_block(iter, row, col, blk)
+
+         DO row_split_blk = 1, row_blk_nsplit(row)
+            DO col_split_blk = 1, col_blk_nsplit(col)
+               bcount = bcount + 1
+            ENDDO
+         ENDDO
+      ENDDO
+
+      CALL dbcsr_iterator_stop(iter)
+
+      ALLOCATE (row_blks_to_allocate(bcount))
+      ALLOCATE (col_blks_to_allocate(bcount))
+
+      CALL dbcsr_iterator_start(iter, matrix_in)
+
+      bcount = 0
+      DO WHILE (dbcsr_iterator_blocks_left(iter))
+         CALL dbcsr_iterator_next_block(iter, row, col, blk)
+
+         DO row_split_blk = 1, row_blk_nsplit(row)
+            row_bi_split = row_index_split_offset(row) + row_split_blk
+            DO col_split_blk = 1, col_blk_nsplit(col)
+               col_bi_split = col_index_split_offset(col) + col_split_blk
+
+               bcount = bcount + 1
+               row_blks_to_allocate(bcount) = row_bi_split
+               col_blks_to_allocate(bcount) = col_bi_split
+            ENDDO
+         ENDDO
+      ENDDO
+
+      CALL dbcsr_iterator_stop(iter)
+
+      CALL dbcsr_reserve_blocks(matrix_out, row_blks_to_allocate, col_blks_to_allocate)
+
+      CALL dbcsr_iterator_start(iter, matrix_in)
+
+      DO WHILE (dbcsr_iterator_blocks_left(iter))
+#:for dparam, dtype, dsuffix in dtype_float_list
+         IF (dbcsr_get_data_type(matrix_in) == ${dparam}$) THEN
+            CALL dbcsr_iterator_next_block(iter, row, col, block_${dsuffix}$, tr, &
+               row_offset=row_offset, col_offset=col_offset)
+         ENDIF
+#:endfor
+         DO row_split_blk = 1, row_blk_nsplit(row)
+            row_bi_split = row_index_split_offset(row) + row_split_blk
+            row_blk_shape = row_blk_sizes_split(row_bi_split) ! either row_bi_split or row_blk_sizes_split wrong
+            DO col_split_blk = 1, col_blk_nsplit(col)
+               col_bi_split = col_index_split_offset(col) + col_split_blk
+               col_blk_shape = col_blk_sizes_split(col_bi_split)
+#:for dparam, dtype, dsuffix in dtype_float_list
+               IF (dbcsr_get_data_type(matrix_in) == ${dparam}$) THEN
+                  CALL dbcsr_put_block( &
+                     matrix_out, row_bi_split, col_bi_split, &
+                     block_${dsuffix}$ ( &
+                     row_inblock_offset(row_bi_split) + 1:row_inblock_offset(row_bi_split) + row_blk_shape, &
+                     col_inblock_offset(col_bi_split) + 1:col_inblock_offset(col_bi_split) + col_blk_shape))
+               ENDIF
+#:endfor
+            ENDDO
+
+         ENDDO
+      ENDDO
+
+      CALL dbcsr_iterator_stop(iter)
+
+      CALL dbcsr_finalize(matrix_out)
+
+      DEALLOCATE(row_blk_sizes_split, col_blk_sizes_split)
+
+      CALL timestop(handle)
+
+   END SUBROUTINE
+
+   ! this is only needed if complete_redistribute is expensive
+   #!   SUBROUTINE dbcsr_split_copyback(matrix_split_in, matrix_out, summation)
+   #!      TYPE(dbcsr_type), INTENT(INOUT) :: matrix_in
+   #!      TYPE(dbcsr_type), INTENT(OUT) :: matrix_out
+   #!      LOGICAL, INTENT(IN), OPTIONAL :: summation
+   #!      CHARACTER(LEN=*), PARAMETER :: routineN = 'dbcsr_t_split_copyback', &
+   #!                                     routineP = moduleN//':'//routineN
+   #!      INTEGER :: handle
+   #!
+   #!      CALL timeset(routineN, handle)
+   #!
+   #!      IF(PRESENT(summation)) THEN
+   #!         IF(.NOT. summation) CALL dbcsr_clear(matrix_out)
+   #!      ELSE
+   #!         CALL dbcsr_clear(matrix_out)
+   #!      ENDIF
+   #!
+   #!      CALL dbcsr_get_info(matrix_split_in, row_blk_size=row_blk_size_split, col_blk_size=col_blk_size_split)
+   #!      CALL dbcsr_get_info(matrix_out, row_blk_size=row_blk_size, col_blk_size=col_blk_size)
+   #!
+   #!      ALLOCATE(row_inblock_offset(SIZE(row_blk_size_split)))
+   #!      ALLOCATE(row_split(SIZE(row_blk_size_split)))
+   #!
+   #!      ALLOCATE(row_last_split(SIZE(row_blk_size)))
+   #!      ALLOCATE(row_first_split(SIZE(row_blk_size)))
+   #!
+   #!      row_first_split(1) = 1
+   #!      isplit_sum = 0
+   #!      DO iblk = 1, SIZE(row_blk_size)
+   #!         splitsum = 0
+   #!         IF (iblk .GT. 1) row_first_split(iblk) = row_last_split(iblk - 1) + 1
+   #!         DO WHILE(splitsum < row_blk_size(iblk))
+   #!            isplit_sum = isplit_sum + 1
+   #!            row_inblock_offset(isplit_sum) = splitsum
+   #!            row_split(isplit_sum) = iblk
+   #!            splitsum = splitsum + row_blk_size_split(isplit_sum)
+   #!         ENDDO
+   #!         DBCSR_ASSERT(splitsum == row_blk_size(iblk)
+   #!         row_last_split(iblk) = isplit_sum
+   #!      ENDDO
+   #!
+   #!      ALLOCATE(col_inblock_offset(SIZE(col_blk_size_split)))
+   #!      ALLOCATE(col_split(SIZE(col_blk_size_split)))
+   #!
+   #!      ALLOCATE(col_last_split(SIZE(col_blk_size)))
+   #!      ALLOCATE(col_first_split(SIZE(col_blk_size)))
+   #!
+   #!      col_first_split(1) = 1
+   #!      isplit_sum = 0
+   #!      DO iblk = 1, SIZE(col_blk_size)
+   #!         splitsum = 0
+   #!         IF (iblk .GT. 1) col_first_split(iblk) = col_last_split(iblk - 1) + 1
+   #!         DO WHILE(splitsum < col_blk_size(iblk))
+   #!            isplit_sum = isplit_sum + 1
+   #!            col_inblock_offset(isplit_sum) = splitsum
+   #!            col_split(isplit_sum) = iblk
+   #!            splitsum = splitsum + col_blk_size_split(isplit_sum)
+   #!         ENDDO
+   #!         DBCSR_ASSERT(splitsum == col_blk_size(iblk)
+   #!         col_last_split(iblk) = isplit_sum
+   #!      ENDDO
+   #!
+   #!
+   #!      nblk = dbcsr_get_num_blocks(matrix_split_in)
+   #!      ALLOCATE(row_blks_to_allocate(nblk))
+   #!      ALLOCATE(col_blks_to_allocate(nblk))
+   #!
+   #!      CALL dbcsr_iterator_start(iter, matrix_split_in)
+   #!      bcount = 0
+   #!      DO WHILE (dbcsr_iterator_blocks_left(iter))
+   #!         CALL dbcsr_iterator_next_block(iter, row, col, blk)
+   #!         row_blks_to_allocate(bcount+1) = row_split(row)
+   #!         col_blks_to_allocate(bcount+1) = col_split(col)
+   #!         bcount = bcount + 1
+   #!      ENDDO
+   #!      CALL dbcsr_iterator_stop(iter)
+   #!      CALL dbcsr_reserve_blocks(matrix_out, row_blk_size, col_blks_to_allocate)
+   #!
+   #!      CALL dbcsr_iterator_start(iter, matrix_out)
+   #!      DO WHILE (dbcsr_iterator_blocks_left(iter))
+   #!         CALL dbcsr_iterator_next_block(iter, row, col, blk, row_size=row_size, col_size=col_size)
+   #!#:for dparam, dtype, dsuffix in dtype_float_list
+   #!         IF (dbcsr_get_data_type(matrix_in) == ${dparam}$) THEN
+   #!            ALLOCATE(block_${dsuffix}$(row_size, col_size))
+   #!            block_${dsuffix}$ = 0.0_${dprec}$
+   #!            DO irow = row_first_split(row), row_last_split(row)
+   #!               DO icol = col_first_split(col), col_last_split(col)
+   #!                  CALL dbcsr_get_block_p(matrix_split_in, irow, icol, block_split_${dsuffix}$, tr, found, &
+   #!                                         row_size=row_size_split, col_size=col_size_split)
+   #!                  IF (found) THEN
+   #!                     block_${dsuffix}$ ( &
+   #!                        row_inblock_offset(irow) + 1:row_inblock_offset(irow) + row_size_split(irow), &
+   #!                        col_inblock_offset(icol) + 1:col_inblock_offset(icol) + col_size_split(icol)) = &
+   #!                        block_split_${dsuffix}$
+   #!
+   #!                  ENDIF
+   #!               ENDDO
+   #!            ENDDO
+   #!            CALL dbcsr_put_block(matrix_out, row, col, block_${dsuffix}$, summation=summation)
+   #!
+   #!            DEALLOCATE(block_${dsuffix}$)
+   #!         ENDIF
+   #!#:endfor
+   #!      ENDDO
+   #!      CALL dbcsr_iterator_stop(iter)
+   #!
+   #!      CALL timestop(handle)
+   #!
+   #!   END SUBROUTINE
 
 END MODULE

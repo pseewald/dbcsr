@@ -30,6 +30,10 @@ MODULE dbcsr_tas_types
       dbcsr_tas_split_info, &
       dbcsr_tas_type
 
+   INTEGER, PARAMETER, PUBLIC :: dbcsr_tas_static_block_size = 64
+      !! split large blocks into blocks of mostly this static size
+      !! this is not relevant for CPU but a must for GPU
+
    ! info on MPI Cartesian grid that is split on MPI subgroups.
    ! info on distribution of matrix rows / columns to different subgroups.
    TYPE dbcsr_tas_split_info
