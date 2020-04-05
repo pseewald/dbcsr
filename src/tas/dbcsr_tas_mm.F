@@ -468,19 +468,9 @@ CONTAINS
          CALL prep_for_matmul(mp_comm_mm, matrix_a_rs%matrix, matrix_a_mm, &
                               split_blocks=split_dbcsr_blocks, optimize_pgrid=opt_pgrid, move_data=move_a)
 
-         IF (new_a .AND. split_dbcsr_blocks) THEN
-            CALL dbcsr_tas_destroy(matrix_a_rs)
-            DEALLOCATE (matrix_a_rs)
-         ENDIF
-
          CALL prep_for_matmul(mp_comm_mm, matrix_b_rep%matrix, matrix_b_mm, &
                               split_blocks=split_dbcsr_blocks, optimize_pgrid=opt_pgrid, &
                               move_data=matrix_b%do_batched == 0)
-
-         IF (split_dbcsr_blocks .AND. matrix_b%do_batched == 0) THEN
-            CALL dbcsr_tas_destroy(matrix_b_rep)
-            DEALLOCATE (matrix_b_rep)
-         ENDIF
 
          CALL prep_for_matmul(mp_comm_mm, matrix_c_rs%matrix, matrix_c_mm, nodata=nodata_3, &
                               split_blocks=split_dbcsr_blocks, optimize_pgrid=opt_pgrid)
@@ -503,6 +493,14 @@ CONTAINS
          END SELECT
 
          IF (split_dbcsr_blocks) THEN
+            IF (matrix_b%do_batched == 0) THEN
+               CALL dbcsr_tas_destroy(matrix_b_rep)
+               DEALLOCATE (matrix_b_rep)
+            ENDIF
+            IF (new_a) THEN
+               CALL dbcsr_tas_destroy(matrix_a_rs)
+               DEALLOCATE (matrix_a_rs)
+            ENDIF
             CALL dbcsr_release(matrix_a_mm)
             CALL dbcsr_release(matrix_b_mm)
             IF (.NOT. new_c) THEN
@@ -548,17 +546,9 @@ CONTAINS
 
          CALL prep_for_matmul(mp_comm_mm, matrix_a_rs%matrix, matrix_a_mm, &
                               split_blocks=split_dbcsr_blocks, optimize_pgrid=opt_pgrid, move_data=move_a)
-         IF (new_a .AND. split_dbcsr_blocks) THEN
-            CALL dbcsr_tas_destroy(matrix_a_rs)
-            DEALLOCATE (matrix_a_rs)
-         ENDIF
 
          CALL prep_for_matmul(mp_comm_mm, matrix_b_rs%matrix, matrix_b_mm, &
                               split_blocks=split_dbcsr_blocks, optimize_pgrid=opt_pgrid, move_data=move_b)
-         IF (new_b .AND. split_dbcsr_blocks) THEN
-            CALL dbcsr_tas_destroy(matrix_b_rs)
-            DEALLOCATE (matrix_b_rs)
-         ENDIF
 
          CALL prep_for_matmul(mp_comm_mm, matrix_c_rep%matrix, matrix_c_mm, &
                               nodata=nodata_3, split_blocks=split_dbcsr_blocks, optimize_pgrid=opt_pgrid)
@@ -570,6 +560,14 @@ CONTAINS
          CALL timestop(handle2)
 
          IF(split_dbcsr_blocks) THEN
+            IF (new_a) THEN
+               CALL dbcsr_tas_destroy(matrix_a_rs)
+               DEALLOCATE (matrix_a_rs)
+            ENDIF
+            IF (new_b) THEN
+               CALL dbcsr_tas_destroy(matrix_b_rs)
+               DEALLOCATE (matrix_b_rs)
+            ENDIF
             CALL dbcsr_release(matrix_a_mm)
             CALL dbcsr_release(matrix_b_mm)
             CALL redistribute_and_sum(matrix_c_mm, matrix_c_rep%matrix, alpha=beta)
@@ -623,18 +621,9 @@ CONTAINS
                               split_blocks=split_dbcsr_blocks, optimize_pgrid=opt_pgrid, &
                               move_data=matrix_a%do_batched == 0)
 
-         IF (split_dbcsr_blocks .AND. matrix_a%do_batched == 0) THEN
-            CALL dbcsr_tas_destroy(matrix_a_rep)
-            DEALLOCATE(matrix_a_rep)
-         ENDIF
-
          CALL prep_for_matmul(mp_comm_mm, matrix_b_rs%matrix, matrix_b_mm, &
                               split_blocks=split_dbcsr_blocks, optimize_pgrid=opt_pgrid, move_data=move_b)
 
-         IF (new_b .AND. split_dbcsr_blocks) THEN
-            CALL dbcsr_tas_destroy(matrix_b_rs)
-            DEALLOCATE (matrix_b_rs)
-         ENDIF
 
          CALL prep_for_matmul(mp_comm_mm, matrix_c_rs%matrix, matrix_c_mm, nodata=nodata_3, &
                               split_blocks=split_dbcsr_blocks, optimize_pgrid=opt_pgrid)
@@ -655,6 +644,15 @@ CONTAINS
          END SELECT
 
          IF (split_dbcsr_blocks) THEN
+            IF (matrix_a%do_batched == 0) THEN
+               CALL dbcsr_tas_destroy(matrix_a_rep)
+               DEALLOCATE(matrix_a_rep)
+            ENDIF
+            IF (new_b) THEN
+               CALL dbcsr_tas_destroy(matrix_b_rs)
+               DEALLOCATE (matrix_b_rs)
+            ENDIF
+
             CALL dbcsr_release(matrix_a_mm)
             CALL dbcsr_release(matrix_b_mm)
 
