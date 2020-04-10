@@ -39,7 +39,7 @@ MODULE dbcsr_tensor_types
    USE dbcsr_tas_split, ONLY: &
       dbcsr_tas_create_split_rows_or_cols, dbcsr_tas_release_info, dbcsr_tas_info_hold, &
       dbcsr_tas_create_split, dbcsr_tas_get_split_info
-   USE dbcsr_kinds, ONLY: default_string_length, int_8
+   USE dbcsr_kinds, ONLY: default_string_length, int_8, dp
    USE dbcsr_mpiwrap, ONLY: &
       mp_cart_create, mp_cart_rank, mp_environ, mp_dims_create, mp_comm_free, mp_comm_dup, mp_sum, mp_max
    USE dbcsr_tas_global, ONLY: dbcsr_tas_distribution, dbcsr_tas_rowcol_data
@@ -95,7 +95,8 @@ MODULE dbcsr_tensor_types
       dbcsr_t_nblks_local, &
       dbcsr_t_nblks_total, &
       dbcsr_t_blk_size, &
-      dbcsr_t_max_nblks_local
+      dbcsr_t_max_nblks_local, &
+      dbcsr_t_random_dist
 
    TYPE dbcsr_t_pgrid_type
       TYPE(nd_to_2d_mapping)                  :: nd_index_grid
@@ -1553,5 +1554,69 @@ CONTAINS
       blk_count = INT(blk_count_total/nproc*max_load_imbalance)
 
    END FUNCTION
+
+   SUBROUTINE dbcsr_t_random_dist(nblk, nproc, blk_size, dist)
+      !! get a load-balanced and randomized distribution along one tensor dimension
+      INTEGER, INTENT(IN)                                :: nblk
+         !! number of blocks (along one tensor dimension)
+      INTEGER, INTENT(IN)                                :: nproc
+         !! number of processes (along one process grid dimension)
+      INTEGER, DIMENSION(nblk), INTENT(IN)                :: blk_size
+         !! block sizes
+      INTEGER, DIMENSION(nblk), INTENT(OUT)               :: dist
+         !! distribution
+
+      CALL distribute_lpt_random(nblk, nproc, blk_size, dist)
+
+   END SUBROUTINE
+
+   SUBROUTINE distribute_lpt_random(nel, nbin, weights, dist)
+      !! distribute `nel` elements with weights `weights` over `nbin` bins.
+      !! load balanced distribution is obtained by using LPT algorithm together with randomization over equivalent bins
+      !! (i.e. randomization over all bins with the smallest accumulated weight)
+      INTEGER, INTENT(IN)                                :: nel, nbin
+      INTEGER, DIMENSION(nel), INTENT(IN)                :: weights
+      INTEGER, DIMENSION(nel), INTENT(OUT)               :: dist
+
+      INTEGER                                            :: i, i_select, ibin, iel, min_occup, &
+                                                            n_avail
+      INTEGER, ALLOCATABLE, DIMENSION(:)                 :: bins_avail
+      INTEGER, DIMENSION(4)                              :: iseed
+      INTEGER, DIMENSION(nel)                            :: sort_index, weights_s
+      INTEGER, DIMENSION(nbin)                           :: occup
+      LOGICAL, DIMENSION(nbin)                           :: bin_mask
+      REAL(dp)                                           :: rand
+
+      ! initialize seed based on input arguments such that random numbers are deterministic across all processes
+      iseed(1) = nel; iseed(2) = nbin; iseed(3) = MAXVAL(weights); iseed(4) = MINVAL(weights)
+
+      iseed(4) = iseed(4)*2 + 1 ! odd
+
+      iseed(:) = MODULO(iseed(:), 2**12)
+
+      occup(:) = 0
+      weights_s = weights
+      CALL sort(weights_s, nel, sort_index)
+
+      occup(:) = 0
+      DO iel = nel, 1, -1
+         min_occup = MINVAL(occup, 1)
+
+         ! available bins with min. occupancy
+         bin_mask = occup == min_occup
+         n_avail = COUNT(bin_mask)
+         ALLOCATE (bins_avail(n_avail))
+         bins_avail(:) = PACK((/(i, i=1, nbin)/), MASK=bin_mask)
+
+         CALL dlarnv(1, iseed, 1, rand)
+         i_select = FLOOR(rand*n_avail) + 1
+         ibin = bins_avail(i_select)
+         DEALLOCATE (bins_avail)
+
+         dist(sort_index(iel)) = ibin - 1
+         occup(ibin) = occup(ibin) + weights_s(iel)
+      ENDDO
+
+   END SUBROUTINE
 
 END MODULE
