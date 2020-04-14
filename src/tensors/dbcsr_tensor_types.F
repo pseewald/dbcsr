@@ -1586,6 +1586,7 @@ CONTAINS
       INTEGER, DIMENSION(nbin)                           :: occup
       LOGICAL, DIMENSION(nbin)                           :: bin_mask
       REAL(dp)                                           :: rand
+      INTEGER, PARAMETER                                 :: n_idle = 1000
 
       ! initialize seed based on input arguments such that random numbers are deterministic across all processes
       iseed(1) = nel; iseed(2) = nbin; iseed(3) = MAXVAL(weights); iseed(4) = MINVAL(weights)
@@ -1593,6 +1594,10 @@ CONTAINS
       iseed(4) = iseed(4)*2 + 1 ! odd
 
       iseed(:) = MODULO(iseed(:), 2**12)
+
+      DO i = 1, n_idle
+         CALL dlarnv(1, iseed, 1, rand)
+      ENDDO
 
       occup(:) = 0
       weights_s = weights
