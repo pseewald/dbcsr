@@ -1375,15 +1375,8 @@ CONTAINS
          DBCSR_ABORT("")
       END SELECT
 
-      nsplit_comm = NINT((REAL(nze_a + nze_b, real_8)/(2*min_nze))**(2._real_8/3)*REAL(numnodes, real_8)**(1._real_8/3))
-      IF (nsplit_comm == 0) nsplit_comm = 1
-
-      ! nsplit_memory protects against excess memory usage
-      ! actual split factor may be up to default_nsplit_accept_ratio_1 times larger, so the largest nsplit
-      ! that fits into memory used by A or B needs to be divided by this factor
-      nsplit_memory = CEILING(REAL((max_nze - 1)/min_nze + 1, real_8)/default_nsplit_accept_ratio_1)
-
-      nsplit = MIN(nsplit_comm, nsplit_memory)
+      nsplit = MIN(numnodes, NINT(REAL(max_nze, real_8)/min_nze))
+      IF (nsplit == 0) nsplit_comm = 1
 
    END FUNCTION
 
