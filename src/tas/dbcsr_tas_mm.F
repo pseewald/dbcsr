@@ -19,7 +19,7 @@ MODULE dbcsr_tas_mm
 #:include "dbcsr_tas.fypp"
 
    USE dbcsr_data_methods, ONLY: &
-      dbcsr_scalar_zero, dbcsr_scalar
+      dbcsr_scalar_zero, dbcsr_scalar, dbcsr_scalar_multiply
    USE dbcsr_data_types, ONLY: &
       dbcsr_scalar_type, dbcsr_type_real_8, dbcsr_type_real_4, dbcsr_type_complex_8, dbcsr_type_complex_4
    USE dbcsr_multiply_api, ONLY: dbcsr_multiply
@@ -149,7 +149,7 @@ CONTAINS
       do_batched = .FALSE.
       IF (matrix_a%do_batched > 0) THEN
          do_batched = .TRUE.
-         IF (matrix_a%do_batched == 2) THEN
+         IF (matrix_a%do_batched == 3) THEN
             DBCSR_ASSERT(batched_repl == 0)
             batched_repl = 1
             CALL dbcsr_tas_get_split_info( &
@@ -162,7 +162,7 @@ CONTAINS
 
       IF (matrix_b%do_batched > 0) THEN
          do_batched = .TRUE.
-         IF (matrix_b%do_batched == 2) THEN
+         IF (matrix_b%do_batched == 3) THEN
             DBCSR_ASSERT(batched_repl == 0)
             batched_repl = 2
             CALL dbcsr_tas_get_split_info( &
@@ -175,7 +175,7 @@ CONTAINS
 
       IF (matrix_c%do_batched > 0) THEN
          do_batched = .TRUE.
-         IF (matrix_c%do_batched == 2) THEN
+         IF (matrix_c%do_batched == 3) THEN
             DBCSR_ASSERT(batched_repl == 0)
             batched_repl = 3
             CALL dbcsr_tas_get_split_info( &
@@ -308,7 +308,7 @@ CONTAINS
          CALL dbcsr_tas_get_split_info(info, split_rowcol=split_rc, mp_comm=mp_comm)
 
          new_b = .FALSE.
-         IF (matrix_b%do_batched <= 1) THEN
+         IF (matrix_b%do_batched <= 2) THEN
             ALLOCATE (matrix_b_rs)
             CALL reshape_mm_small(mp_comm, matrix_b, matrix_b_rs, transb_prv == dbcsr_transpose, transb_prv, move_data=move_b)
             new_b = .TRUE.
@@ -338,13 +338,31 @@ CONTAINS
          info = dbcsr_tas_info(matrix_a_rs)
          CALL dbcsr_tas_get_split_info(info, split_rowcol=split_rc, mp_comm=mp_comm)
 
-         IF (matrix_c%do_batched <= 1) THEN
+         IF (matrix_c%do_batched == 1) THEN
+            matrix_c%mm_storage%batched_beta = beta
+         ELSE
+            matrix_c%mm_storage%batched_beta = &
+               dbcsr_scalar_multiply(matrix_c%mm_storage%batched_beta, beta)
+         ENDIF
+
+         IF (matrix_c%do_batched <= 2) THEN
             ALLOCATE (matrix_c_rs)
             CALL reshape_mm_small(mp_comm, matrix_c, matrix_c_rs, transc_prv == dbcsr_transpose, transc_prv, nodata=nodata_3)
-            IF (matrix_c%do_batched == 1) THEN
-               matrix_c%mm_storage%store_batched => matrix_c_rs
+
+            ! just leave sparsity structure for retain sparsity but no values
+            IF (.NOT. nodata_3) CALL dbcsr_zero(matrix_c_rs%matrix)
+
+            IF (matrix_c%do_batched == 2) THEN
+               ! sum to previous merged partial results
+               CALL dbcsr_tas_merge(matrix_c%mm_storage%store_batched%matrix, &
+                                    matrix_c%mm_storage%store_batched_repl, summation=.TRUE.)
+               CALL dbcsr_tas_destroy(matrix_c%mm_storage%store_batched_repl)
+
+               CALL dbcsr_tas_reshape(matrix_c%mm_storage%store_batched, matrix_c_rs, summation=.TRUE., move_data=.TRUE.)
+               CALL dbcsr_tas_destroy(matrix_c%mm_storage%store_batched)
             ENDIF
-         ELSEIF (matrix_c%do_batched == 2) THEN
+            matrix_c%mm_storage%store_batched => matrix_c_rs
+         ELSEIF (matrix_c%do_batched == 3) THEN
             matrix_c_rs => matrix_c%mm_storage%store_batched
          ENDIF
 
@@ -373,7 +391,7 @@ CONTAINS
          CALL dbcsr_tas_get_split_info(info, split_rowcol=split_rc, mp_comm=mp_comm)
 
          new_a = .FALSE.
-         IF (matrix_a%do_batched <= 1) THEN
+         IF (matrix_a%do_batched <= 2) THEN
             ALLOCATE (matrix_a_rs)
             CALL reshape_mm_small(mp_comm, matrix_a, matrix_a_rs, transa_prv == dbcsr_transpose, transa_prv, move_data=move_a)
             new_a = .TRUE.
@@ -433,14 +451,15 @@ CONTAINS
       ! Convert DBCSR submatrices to optimized process grids and multiply
       SELECT CASE (max_mm_dim)
       CASE (1)
-         IF (matrix_b%do_batched <= 1) THEN
+         IF (matrix_b%do_batched <= 2) THEN
+            IF (matrix_b%do_batched == 2) CALL dbcsr_tas_destroy(matrix_b%mm_storage%store_batched_repl)
             ALLOCATE (matrix_b_rep)
             CALL dbcsr_tas_replicate(matrix_b_rs%matrix, dbcsr_tas_info(matrix_a_rs), matrix_b_rep, move_data=.TRUE.)
-            IF (matrix_b%do_batched == 1) THEN
+            IF (matrix_b%do_batched == 1 .or. matrix_b%do_batched == 2) THEN
                matrix_b%mm_storage%store_batched_repl => matrix_b_rep
-               matrix_b%do_batched = 2
+               matrix_b%do_batched = 3
             ENDIF
-         ELSEIF (matrix_b%do_batched == 2) THEN
+         ELSEIF (matrix_b%do_batched == 3) THEN
             matrix_b_rep => matrix_b%mm_storage%store_batched_repl
          ENDIF
 
@@ -519,9 +538,16 @@ CONTAINS
             CALL dbcsr_tas_replicate(matrix_c_rs%matrix, dbcsr_tas_info(matrix_a_rs), matrix_c_rep, nodata=nodata_3)
             IF (matrix_c%do_batched == 1) THEN
                matrix_c%mm_storage%store_batched_repl => matrix_c_rep
-               matrix_c%do_batched = 2
+               matrix_c%do_batched = 3
             ENDIF
          ELSEIF (matrix_c%do_batched == 2) THEN
+            ALLOCATE (matrix_c_rep)
+            CALL dbcsr_tas_replicate(matrix_c_rs%matrix, dbcsr_tas_info(matrix_a_rs), matrix_c_rep, nodata=nodata_3)
+            ! just leave sparsity structure for retain sparsity but no values
+            IF (.not. nodata_3) CALL dbcsr_zero(matrix_c_rep)
+            matrix_c%mm_storage%store_batched_repl => matrix_c_rep
+            matrix_c%do_batched = 3
+         ELSEIF (matrix_c%do_batched == 3) THEN
             matrix_c_rep => matrix_c%mm_storage%store_batched_repl
          ENDIF
 
@@ -580,14 +606,15 @@ CONTAINS
          ENDIF
          IF (PRESENT(filter_eps)) CALL dbcsr_tas_filter(matrix_c_rs, filter_eps)
       CASE (3)
-         IF (matrix_a%do_batched <= 1) THEN
+         IF (matrix_a%do_batched <= 2) THEN
+            IF (matrix_a%do_batched == 2) CALL dbcsr_tas_destroy(matrix_a%mm_storage%store_batched_repl)
             ALLOCATE (matrix_a_rep)
             CALL dbcsr_tas_replicate(matrix_a_rs%matrix, dbcsr_tas_info(matrix_b_rs), matrix_a_rep, move_data=.TRUE.)
-            IF (matrix_a%do_batched == 1) THEN
+            IF (matrix_a%do_batched == 1 .or. matrix_a%do_batched == 2) THEN
                matrix_a%mm_storage%store_batched_repl => matrix_a_rep
-               matrix_a%do_batched = 2
+               matrix_a%do_batched = 3
             ENDIF
-         ELSEIF (matrix_a%do_batched == 2) THEN
+         ELSEIF (matrix_a%do_batched == 3) THEN
             matrix_a_rep => matrix_a%mm_storage%store_batched_repl
          ENDIF
 
@@ -681,7 +708,6 @@ CONTAINS
          IF (PRESENT(filter_eps)) CALL dbcsr_tas_filter(matrix_c, filter_eps)
       ELSEIF (matrix_c%do_batched > 0) THEN
          IF (matrix_c%mm_storage%batched_out) THEN
-            matrix_c%mm_storage%batched_beta = beta
             matrix_c%mm_storage%batched_trans = transc_prv /= transc
          ENDIF
       ENDIF
@@ -1358,7 +1384,7 @@ CONTAINS
          !! number of non-zeroes in C
       INTEGER, INTENT(IN)                         :: numnodes
          !! number of MPI ranks
-      INTEGER                                     :: nsplit, nsplit_comm, nsplit_memory
+      INTEGER                                     :: nsplit, nsplit_comm
       INTEGER(KIND=int_8)                         :: max_nze, min_nze
 
       SELECT CASE (max_mm_dim)
