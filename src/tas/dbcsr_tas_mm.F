@@ -149,7 +149,7 @@ CONTAINS
       do_batched = .FALSE.
       IF (matrix_a%do_batched > 0) THEN
          do_batched = .TRUE.
-         IF (matrix_a%do_batched == 3) THEN
+         IF (matrix_a%do_batched >= 2) THEN
             DBCSR_ASSERT(batched_repl == 0)
             batched_repl = 1
             CALL dbcsr_tas_get_split_info( &
@@ -162,7 +162,7 @@ CONTAINS
 
       IF (matrix_b%do_batched > 0) THEN
          do_batched = .TRUE.
-         IF (matrix_b%do_batched == 3) THEN
+         IF (matrix_b%do_batched >= 2) THEN
             DBCSR_ASSERT(batched_repl == 0)
             batched_repl = 2
             CALL dbcsr_tas_get_split_info( &
@@ -175,7 +175,7 @@ CONTAINS
 
       IF (matrix_c%do_batched > 0) THEN
          do_batched = .TRUE.
-         IF (matrix_c%do_batched == 3) THEN
+         IF (matrix_c%do_batched >= 2) THEN
             DBCSR_ASSERT(batched_repl == 0)
             batched_repl = 3
             CALL dbcsr_tas_get_split_info( &

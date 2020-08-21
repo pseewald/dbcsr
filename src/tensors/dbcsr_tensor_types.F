@@ -368,7 +368,8 @@ CONTAINS
 
    END FUNCTION
 
-   FUNCTION dbcsr_t_nd_mp_comm(comm_2d, map1_2d, map2_2d, dims_nd, dims1_nd, dims2_nd, pdims_2d, tdims)
+   FUNCTION dbcsr_t_nd_mp_comm(comm_2d, map1_2d, map2_2d, dims_nd, dims1_nd, dims2_nd, pdims_2d, tdims, &
+                               nsplit, dimsplit)
       !! Create a default nd process topology that is consistent with a given 2d topology.
       !! Purpose: a nd tensor defined on the returned process grid can be represented as a DBCSR
       !! matrix with the given 2d topology.
@@ -392,6 +393,7 @@ CONTAINS
          !! tensor block dimensions. If present, process grid dimensions are created such that good
          !! load balancing is ensured even if some of the tensor dimensions are small (i.e. on the same order
          !! or smaller than nproc**(1/ndim) where ndim is the tensor rank)
+      INTEGER, INTENT(IN), OPTIONAL :: nsplit, dimsplit
       INTEGER                                           :: ndim1, ndim2
       INTEGER                                           :: numtask
       INTEGER, DIMENSION(2)                             :: dims_2d, task_coor
@@ -445,7 +447,7 @@ CONTAINS
       ENDIF
 
       CALL dbcsr_t_pgrid_create_expert(comm_2d, dims_nd_prv, dbcsr_t_nd_mp_comm, &
-                                       tensor_dims=tdims, map1_2d=map1_2d, map2_2d=map2_2d)
+                                       tensor_dims=tdims, map1_2d=map1_2d, map2_2d=map2_2d, nsplit=nsplit, dimsplit=dimsplit)
 
       CALL timestop(handle)
 
