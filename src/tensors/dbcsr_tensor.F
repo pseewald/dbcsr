@@ -48,17 +48,16 @@ MODULE dbcsr_tensor
       blk_dims_tensor, dbcsr_t_hold, dbcsr_t_pgrid_type, mp_environ_pgrid, dbcsr_t_filter, &
       dbcsr_t_clear, dbcsr_t_finalize, dbcsr_t_get_num_blocks, dbcsr_t_scale, &
       dbcsr_t_get_num_blocks_total, dbcsr_t_get_info, ndims_matrix_row, ndims_matrix_column, &
-      dbcsr_t_max_nblks_local, dbcsr_t_default_distvec, dbcsr_t_contraction_storage, dbcsr_t_nblks_total
+      dbcsr_t_max_nblks_local, dbcsr_t_default_distvec, dbcsr_t_contraction_storage, dbcsr_t_nblks_total, &
+      dbcsr_t_distribution_new, dbcsr_t_copy_contraction_storage
    USE dbcsr_kinds, ONLY: &
       ${uselist(dtype_float_prec)}$, default_string_length, int_8, dp
    USE dbcsr_mpiwrap, ONLY: &
-      mp_environ, mp_max, mp_sum
+      mp_environ, mp_max, mp_sum, mp_comm_free, mp_cart_create
    USE dbcsr_toollib, ONLY: &
       sort
    USE dbcsr_tensor_reshape, ONLY: &
       dbcsr_t_reshape
-   USE dbcsr_mpiwrap, ONLY: &
-      mp_comm_free
    USE dbcsr_tas_split, ONLY: &
       dbcsr_tas_mp_comm, rowsplit, colsplit, dbcsr_tas_info_hold, dbcsr_tas_release_info
    USE dbcsr_data_types, ONLY: &
@@ -66,7 +65,7 @@ MODULE dbcsr_tensor
    USE dbcsr_tensor_split, ONLY: &
       dbcsr_t_split_copyback, dbcsr_t_make_compatible_blocks, dbcsr_t_crop
    USE dbcsr_tensor_io, ONLY: &
-      dbcsr_t_write_tensor_info, dbcsr_t_write_tensor_dist, prep_output_unit
+      dbcsr_t_write_tensor_info, dbcsr_t_write_tensor_dist, prep_output_unit, dbcsr_t_write_split_info
    USE dbcsr_dist_operations, ONLY: &
       checker_tr
    USE dbcsr_toollib, ONLY: &
@@ -596,7 +595,7 @@ CONTAINS
       INTEGER, DIMENSION(2) :: pcoord_2d
 
       NULLIFY (tensor_contr_1, tensor_contr_2, tensor_contr_3, tensor_crop_1, tensor_crop_2, &
-               split_opt, tensor_small, pgrid_opt_1, pgrid_opt_2, pgrid_opt_3)
+               split_opt, tensor_small)
 
       DBCSR_ASSERT(tensor_1%valid)
       DBCSR_ASSERT(tensor_2%valid)
@@ -857,6 +856,7 @@ CONTAINS
                                  split_opt=split_opt, &
                                  move_data_a=move_data_1, move_data_b=move_data_2, retain_sparsity=retain_sparsity)
       ELSE
+
          CALL dbcsr_tas_result_index(trans_1, trans_2, trans_3, tensor_contr_1%matrix_rep, tensor_contr_2%matrix_rep, &
                                      tensor_contr_3%matrix_rep, filter_eps=filter_eps, blk_ind=result_index_2d)
 
@@ -938,7 +938,10 @@ CONTAINS
                                 pcoord_2d, mp_comm_2d_opt)
 
          END ASSOCIATE
-         tensor_small%matrix_rep%do_batched = 2
+         ! todo: only if tensor was redistributed
+         IF (tensor_small%matrix_rep%do_batched == 3) THEN
+            !tensor_small%matrix_rep%do_batched = 2 % todo: uncomment
+         ENDIF
       ENDIF
 
       IF (ASSOCIATED(split_opt)) THEN
@@ -976,13 +979,13 @@ CONTAINS
       CALL dbcsr_t_destroy(tensor_algn_3)
 
       IF (do_crop_1) THEN
-         CALL copy_contraction_storage(tensor_crop_1, tensor_1)
+         CALL dbcsr_t_copy_contraction_storage(tensor_crop_1, tensor_1)
          CALL dbcsr_t_destroy(tensor_crop_1)
          DEALLOCATE (tensor_crop_1)
       ENDIF
 
       IF (do_crop_2) THEN
-         CALL copy_contraction_storage(tensor_crop_2, tensor_2)
+         CALL dbcsr_t_copy_contraction_storage(tensor_crop_2, tensor_2)
          CALL dbcsr_t_destroy(tensor_crop_2)
          DEALLOCATE (tensor_crop_2)
       ENDIF
@@ -1014,9 +1017,18 @@ CONTAINS
       ENDIF
 
       IF (do_batched) THEN
-         CALL dbcsr_t_change_pgrid_2d(tensor_1, mp_comm_2d_opt, unit_nr=unit_nr_prv)
-         CALL dbcsr_t_change_pgrid_2d(tensor_2, mp_comm_2d_opt, unit_nr=unit_nr_prv)
-         CALL dbcsr_t_change_pgrid_2d(tensor_3, mp_comm_2d_opt, unit_nr=unit_nr_prv)
+
+         SELECT CASE (max_mm_dim)
+         CASE (1)
+            CALL dbcsr_t_change_pgrid_2d(tensor_1, mp_comm_2d_opt, unit_nr=unit_nr_prv)
+            CALL dbcsr_t_change_pgrid_2d(tensor_3, mp_comm_2d_opt, unit_nr=unit_nr_prv)
+         CASE (2)
+            CALL dbcsr_t_change_pgrid_2d(tensor_1, mp_comm_2d_opt, unit_nr=unit_nr_prv)
+            CALL dbcsr_t_change_pgrid_2d(tensor_2, mp_comm_2d_opt, unit_nr=unit_nr_prv)
+         CASE (3)
+            CALL dbcsr_t_change_pgrid_2d(tensor_2, mp_comm_2d_opt, unit_nr=unit_nr_prv)
+            CALL dbcsr_t_change_pgrid_2d(tensor_3, mp_comm_2d_opt, unit_nr=unit_nr_prv)
+         END SELECT
       ENDIF
 
    END SUBROUTINE
@@ -1328,7 +1340,7 @@ CONTAINS
 
          ALLOCATE (tensor_out)
          CALL dbcsr_t_remap(tensor_in, ind1, ind2, tensor_out, nodata=nodata, move_data=move_data)
-         CALL copy_contraction_storage(tensor_in, tensor_out)
+         CALL dbcsr_t_copy_contraction_storage(tensor_in, tensor_out)
          compat1 = 1
          compat2 = 2
          new = .TRUE.
@@ -1554,6 +1566,8 @@ CONTAINS
       CALL dbcsr_t_get_mapping_info(tensor_in%nd_index_blk, map1_2d=map1_2d, map2_2d=map2_2d)
       order_prv = dbcsr_t_inverse_order([map1_2d, map2_2d])
       CALL dbcsr_t_permute_index(tensor_in, tensor_out, order=order_prv)
+
+      IF (ALLOCATED(tensor_in%contraction_storage)) ALLOCATE (tensor_out%contraction_storage, SOURCE=tensor_in%contraction_storage)
 
       IF (PRESENT(order)) order = order_prv
 
@@ -1874,7 +1888,7 @@ CONTAINS
       LOGICAL, INTENT(IN), OPTIONAL                      :: nodata
       INTEGER, INTENT(IN), OPTIONAL                      :: unit_nr
 
-      CHARACTER(LEN=*), PARAMETER :: routineN = 'tensor_change_pgrid'
+      CHARACTER(LEN=*), PARAMETER :: routineN = 'dbcsr_t_change_pgrid'
 
       CHARACTER(default_string_length)                   :: name
       INTEGER                                            :: handle
@@ -1888,10 +1902,11 @@ CONTAINS
       INTEGER, &
          DIMENSION(ndims_matrix_column(tensor))    :: map2
 
-      CALL dbcsr_t_mp_environ_pgrid(pgrid, pdims, pcoord)
-      CALL dbcsr_t_mp_environ_pgrid(tensor%pgrid, pdims_ref, pcoord_ref)
+      CALL mp_environ_pgrid(pgrid, pdims, pcoord)
+      CALL mp_environ_pgrid(tensor%pgrid, pdims_ref, pcoord_ref)
 
       IF (ALL(pdims == pdims_ref)) THEN
+         ! todo: rework this check
          IF (ALLOCATED(pgrid%tas_split_info) .AND. ALLOCATED(tensor%pgrid%tas_split_info)) THEN
             IF (pgrid%tas_split_info%ngroup == tensor%pgrid%tas_split_info%ngroup) RETURN
          ENDIF
@@ -1902,10 +1917,12 @@ CONTAINS
       CALL dbcsr_t_get_info(tensor, nblks_total=tdims, name=name)
 
 #:for idim in range(1, maxdim+1)
-      ALLOCATE (bs_${idim}$ (dbcsr_t_nblks_total(tensor, ${idim}$)))
-      CALL get_ith_array(tensor%blk_sizes, ${idim}$, bs_${idim}$)
-      ALLOCATE (dist_${idim}$ (tdims(${idim}$)))
-      CALL dbcsr_t_default_distvec(tdims(${idim}$), pdims(${idim}$), bs_${idim}$, dist_${idim}$)
+      IF (ndims_tensor(tensor) >= ${idim}$) THEN
+         ALLOCATE (bs_${idim}$ (dbcsr_t_nblks_total(tensor, ${idim}$)))
+         CALL get_ith_array(tensor%blk_sizes, ${idim}$, bs_${idim}$)
+         ALLOCATE (dist_${idim}$ (tdims(${idim}$)))
+         CALL dbcsr_t_default_distvec(tdims(${idim}$), pdims(${idim}$), bs_${idim}$, dist_${idim}$)
+      ENDIF
 #:endfor
 
       CALL dbcsr_t_get_mapping_info(tensor%nd_index_blk, map1_2d=map1, map2_2d=map2)
@@ -1922,8 +1939,6 @@ CONTAINS
       ELSE
          CALL dbcsr_t_copy(tensor, t_tmp, move_data=.TRUE.)
       ENDIF
-
-      CALL copy_contraction_storage(tensor, t_tmp)
 
       CALL dbcsr_t_destroy(tensor)
       tensor = t_tmp
@@ -1990,20 +2005,5 @@ CONTAINS
       ENDIF
 
    END FUNCTION
-
-   SUBROUTINE copy_contraction_storage(tensor_in, tensor_out)
-      TYPE(dbcsr_t_type), INTENT(IN) :: tensor_in
-      TYPE(dbcsr_t_type), INTENT(INOUT) :: tensor_out
-
-      IF (tensor_in%matrix_rep%do_batched > 0) THEN
-         ! transfer data for batched contraction
-         IF (ALLOCATED(tensor_out%matrix_rep%mm_storage)) DEALLOCATE (tensor_out%matrix_rep%mm_storage)
-         ALLOCATE (tensor_out%matrix_rep%mm_storage, SOURCE=tensor_in%matrix_rep%mm_storage)
-         tensor_out%matrix_rep%do_batched = tensor_in%matrix_rep%do_batched
-      ENDIF
-      IF (ALLOCATED(tensor_out%contraction_storage)) DEALLOCATE (tensor_out%contraction_storage)
-      IF (ALLOCATED(tensor_in%contraction_storage)) ALLOCATE (tensor_out%contraction_storage, SOURCE=tensor_in%contraction_storage)
-
-   END SUBROUTINE
 
 END MODULE

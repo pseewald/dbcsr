@@ -49,7 +49,7 @@ MODULE dbcsr_tas_mm
    USE dbcsr_mpiwrap, ONLY: &
       mp_comm_compare, mp_environ, mp_sum, mp_comm_free, mp_cart_create
    USE dbcsr_operations, ONLY: &
-      dbcsr_scale, dbcsr_get_info, dbcsr_copy, dbcsr_clear, dbcsr_add
+      dbcsr_scale, dbcsr_get_info, dbcsr_copy, dbcsr_clear, dbcsr_add, dbcsr_zero
    USE dbcsr_tas_io, ONLY: &
       dbcsr_tas_write_dist, dbcsr_tas_write_matrix_info, dbcsr_tas_write_split_info, prep_output_unit
    USE dbcsr_work_operations, ONLY: dbcsr_create, dbcsr_finalize
@@ -340,7 +340,7 @@ CONTAINS
 
          IF (matrix_c%do_batched == 1) THEN
             matrix_c%mm_storage%batched_beta = beta
-         ELSE
+         ELSEIF (matrix_c%do_batched > 1) THEN
             matrix_c%mm_storage%batched_beta = &
                dbcsr_scalar_multiply(matrix_c%mm_storage%batched_beta, beta)
          ENDIF
@@ -361,7 +361,7 @@ CONTAINS
                CALL dbcsr_tas_reshape(matrix_c%mm_storage%store_batched, matrix_c_rs, summation=.TRUE., move_data=.TRUE.)
                CALL dbcsr_tas_destroy(matrix_c%mm_storage%store_batched)
             ENDIF
-            matrix_c%mm_storage%store_batched => matrix_c_rs
+            IF (matrix_c%do_batched >= 1) matrix_c%mm_storage%store_batched => matrix_c_rs
          ELSEIF (matrix_c%do_batched == 3) THEN
             matrix_c_rs => matrix_c%mm_storage%store_batched
          ENDIF
@@ -544,7 +544,7 @@ CONTAINS
             ALLOCATE (matrix_c_rep)
             CALL dbcsr_tas_replicate(matrix_c_rs%matrix, dbcsr_tas_info(matrix_a_rs), matrix_c_rep, nodata=nodata_3)
             ! just leave sparsity structure for retain sparsity but no values
-            IF (.not. nodata_3) CALL dbcsr_zero(matrix_c_rep)
+            IF (.not. nodata_3) CALL dbcsr_zero(matrix_c_rep%matrix)
             matrix_c%mm_storage%store_batched_repl => matrix_c_rep
             matrix_c%do_batched = 3
          ELSEIF (matrix_c%do_batched == 3) THEN

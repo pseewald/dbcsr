@@ -97,7 +97,8 @@ MODULE dbcsr_tensor_types
       dbcsr_t_blk_size, &
       dbcsr_t_max_nblks_local, &
       dbcsr_t_default_distvec, &
-      dbcsr_t_contraction_storage
+      dbcsr_t_contraction_storage, &
+      dbcsr_t_copy_contraction_storage
 
    TYPE dbcsr_t_pgrid_type
       TYPE(nd_to_2d_mapping)                  :: nd_index_grid
@@ -1581,6 +1582,21 @@ CONTAINS
          !! distribution
 
       CALL dbcsr_tas_default_distvec(nblk, nproc, blk_size, dist)
+
+   END SUBROUTINE
+
+   SUBROUTINE dbcsr_t_copy_contraction_storage(tensor_in, tensor_out)
+      TYPE(dbcsr_t_type), INTENT(IN) :: tensor_in
+      TYPE(dbcsr_t_type), INTENT(INOUT) :: tensor_out
+
+      IF (tensor_in%matrix_rep%do_batched > 0) THEN
+         ! transfer data for batched contraction
+         IF (ALLOCATED(tensor_out%matrix_rep%mm_storage)) DEALLOCATE (tensor_out%matrix_rep%mm_storage)
+         ALLOCATE (tensor_out%matrix_rep%mm_storage, SOURCE=tensor_in%matrix_rep%mm_storage)
+         tensor_out%matrix_rep%do_batched = tensor_in%matrix_rep%do_batched
+      ENDIF
+      IF (ALLOCATED(tensor_out%contraction_storage)) DEALLOCATE (tensor_out%contraction_storage)
+      IF (ALLOCATED(tensor_in%contraction_storage)) ALLOCATE (tensor_out%contraction_storage, SOURCE=tensor_in%contraction_storage)
 
    END SUBROUTINE
 
