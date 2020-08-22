@@ -50,7 +50,7 @@ MODULE dbcsr_tensor
       dbcsr_t_clear, dbcsr_t_finalize, dbcsr_t_get_num_blocks, dbcsr_t_scale, &
       dbcsr_t_get_num_blocks_total, dbcsr_t_get_info, ndims_matrix_row, ndims_matrix_column, &
       dbcsr_t_max_nblks_local, dbcsr_t_default_distvec, dbcsr_t_contraction_storage, dbcsr_t_nblks_total, &
-      dbcsr_t_distribution_new, dbcsr_t_copy_contraction_storage
+      dbcsr_t_distribution_new, dbcsr_t_copy_contraction_storage, dbcsr_t_pgrid_destroy
    USE dbcsr_kinds, ONLY: &
       ${uselist(dtype_float_prec)}$, default_string_length, int_8, dp
    USE dbcsr_mpiwrap, ONLY: &
@@ -580,7 +580,7 @@ CONTAINS
       CHARACTER(LEN=1)                               :: trans_1, trans_2, trans_3
       LOGICAL                                        :: new_1, new_2, new_3, move_data_1, move_data_2
       INTEGER                                        :: ndims1, ndims2, ndims3
-      INTEGER                                        :: occ_1, occ_2, mp_comm_2d_opt
+      INTEGER                                        :: occ_1, occ_2
       INTEGER, DIMENSION(:), ALLOCATABLE             :: dims1, dims2, dims3
 
       CHARACTER(LEN=*), PARAMETER :: routineN = 'dbcsr_t_contract_expert', &
@@ -594,7 +594,7 @@ CONTAINS
       LOGICAL                                        :: do_crop_1, do_crop_2, do_write_3, nodata_3, do_batched, pgrid_changed, &
                                                         pgrid_changed_any, do_change_pgrid
       TYPE(dbcsr_tas_split_info), POINTER            :: split_opt
-      INTEGER, DIMENSION(2) :: pcoord_2d
+      INTEGER, DIMENSION(2) :: pdims_2d_opt
 
       NULLIFY (tensor_contr_1, tensor_contr_2, tensor_contr_3, tensor_crop_1, tensor_crop_2, &
                split_opt, tensor_small)
@@ -937,8 +937,7 @@ CONTAINS
          ASSOCIATE (storage => tensor_small%contraction_storage)
             CALL update_contraction_storage(storage, split_opt%mp_comm)
 
-            CALL mp_cart_create(split_opt%mp_comm, 2, storage%pdims, &
-                                pcoord_2d, mp_comm_2d_opt)
+            pdims_2d_opt = storage%pdims
             do_change_pgrid = .TRUE.
          END ASSOCIATE
 
@@ -1015,12 +1014,12 @@ CONTAINS
          pgrid_changed_any = .FALSE.
          SELECT CASE (max_mm_dim)
          CASE (1)
-            CALL dbcsr_t_change_pgrid_2d(tensor_1, mp_comm_2d_opt, &
+            CALL dbcsr_t_change_pgrid_2d(tensor_1, tensor_1%pgrid%mp_comm_2d, pdims=pdims_2d_opt, &
                                          nsplit=split_opt%ngroup, dimsplit=split_opt%split_rowcol, &
                                          pgrid_changed=pgrid_changed, &
                                          unit_nr=unit_nr_prv)
             IF (pgrid_changed) pgrid_changed_any = .TRUE.
-            CALL dbcsr_t_change_pgrid_2d(tensor_3, mp_comm_2d_opt, &
+            CALL dbcsr_t_change_pgrid_2d(tensor_3, tensor_3%pgrid%mp_comm_2d, pdims=pdims_2d_opt, &
                                          nsplit=split_opt%ngroup, dimsplit=split_opt%split_rowcol, &
                                          pgrid_changed=pgrid_changed, &
                                          unit_nr=unit_nr_prv)
@@ -1031,12 +1030,12 @@ CONTAINS
                ENDIF
             ENDIF
          CASE (2)
-            CALL dbcsr_t_change_pgrid_2d(tensor_1, mp_comm_2d_opt, &
+            CALL dbcsr_t_change_pgrid_2d(tensor_1, tensor_1%pgrid%mp_comm_2d, pdims=pdims_2d_opt, &
                                          nsplit=split_opt%ngroup, dimsplit=split_opt%split_rowcol, &
                                          pgrid_changed=pgrid_changed, &
                                          unit_nr=unit_nr_prv)
             IF (pgrid_changed) pgrid_changed_any = .TRUE.
-            CALL dbcsr_t_change_pgrid_2d(tensor_2, mp_comm_2d_opt, &
+            CALL dbcsr_t_change_pgrid_2d(tensor_2, tensor_2%pgrid%mp_comm_2d, pdims=pdims_2d_opt, &
                                          nsplit=split_opt%ngroup, dimsplit=split_opt%split_rowcol, &
                                          pgrid_changed=pgrid_changed, &
                                          unit_nr=unit_nr_prv)
@@ -1047,12 +1046,12 @@ CONTAINS
                ENDIF
             ENDIF
          CASE (3)
-            CALL dbcsr_t_change_pgrid_2d(tensor_2, mp_comm_2d_opt, &
+            CALL dbcsr_t_change_pgrid_2d(tensor_2, tensor_2%pgrid%mp_comm_2d, pdims=pdims_2d_opt, &
                                          nsplit=split_opt%ngroup, dimsplit=split_opt%split_rowcol, &
                                          pgrid_changed=pgrid_changed, &
                                          unit_nr=unit_nr_prv)
             IF (pgrid_changed) pgrid_changed_any = .TRUE.
-            CALL dbcsr_t_change_pgrid_2d(tensor_3, mp_comm_2d_opt, &
+            CALL dbcsr_t_change_pgrid_2d(tensor_3, tensor_3%pgrid%mp_comm_2d, pdims=pdims_2d_opt, &
                                          nsplit=split_opt%ngroup, dimsplit=split_opt%split_rowcol, &
                                          pgrid_changed=pgrid_changed, &
                                          unit_nr=unit_nr_prv)
@@ -1998,9 +1997,10 @@ CONTAINS
       CALL timestop(handle)
    END SUBROUTINE
 
-   SUBROUTINE dbcsr_t_change_pgrid_2d(tensor, mp_comm_2d, nodata, nsplit, dimsplit, pgrid_changed, unit_nr)
+   SUBROUTINE dbcsr_t_change_pgrid_2d(tensor, mp_comm, pdims, nodata, nsplit, dimsplit, pgrid_changed, unit_nr)
       TYPE(dbcsr_t_type), INTENT(INOUT)                  :: tensor
-      INTEGER, INTENT(IN)               :: mp_comm_2d
+      INTEGER, INTENT(IN)               :: mp_comm
+      INTEGER, DIMENSION(2), INTENT(IN), OPTIONAL :: pdims
       LOGICAL, INTENT(IN), OPTIONAL                      :: nodata
       INTEGER, INTENT(IN), OPTIONAL :: nsplit, dimsplit
       LOGICAL, INTENT(OUT), OPTIONAL :: pgrid_changed
@@ -2012,8 +2012,9 @@ CONTAINS
 
       CALL dbcsr_t_get_mapping_info(tensor%pgrid%nd_index_grid, map1_2d=map1, map2_2d=map2)
       CALL blk_dims_tensor(tensor, dims)
-      pgrid = dbcsr_t_nd_mp_comm(mp_comm_2d, map1, map2, tdims=dims, nsplit=nsplit, dimsplit=dimsplit)
+      pgrid = dbcsr_t_nd_mp_comm(mp_comm, map1, map2, pdims_2d=pdims, tdims=dims, nsplit=nsplit, dimsplit=dimsplit)
       CALL dbcsr_t_change_pgrid(tensor, pgrid, nodata=nodata, pgrid_changed=pgrid_changed, unit_nr=unit_nr)
+      CALL dbcsr_t_pgrid_destroy(pgrid)
 
    END SUBROUTINE
 

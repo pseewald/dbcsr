@@ -656,6 +656,8 @@ CONTAINS
          CALL dbcsr_tas_distribution_new(dist%dist, comm_2d, row_dist_obj, col_dist_obj, split_info=pgrid_prv%tas_split_info)
       ELSE
          CALL dbcsr_tas_distribution_new(dist%dist, comm_2d, row_dist_obj, col_dist_obj)
+         ALLOCATE (pgrid_prv%tas_split_info, SOURCE=dist%dist%info)
+         CALL dbcsr_tas_info_hold(pgrid_prv%tas_split_info)
       ENDIF
 
       dist%nd_dist = nd_dist
