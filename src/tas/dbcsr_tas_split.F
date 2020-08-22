@@ -41,6 +41,7 @@ MODULE dbcsr_tas_split
       dbcsr_tas_release_info, &
       dbcsr_tas_create_split, &
       dbcsr_tas_create_split_rows_or_cols, &
+      dbcsr_tas_set_strict_split, &
       group_to_mrowcol, &
       group_to_world_proc_map, &
       rowsplit, &
@@ -373,7 +374,6 @@ CONTAINS
       igroup = pcoord(split_rowcol)/pdims_group(split_rowcol)
 
       CALL dbcsr_tas_create_split_rows_or_cols(split_info, mp_comm, nsplit_opt, igroup, split_rowcol, own_comm=own_comm)
-      IF (.NOT. opt_nsplit_prv) split_info%strict_split = .TRUE.
 
       CALL timestop(handle)
 
@@ -642,6 +642,11 @@ CONTAINS
 
       ALLOCATE (sort_indices(nrowcols))
       CALL sort(rowcols, nrowcols, sort_indices)
+   END SUBROUTINE
+
+   SUBROUTINE dbcsr_tas_set_strict_split(info)
+      TYPE(dbcsr_tas_split_info), INTENT(INOUT)                      :: info
+      info%strict_split = [.TRUE., .TRUE.]
    END SUBROUTINE
 
 END MODULE

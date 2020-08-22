@@ -32,13 +32,14 @@ MODULE dbcsr_tensor_types
       dbcsr_tas_get_nze_total, dbcsr_tas_clear, dbcsr_tas_get_data_type
    USE dbcsr_tas_types, ONLY: &
       dbcsr_tas_type, dbcsr_tas_distribution_type, dbcsr_tas_split_info
+   USE dbcsr_tas_mm, ONLY: dbcsr_tas_set_batched_state
    USE dbcsr_tensor_index, ONLY: &
       get_2d_indices_tensor, get_nd_indices_pgrid, create_nd_to_2d_mapping, destroy_nd_to_2d_mapping, &
       dbcsr_t_get_mapping_info, nd_to_2d_mapping, split_tensor_index, combine_tensor_index, combine_pgrid_index, &
       split_pgrid_index, ndims_mapping, ndims_mapping_row, ndims_mapping_column
    USE dbcsr_tas_split, ONLY: &
       dbcsr_tas_create_split_rows_or_cols, dbcsr_tas_release_info, dbcsr_tas_info_hold, &
-      dbcsr_tas_create_split, dbcsr_tas_get_split_info
+      dbcsr_tas_create_split, dbcsr_tas_get_split_info, dbcsr_tas_set_strict_split
    USE dbcsr_kinds, ONLY: default_string_length, int_8, dp
    USE dbcsr_mpiwrap, ONLY: &
       mp_cart_create, mp_cart_rank, mp_environ, mp_dims_create, mp_comm_free, mp_comm_dup, mp_sum, mp_max
@@ -84,6 +85,7 @@ MODULE dbcsr_tensor_types
       dbcsr_t_pgrid_create_expert, &
       dbcsr_t_pgrid_destroy, &
       dbcsr_t_pgrid_type, &
+      dbcsr_t_pgrid_set_strict_split, &
       dbcsr_t_scale, &
       dbcsr_t_set, &
       dbcsr_t_type, &
@@ -1252,6 +1254,11 @@ CONTAINS
       ENDIF
    END SUBROUTINE
 
+   SUBROUTINE dbcsr_t_pgrid_set_strict_split(pgrid)
+      TYPE(dbcsr_t_pgrid_type), INTENT(INOUT) :: pgrid
+      IF (ALLOCATED(pgrid%tas_split_info)) CALL dbcsr_tas_set_strict_split(pgrid%tas_split_info)
+   END SUBROUTINE
+
    SUBROUTINE dbcsr_t_pgrid_remap(pgrid_in, map1_2d, map2_2d, pgrid_out)
       !! remap a process grid (needed when mapping between tensor and matrix index is changed)
 
@@ -1595,7 +1602,7 @@ CONTAINS
          ! transfer data for batched contraction
          IF (ALLOCATED(tensor_out%matrix_rep%mm_storage)) DEALLOCATE (tensor_out%matrix_rep%mm_storage)
          ALLOCATE (tensor_out%matrix_rep%mm_storage, SOURCE=tensor_in%matrix_rep%mm_storage)
-         tensor_out%matrix_rep%do_batched = tensor_in%matrix_rep%do_batched
+         CALL dbcsr_tas_set_batched_state(tensor_out%matrix_rep, tensor_in%matrix_rep%do_batched)
       ENDIF
       IF (ALLOCATED(tensor_out%contraction_storage)) DEALLOCATE (tensor_out%contraction_storage)
       IF (ALLOCATED(tensor_in%contraction_storage)) ALLOCATE (tensor_out%contraction_storage, SOURCE=tensor_in%contraction_storage)

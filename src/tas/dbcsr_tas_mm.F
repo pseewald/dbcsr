@@ -68,7 +68,8 @@ MODULE dbcsr_tas_mm
       dbcsr_tas_multiply, &
       dbcsr_tas_batched_mm_init, &
       dbcsr_tas_batched_mm_finalize, &
-      dbcsr_tas_result_index
+      dbcsr_tas_result_index, &
+      dbcsr_tas_set_batched_state
 
 CONTAINS
 
@@ -116,7 +117,7 @@ CONTAINS
       CHARACTER(LEN=1)                           :: tr_case, transa_prv, transb_prv, transc_prv
       TYPE(dbcsr_scalar_type)                    :: zero
       LOGICAL                                    :: new_a, new_b, new_c, simple_split_prv, opt_pgrid, &
-                                                    move_a, move_b, do_batched, simple_split_save, &
+                                                    move_a, move_b, do_batched, &
                                                     nodata_3
       TYPE(dbcsr_tas_split_info)                 :: info, info_a, info_b, info_c
       CHARACTER(LEN=*), PARAMETER                :: routineN = 'dbcsr_tas_multiply', &
@@ -136,7 +137,7 @@ CONTAINS
          simple_split_prv = .FALSE.
 
          info_a = dbcsr_tas_info(matrix_a); info_b = dbcsr_tas_info(matrix_b); info_c = dbcsr_tas_info(matrix_c)
-         IF (info_a%strict_split .OR. info_b%strict_split .OR. info_c%strict_split) simple_split_prv = .TRUE.
+         IF (info_a%strict_split(1) .OR. info_b%strict_split(1) .OR. info_c%strict_split(1)) simple_split_prv = .TRUE.
       ENDIF
 
       nodata_3 = .TRUE.
@@ -149,7 +150,7 @@ CONTAINS
       do_batched = .FALSE.
       IF (matrix_a%do_batched > 0) THEN
          do_batched = .TRUE.
-         IF (matrix_a%do_batched >= 2) THEN
+         IF (matrix_a%do_batched == 3) THEN
             DBCSR_ASSERT(batched_repl == 0)
             batched_repl = 1
             CALL dbcsr_tas_get_split_info( &
@@ -162,7 +163,7 @@ CONTAINS
 
       IF (matrix_b%do_batched > 0) THEN
          do_batched = .TRUE.
-         IF (matrix_b%do_batched >= 2) THEN
+         IF (matrix_b%do_batched == 3) THEN
             DBCSR_ASSERT(batched_repl == 0)
             batched_repl = 2
             CALL dbcsr_tas_get_split_info( &
@@ -175,7 +176,7 @@ CONTAINS
 
       IF (matrix_c%do_batched > 0) THEN
          do_batched = .TRUE.
-         IF (matrix_c%do_batched >= 2) THEN
+         IF (matrix_c%do_batched == 3) THEN
             DBCSR_ASSERT(batched_repl == 0)
             batched_repl = 3
             CALL dbcsr_tas_get_split_info( &
@@ -184,11 +185,6 @@ CONTAINS
             DBCSR_ASSERT(nsplit_batched > 0)
             max_mm_dim_batched = 2
          ENDIF
-      ENDIF
-
-      IF (batched_repl > 0) THEN
-         simple_split_save = simple_split_prv
-         simple_split_prv = .TRUE.
       ENDIF
 
       move_a = .FALSE.
@@ -278,7 +274,6 @@ CONTAINS
          nsplit = nsplit_batched
          nsplit_opt = nsplit
          max_mm_dim = max_mm_dim_batched
-         simple_split_prv = simple_split_save
          IF (unit_nr_prv > 0) THEN
             WRITE (unit_nr_prv, "(T2,A)") &
                "MM PARAMETERS"
@@ -414,11 +409,7 @@ CONTAINS
       CALL mp_environ(numproc, pdims, pcoord, mp_comm)
       CALL mp_environ(numproc_sub, pdims_sub, pcoord_sub, mp_comm_group)
 
-      IF (.NOT. simple_split_prv) THEN
-         opt_pgrid = .NOT. accept_pgrid_dims(pdims_sub, relative=.TRUE.)
-      ELSE
-         opt_pgrid = .FALSE.
-      ENDIF
+      opt_pgrid = .NOT. accept_pgrid_dims(pdims_sub, relative=.TRUE.)
 
       IF (PRESENT(filter_eps)) THEN
          filter_eps_prv = filter_eps
@@ -457,7 +448,7 @@ CONTAINS
             CALL dbcsr_tas_replicate(matrix_b_rs%matrix, dbcsr_tas_info(matrix_a_rs), matrix_b_rep, move_data=.TRUE.)
             IF (matrix_b%do_batched == 1 .or. matrix_b%do_batched == 2) THEN
                matrix_b%mm_storage%store_batched_repl => matrix_b_rep
-               matrix_b%do_batched = 3
+               CALL dbcsr_tas_set_batched_state(matrix_b, 3)
             ENDIF
          ELSEIF (matrix_b%do_batched == 3) THEN
             matrix_b_rep => matrix_b%mm_storage%store_batched_repl
@@ -538,7 +529,7 @@ CONTAINS
             CALL dbcsr_tas_replicate(matrix_c_rs%matrix, dbcsr_tas_info(matrix_a_rs), matrix_c_rep, nodata=nodata_3)
             IF (matrix_c%do_batched == 1) THEN
                matrix_c%mm_storage%store_batched_repl => matrix_c_rep
-               matrix_c%do_batched = 3
+               CALL dbcsr_tas_set_batched_state(matrix_c, 3)
             ENDIF
          ELSEIF (matrix_c%do_batched == 2) THEN
             ALLOCATE (matrix_c_rep)
@@ -546,7 +537,7 @@ CONTAINS
             ! just leave sparsity structure for retain sparsity but no values
             IF (.not. nodata_3) CALL dbcsr_zero(matrix_c_rep%matrix)
             matrix_c%mm_storage%store_batched_repl => matrix_c_rep
-            matrix_c%do_batched = 3
+            CALL dbcsr_tas_set_batched_state(matrix_c, 3)
          ELSEIF (matrix_c%do_batched == 3) THEN
             matrix_c_rep => matrix_c%mm_storage%store_batched_repl
          ENDIF
@@ -612,7 +603,7 @@ CONTAINS
             CALL dbcsr_tas_replicate(matrix_a_rs%matrix, dbcsr_tas_info(matrix_b_rs), matrix_a_rep, move_data=.TRUE.)
             IF (matrix_a%do_batched == 1 .or. matrix_a%do_batched == 2) THEN
                matrix_a%mm_storage%store_batched_repl => matrix_a_rep
-               matrix_a%do_batched = 3
+               CALL dbcsr_tas_set_batched_state(matrix_a, 3)
             ENDIF
          ELSEIF (matrix_a%do_batched == 3) THEN
             matrix_a_rep => matrix_a%mm_storage%store_batched_repl
@@ -691,7 +682,7 @@ CONTAINS
 
       CALL dbcsr_tas_get_split_info(dbcsr_tas_info(matrix_c), mp_comm=mp_comm)
 
-      IF (PRESENT(split_opt) .AND. .NOT. simple_split_prv) THEN
+      IF (PRESENT(split_opt)) THEN
          ! ideally we should rederive the split factor from the actual sparsity of C, but
          ! due to parameter beta, we can not get the sparsity of AxB from DBCSR if not new_c
          ALLOCATE (split_opt)
@@ -1384,7 +1375,7 @@ CONTAINS
          !! number of non-zeroes in C
       INTEGER, INTENT(IN)                         :: numnodes
          !! number of MPI ranks
-      INTEGER                                     :: nsplit, nsplit_comm
+      INTEGER                                     :: nsplit
       INTEGER(KIND=int_8)                         :: max_nze, min_nze
 
       SELECT CASE (max_mm_dim)
@@ -1402,7 +1393,7 @@ CONTAINS
       END SELECT
 
       nsplit = MIN(numnodes, NINT(REAL(max_nze, real_8)/min_nze))
-      IF (nsplit == 0) nsplit_comm = 1
+      IF (nsplit == 0) nsplit = 1
 
    END FUNCTION
 
@@ -1538,7 +1529,7 @@ CONTAINS
 
    SUBROUTINE dbcsr_tas_batched_mm_init(matrix)
       TYPE(dbcsr_tas_type), INTENT(INOUT) :: matrix
-      matrix%do_batched = 1
+      CALL dbcsr_tas_set_batched_state(matrix, 1)
       ALLOCATE (matrix%mm_storage)
       matrix%mm_storage%batched_out = .FALSE.
    END SUBROUTINE
@@ -1566,8 +1557,24 @@ CONTAINS
       END ASSOCIATE
 
       DEALLOCATE (matrix%mm_storage)
-      matrix%do_batched = 0
+      CALL dbcsr_tas_set_batched_state(matrix, 0)
 
+   END SUBROUTINE
+
+   SUBROUTINE dbcsr_tas_set_batched_state(matrix, state)
+      TYPE(dbcsr_tas_type), INTENT(INOUT) :: matrix
+      INTEGER, INTENT(IN) :: state
+
+      matrix%do_batched = state
+      SELECT CASE (state)
+      CASE (0, 1, 2)
+         ! reset to default
+         matrix%dist%info%strict_split(1) = matrix%dist%info%strict_split(2)
+      CASE (3)
+         matrix%dist%info%strict_split(1) = .TRUE.
+      CASE DEFAULT
+         DBCSR_ABORT("should not happen")
+      END SELECT
    END SUBROUTINE
 
 END MODULE
