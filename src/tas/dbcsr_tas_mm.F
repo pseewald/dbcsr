@@ -352,9 +352,11 @@ CONTAINS
                CALL dbcsr_tas_merge(matrix_c%mm_storage%store_batched%matrix, &
                                     matrix_c%mm_storage%store_batched_repl, summation=.TRUE.)
                CALL dbcsr_tas_destroy(matrix_c%mm_storage%store_batched_repl)
+               DEALLOCATE (matrix_c%mm_storage%store_batched_repl)
 
                CALL dbcsr_tas_reshape(matrix_c%mm_storage%store_batched, matrix_c_rs, summation=.TRUE., move_data=.TRUE.)
                CALL dbcsr_tas_destroy(matrix_c%mm_storage%store_batched)
+               DEALLOCATE (matrix_c%mm_storage%store_batched)
             ENDIF
             IF (matrix_c%do_batched >= 1) matrix_c%mm_storage%store_batched => matrix_c_rs
          ELSEIF (matrix_c%do_batched == 3) THEN
@@ -443,7 +445,10 @@ CONTAINS
       SELECT CASE (max_mm_dim)
       CASE (1)
          IF (matrix_b%do_batched <= 2) THEN
-            IF (matrix_b%do_batched == 2) CALL dbcsr_tas_destroy(matrix_b%mm_storage%store_batched_repl)
+            IF (matrix_b%do_batched == 2) THEN
+               CALL dbcsr_tas_destroy(matrix_b%mm_storage%store_batched_repl)
+               DEALLOCATE (matrix_b%mm_storage%store_batched_repl)
+            ENDIF
             ALLOCATE (matrix_b_rep)
             CALL dbcsr_tas_replicate(matrix_b_rs%matrix, dbcsr_tas_info(matrix_a_rs), matrix_b_rep, move_data=.TRUE.)
             IF (matrix_b%do_batched == 1 .or. matrix_b%do_batched == 2) THEN
@@ -598,7 +603,10 @@ CONTAINS
          IF (PRESENT(filter_eps)) CALL dbcsr_tas_filter(matrix_c_rs, filter_eps)
       CASE (3)
          IF (matrix_a%do_batched <= 2) THEN
-            IF (matrix_a%do_batched == 2) CALL dbcsr_tas_destroy(matrix_a%mm_storage%store_batched_repl)
+            IF (matrix_a%do_batched == 2) THEN
+               CALL dbcsr_tas_destroy(matrix_a%mm_storage%store_batched_repl)
+               DEALLOCATE (matrix_a%mm_storage%store_batched_repl)
+            ENDIF
             ALLOCATE (matrix_a_rep)
             CALL dbcsr_tas_replicate(matrix_a_rs%matrix, dbcsr_tas_info(matrix_b_rs), matrix_a_rep, move_data=.TRUE.)
             IF (matrix_a%do_batched == 1 .or. matrix_a%do_batched == 2) THEN
