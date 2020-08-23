@@ -87,10 +87,9 @@ CONTAINS
          !! Whether distribution should be optimized internally. In the current implementation this guarantees optimal parameters
          !! only for dense matrices.
       TYPE(dbcsr_tas_split_info), INTENT(OUT), &
-         POINTER, OPTIONAL                       :: split_opt
+         OPTIONAL                       :: split_opt
          !! optionally return split info containing optimal grid and split parameters. This can be used to choose optimal process
-         !! grids for subsequent matrix multiplications with matrices of similar shape and sparsity. under some conditions,
-         !! split_opt can not be returned, in this case the pointer is not associated
+         !! grids for subsequent matrix multiplications with matrices of similar shape and sparsity.
       REAL(KIND=real_8), INTENT(IN), OPTIONAL    :: filter_eps
       INTEGER(KIND=int_8), INTENT(OUT), OPTIONAL :: flop
       LOGICAL, INTENT(IN), OPTIONAL              :: move_data_a, move_data_b, simple_split, retain_sparsity
@@ -691,7 +690,6 @@ CONTAINS
          nsplit_opt = split_factor_estimate(max_mm_dim, nze_a, nze_b, nze_c, numproc)
          ! ideally we should rederive the split factor from the actual sparsity of C, but
          ! due to parameter beta, we can not get the sparsity of AxB from DBCSR if not new_c
-         ALLOCATE (split_opt)
          mp_comm_opt = dbcsr_tas_mp_comm(mp_comm, split_rc, nsplit_opt)
          CALL dbcsr_tas_create_split(split_opt, mp_comm_opt, split_rc, nsplit_opt, own_comm=.TRUE.)
          IF (unit_nr_prv > 0) THEN

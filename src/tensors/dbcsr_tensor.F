@@ -407,7 +407,8 @@ CONTAINS
       !!
       !! note: block sizes of the corresponding indices need to be the same in all tensors.
       !!
-      !! note: for best performance the tensors should have been created with consistent map1_2d and map2_2d
+      !! note: for best performance the tensors should have been created in compatible matrix layouts,
+      !! i.e. with consistent map1_2d and map2_2d:
       !! arguments as follows:
       !!    tensor_1:
       !!       map1_2d == contract_1
@@ -593,11 +594,11 @@ CONTAINS
       INTEGER, DIMENSION(2, ndims_tensor(tensor_2)) :: bounds_t2
       LOGICAL                                        :: do_crop_1, do_crop_2, do_write_3, nodata_3, do_batched, pgrid_changed, &
                                                         pgrid_changed_any, do_change_pgrid
-      TYPE(dbcsr_tas_split_info), POINTER            :: split_opt
+      TYPE(dbcsr_tas_split_info)                     :: split_opt
       INTEGER, DIMENSION(2) :: pdims_2d_opt
 
       NULLIFY (tensor_contr_1, tensor_contr_2, tensor_contr_3, tensor_crop_1, tensor_crop_2, &
-               split_opt, tensor_small)
+               tensor_small)
 
       DBCSR_ASSERT(tensor_1%valid)
       DBCSR_ASSERT(tensor_2%valid)
@@ -894,10 +895,7 @@ CONTAINS
             DEALLOCATE (tensor_crop_2)
          ENDIF
 
-         IF (ASSOCIATED(split_opt)) THEN
-            CALL dbcsr_tas_release_info(split_opt)
-            DEALLOCATE (split_opt)
-         ENDIF
+         CALL dbcsr_tas_release_info(split_opt)
 
          CALL dbcsr_t_destroy(tensor_algn_1)
          CALL dbcsr_t_destroy(tensor_algn_2)
@@ -906,21 +904,21 @@ CONTAINS
          RETURN
       ENDIF
 
-      IF (PRESENT(pgrid_opt_1) .AND. ASSOCIATED(split_opt)) THEN
+      IF (PRESENT(pgrid_opt_1)) THEN
          IF (.NOT. new_1) THEN
             ALLOCATE (pgrid_opt_1)
             pgrid_opt_1 = opt_pgrid(tensor_1, split_opt)
          ENDIF
       ENDIF
 
-      IF (PRESENT(pgrid_opt_2) .AND. ASSOCIATED(split_opt)) THEN
+      IF (PRESENT(pgrid_opt_2)) THEN
          IF (.NOT. new_2) THEN
             ALLOCATE (pgrid_opt_2)
             pgrid_opt_2 = opt_pgrid(tensor_2, split_opt)
          ENDIF
       ENDIF
 
-      IF (PRESENT(pgrid_opt_3) .AND. ASSOCIATED(split_opt)) THEN
+      IF (PRESENT(pgrid_opt_3)) THEN
          IF (.NOT. new_3) THEN
             ALLOCATE (pgrid_opt_3)
             pgrid_opt_3 = opt_pgrid(tensor_3, split_opt)
@@ -932,8 +930,13 @@ CONTAINS
       tensors_remapped = .FALSE.
       IF (new_1 .OR. new_2 .OR. new_3) tensors_remapped = .TRUE.
 
+      IF (tensors_remapped .AND. do_batched) THEN
+         CALL dbcsr_warn(__LOCATION__, &
+                         "Internal process grid optimization disabled because tensors are not in contraction-compatible format")
+      ENDIF
+
       do_change_pgrid = .FALSE.
-      IF ((.NOT. tensors_remapped) .AND. do_batched .AND. ASSOCIATED(split_opt)) THEN
+      IF ((.NOT. tensors_remapped) .AND. do_batched) THEN
          ASSOCIATE (storage => tensor_small%contraction_storage)
             CALL update_contraction_storage(storage, split_opt%mp_comm)
 
@@ -1064,10 +1067,7 @@ CONTAINS
          END SELECT
       ENDIF
 
-      IF (ASSOCIATED(split_opt)) THEN
-         CALL dbcsr_tas_release_info(split_opt)
-         DEALLOCATE (split_opt)
-      ENDIF
+      CALL dbcsr_tas_release_info(split_opt)
 
    END SUBROUTINE
 
@@ -1874,14 +1874,26 @@ CONTAINS
    END SUBROUTINE
 
    SUBROUTINE dbcsr_t_batched_contract_init(tensor)
-      !! initialize batched contraction for this tensor. This ensures that no unnecessary communication takes place
-      !! in a series of batched contractions (i.e. partial contraction with specification of bounds
-      !! in order to reduce memory), under the following conditions:
+      !! initialize batched contraction for this tensor. This enables two optimizations
+      !! - adapt communication scheme to reduce amount of data exchange
+      !! - Optimize process grids
+      !! A batched contraction is a contraction performed in several consecutive steps by specification of bounds
+      !! to reduce memory. The routines dbcsr_t_batched_contract_init and dbcsr_t_batched_contract_finalize
+      !! are used to define the scope of a batched contraction, i.e. they must be called before the first and after
+      !! the last contraction. The following prerequisites need to be respected:
       !! - the same tensor is used in multiple contraction calls and its data is not changed via calls
-      !!   to routines other than dbcsr_t_contract
-      !! - if tensor is the result of a contraction, it must not be reused as input for another contraction
-      !! If tensor is the result of a contraction, its publicly accessible data will not be updated until
-      !! dbcsr_t_batched_contract_finalize has been called.
+      !!   to routines other than dbcsr_t_contract.
+      !! - All contraction calls within the scope of a batched contraction must involve the same 3 tensors with different bounds.
+      !! - if tensor is the result of a contraction, its publicly accessible data will not be updated until
+      !!   dbcsr_t_batched_contract_finalize has been called.
+      !! Side effect: the parallel layout (process grid and distribution) of a tensor may change.
+      !! This optimization assumes that the tensors are in a compatible matrix layout (see documentation of `dbcsr_t_contract`)
+      !! (if this is not the case a warning is issued).
+      !! In order to use the same tensor in other contractions, it must be copied to another tensor by using `dbcsr_t_copy`.
+      !! It is meaningful to use this feature if the contraction consists of only one batch but
+      !! multiple contractions involving the same 3 tensors are performed (batched_contract_init
+      !! and batched_contract_finalize must then be called before/after each contraction): the process grid is
+      !! optimized after the first contraction and future contraction may profit from this optimization.
       TYPE(dbcsr_t_type), INTENT(INOUT) :: tensor
       CALL dbcsr_tas_batched_mm_init(tensor%matrix_rep)
       ALLOCATE (tensor%contraction_storage)
