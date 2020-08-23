@@ -47,7 +47,7 @@ MODULE dbcsr_tas_mm
    USE dbcsr_kinds, ONLY: &
       int_8, real_8, real_4, default_string_length
    USE dbcsr_mpiwrap, ONLY: &
-      mp_comm_compare, mp_environ, mp_sum, mp_comm_free, mp_cart_create
+      mp_comm_compare, mp_environ, mp_sum, mp_comm_free, mp_cart_create, mp_max
    USE dbcsr_operations, ONLY: &
       dbcsr_scale, dbcsr_get_info, dbcsr_copy, dbcsr_clear, dbcsr_add, dbcsr_zero
    USE dbcsr_tas_io, ONLY: &
@@ -123,11 +123,11 @@ CONTAINS
       CHARACTER(LEN=*), PARAMETER                :: routineN = 'dbcsr_tas_multiply', &
                                                     routineP = moduleN//':'//routineN
       INTEGER(KIND=int_8)                        :: nze_a, nze_b, nze_c
-      TYPE(dbcsr_type), POINTER                  :: matrix_a_mm, matrix_b_mm, matrix_c_mm
+      TYPE(dbcsr_type)                           :: matrix_a_mm, matrix_b_mm, matrix_c_mm
 
       CALL timeset(routineN, handle)
 
-      NULLIFY (matrix_b_rs, matrix_a_rs, matrix_c_rs, matrix_a_mm, matrix_b_mm, matrix_c_mm)
+      NULLIFY (matrix_b_rs, matrix_a_rs, matrix_c_rs)
 
       unit_nr_prv = prep_output_unit(unit_nr)
 
@@ -247,9 +247,10 @@ CONTAINS
       CALL mp_environ(numproc, iproc, mp_comm)
 
       ! derive optimal matrix layout and split factor from occupancies
+      nze_a = dbcsr_tas_get_nze_total(matrix_a)
+      nze_b = dbcsr_tas_get_nze_total(matrix_b)
+
       IF (.NOT. simple_split_prv) THEN
-         nze_a = dbcsr_tas_get_nze_total(matrix_a)
-         nze_b = dbcsr_tas_get_nze_total(matrix_b)
          CALL dbcsr_tas_result_index(transa, transb, transc, matrix_a, matrix_b, matrix_c, filter_eps, &
                                      blk_ind=result_index, nze=nze_c, retain_sparsity=retain_sparsity)
          IF (PRESENT(result_index)) THEN
@@ -502,17 +503,11 @@ CONTAINS
          END SELECT
 
          IF (opt_pgrid) THEN
-            CALL dbcsr_release(matrix_a_mm)
-            CALL dbcsr_release(matrix_b_mm)
             IF (.NOT. new_c) THEN
                CALL redistribute_and_sum(matrix_c_mm, matrix_c_rs%matrix, alpha=beta)
             ELSE
                CALL redistribute_and_sum(matrix_c_mm, matrix_c_rs%matrix)
             ENDIF
-
-            CALL dbcsr_release(matrix_c_mm)
-
-            DEALLOCATE (matrix_a_mm, matrix_b_mm, matrix_c_mm)
          ELSE
             IF (new_a) CALL dbcsr_tas_destroy(matrix_a_rs)
             IF (new_a) DEALLOCATE (matrix_a_rs)
@@ -520,6 +515,7 @@ CONTAINS
                CALL dbcsr_tas_destroy(matrix_b_rep)
                DEALLOCATE (matrix_b_rep)
             ENDIF
+            CALL dbcsr_copy(matrix_c_rs%matrix, matrix_c_mm)
          ENDIF
 
          IF (PRESENT(filter_eps)) CALL dbcsr_tas_filter(matrix_c_rs, filter_eps)
@@ -573,17 +569,13 @@ CONTAINS
          CALL timestop(handle2)
 
          IF (opt_pgrid) THEN
-            CALL dbcsr_release(matrix_a_mm)
-            CALL dbcsr_release(matrix_b_mm)
             CALL redistribute_and_sum(matrix_c_mm, matrix_c_rep%matrix, alpha=beta)
-            CALL dbcsr_release(matrix_c_mm)
-
-            DEALLOCATE (matrix_a_mm, matrix_b_mm, matrix_c_mm)
          ELSE
             IF (new_a) CALL dbcsr_tas_destroy(matrix_a_rs)
             IF (new_a) DEALLOCATE (matrix_a_rs)
             IF (new_b) CALL dbcsr_tas_destroy(matrix_b_rs)
             IF (new_b) DEALLOCATE (matrix_b_rs)
+            CALL dbcsr_copy(matrix_c_rep%matrix, matrix_c_mm)
          ENDIF
 
          IF (unit_nr_prv /= 0) THEN
@@ -658,18 +650,11 @@ CONTAINS
          END SELECT
 
          IF (opt_pgrid) THEN
-            CALL dbcsr_release(matrix_a_mm)
-            CALL dbcsr_release(matrix_b_mm)
-
             IF (.NOT. new_c) THEN
                CALL redistribute_and_sum(matrix_c_mm, matrix_c_rs%matrix, alpha=beta)
             ELSE
                CALL redistribute_and_sum(matrix_c_mm, matrix_c_rs%matrix)
             ENDIF
-
-            CALL dbcsr_release(matrix_c_mm)
-
-            DEALLOCATE (matrix_a_mm, matrix_b_mm, matrix_c_mm)
          ELSE
             IF (new_b) CALL dbcsr_tas_destroy(matrix_b_rs)
             IF (new_b) DEALLOCATE (matrix_b_rs)
@@ -677,6 +662,7 @@ CONTAINS
                CALL dbcsr_tas_destroy(matrix_a_rep)
                DEALLOCATE (matrix_a_rep)
             ENDIF
+            CALL dbcsr_copy(matrix_c_rs%matrix, matrix_c_mm)
          ENDIF
 
          IF (PRESENT(filter_eps)) CALL dbcsr_tas_filter(matrix_c_rs, filter_eps)
@@ -686,16 +672,37 @@ CONTAINS
          ENDIF
       END SELECT
 
+      CALL dbcsr_release(matrix_a_mm)
+      CALL dbcsr_release(matrix_b_mm)
+      CALL dbcsr_release(matrix_c_mm)
+
       CALL mp_comm_free(mp_comm_mm)
 
       CALL dbcsr_tas_get_split_info(dbcsr_tas_info(matrix_c), mp_comm=mp_comm)
 
       IF (PRESENT(split_opt)) THEN
+         SELECT CASE (max_mm_dim)
+         CASE (1, 3)
+            nze_c = dbcsr_tas_get_nze_total(matrix_c_rs)
+         CASE (2)
+            nze_c = dbcsr_get_nze(matrix_c_rep%matrix)
+            CALL mp_max(nze_c, mp_comm)
+         END SELECT
+         nsplit_opt = split_factor_estimate(max_mm_dim, nze_a, nze_b, nze_c, numproc)
          ! ideally we should rederive the split factor from the actual sparsity of C, but
          ! due to parameter beta, we can not get the sparsity of AxB from DBCSR if not new_c
          ALLOCATE (split_opt)
          mp_comm_opt = dbcsr_tas_mp_comm(mp_comm, split_rc, nsplit_opt)
          CALL dbcsr_tas_create_split(split_opt, mp_comm_opt, split_rc, nsplit_opt, own_comm=.TRUE.)
+         IF (unit_nr_prv > 0) THEN
+            WRITE (unit_nr_prv, "(T2,A)") &
+               "MM PARAMETERS"
+            WRITE (unit_nr_prv, "(T4,A,T68,I13)") "Number of matrix elements per CPU of result matrix:", &
+               (nze_c + numproc - 1)/numproc
+
+            WRITE (unit_nr_prv, "(T4,A,T68,I13)") "Optimal split factor:", nsplit_opt
+         ENDIF
+
       ENDIF
 
       IF (new_c) THEN
@@ -1467,8 +1474,8 @@ CONTAINS
 
       INTEGER, INTENT(IN)                        :: mp_comm_cart
          !! new process grid
-      TYPE(dbcsr_type), INTENT(INOUT), TARGET    :: matrix_in
-      TYPE(dbcsr_type), INTENT(OUT), POINTER     :: matrix_out
+      TYPE(dbcsr_type), INTENT(INOUT)            :: matrix_in
+      TYPE(dbcsr_type), INTENT(OUT)              :: matrix_out
       LOGICAL, INTENT(IN), OPTIONAL              :: move_data, nodata
          !! memory optimization: move data such that matrix_in is empty on return.
          !! Data of matrix_in should not be copied to matrix_out
@@ -1488,18 +1495,13 @@ CONTAINS
 
       NULLIFY (row_dist, col_dist, rbsize, rcsize)
 
+      CALL timeset(routineN, handle)
+
       IF (PRESENT(optimize_pgrid)) THEN
          optimize_pgrid_prv = optimize_pgrid
       ELSE
          optimize_pgrid_prv = .TRUE.
       ENDIF
-
-      IF (.NOT. optimize_pgrid_prv) THEN
-         matrix_out => matrix_in
-         RETURN
-      ENDIF
-
-      CALL timeset(routineN, handle)
 
       IF (PRESENT(nodata)) THEN
          nodata_prv = nodata
@@ -1507,7 +1509,12 @@ CONTAINS
          nodata_prv = .FALSE.
       ENDIF
 
-      ALLOCATE (matrix_out)
+      IF (.NOT. optimize_pgrid_prv) THEN
+         CALL dbcsr_create(matrix_out, template=matrix_in)
+         IF (.NOT. nodata_prv) CALL dbcsr_copy(matrix_out, matrix_in)
+         CALL timestop(handle)
+         RETURN
+      ENDIF
 
       CALL dbcsr_get_info(matrix_in, nblkrows_total=nbrows, nblkcols_total=nbcols, &
                           row_blk_size=rbsize, col_blk_size=rcsize, &
