@@ -470,14 +470,14 @@ CONTAINS
 
          CALL convert_to_new_pgrid(mp_comm_mm, matrix_a_rs%matrix, matrix_a_mm, optimize_pgrid=opt_pgrid, move_data=move_a)
 
-         IF (new_a .AND. opt_pgrid) THEN
+         IF (new_a) THEN
             CALL dbcsr_tas_destroy(matrix_a_rs)
             DEALLOCATE (matrix_a_rs)
          ENDIF
          CALL convert_to_new_pgrid(mp_comm_mm, matrix_b_rep%matrix, matrix_b_mm, optimize_pgrid=opt_pgrid, &
                                    move_data=matrix_b%do_batched == 0)
 
-         IF (opt_pgrid .AND. matrix_b%do_batched == 0) THEN
+         IF (matrix_b%do_batched == 0) THEN
             CALL dbcsr_tas_destroy(matrix_b_rep)
             DEALLOCATE (matrix_b_rep)
          ENDIF
@@ -500,21 +500,11 @@ CONTAINS
 
             CALL timestop(handle2)
          END SELECT
-
-         IF (opt_pgrid) THEN
-            IF (.NOT. new_c) THEN
-               CALL redistribute_and_sum(matrix_c_mm, matrix_c_rs%matrix, alpha=beta)
-            ELSE
-               CALL redistribute_and_sum(matrix_c_mm, matrix_c_rs%matrix)
-            ENDIF
+         ! todo: don't redistribute if not necessary
+         IF (.NOT. new_c) THEN
+            CALL redistribute_and_sum(matrix_c_mm, matrix_c_rs%matrix, alpha=beta)
          ELSE
-            IF (new_a) CALL dbcsr_tas_destroy(matrix_a_rs)
-            IF (new_a) DEALLOCATE (matrix_a_rs)
-            IF (matrix_b%do_batched == 0) THEN
-               CALL dbcsr_tas_destroy(matrix_b_rep)
-               DEALLOCATE (matrix_b_rep)
-            ENDIF
-            CALL dbcsr_copy(matrix_c_rs%matrix, matrix_c_mm)
+            CALL redistribute_and_sum(matrix_c_mm, matrix_c_rs%matrix)
          ENDIF
 
          IF (PRESENT(filter_eps)) CALL dbcsr_tas_filter(matrix_c_rs, filter_eps)
@@ -548,13 +538,13 @@ CONTAINS
          ENDIF
 
          CALL convert_to_new_pgrid(mp_comm_mm, matrix_a_rs%matrix, matrix_a_mm, optimize_pgrid=opt_pgrid, move_data=move_a)
-         IF (new_a .AND. opt_pgrid) THEN
+         IF (new_a) THEN
             CALL dbcsr_tas_destroy(matrix_a_rs)
             DEALLOCATE (matrix_a_rs)
          ENDIF
 
          CALL convert_to_new_pgrid(mp_comm_mm, matrix_b_rs%matrix, matrix_b_mm, optimize_pgrid=opt_pgrid, move_data=move_b)
-         IF (new_b .AND. opt_pgrid) THEN
+         IF (new_b) THEN
             CALL dbcsr_tas_destroy(matrix_b_rs)
             DEALLOCATE (matrix_b_rs)
          ENDIF
@@ -567,15 +557,7 @@ CONTAINS
                              filter_eps=filter_eps_prv/REAL(nsplit, KIND=real_8), retain_sparsity=retain_sparsity, flop=flop)
          CALL timestop(handle2)
 
-         IF (opt_pgrid) THEN
-            CALL redistribute_and_sum(matrix_c_mm, matrix_c_rep%matrix, alpha=beta)
-         ELSE
-            IF (new_a) CALL dbcsr_tas_destroy(matrix_a_rs)
-            IF (new_a) DEALLOCATE (matrix_a_rs)
-            IF (new_b) CALL dbcsr_tas_destroy(matrix_b_rs)
-            IF (new_b) DEALLOCATE (matrix_b_rs)
-            CALL dbcsr_copy(matrix_c_rep%matrix, matrix_c_mm)
-         ENDIF
+         CALL redistribute_and_sum(matrix_c_mm, matrix_c_rep%matrix, alpha=beta)
 
          IF (unit_nr_prv /= 0) THEN
             CALL dbcsr_tas_write_dist(matrix_c_rep, unit_nr_prv, full_info=log_verbose)
@@ -620,14 +602,14 @@ CONTAINS
          CALL convert_to_new_pgrid(mp_comm_mm, matrix_a_rep%matrix, matrix_a_mm, optimize_pgrid=opt_pgrid, &
                                    move_data=matrix_a%do_batched == 0)
 
-         IF (opt_pgrid .AND. matrix_a%do_batched == 0) THEN
+         IF (matrix_a%do_batched == 0) THEN
             CALL dbcsr_tas_destroy(matrix_a_rep)
             DEALLOCATE (matrix_a_rep)
          ENDIF
 
          CALL convert_to_new_pgrid(mp_comm_mm, matrix_b_rs%matrix, matrix_b_mm, optimize_pgrid=opt_pgrid, move_data=move_b)
 
-         IF (new_b .AND. opt_pgrid) THEN
+         IF (new_b) THEN
             CALL dbcsr_tas_destroy(matrix_b_rs)
             DEALLOCATE (matrix_b_rs)
          ENDIF
@@ -648,20 +630,10 @@ CONTAINS
             CALL timestop(handle2)
          END SELECT
 
-         IF (opt_pgrid) THEN
-            IF (.NOT. new_c) THEN
-               CALL redistribute_and_sum(matrix_c_mm, matrix_c_rs%matrix, alpha=beta)
-            ELSE
-               CALL redistribute_and_sum(matrix_c_mm, matrix_c_rs%matrix)
-            ENDIF
+         IF (.NOT. new_c) THEN
+            CALL redistribute_and_sum(matrix_c_mm, matrix_c_rs%matrix, alpha=beta)
          ELSE
-            IF (new_b) CALL dbcsr_tas_destroy(matrix_b_rs)
-            IF (new_b) DEALLOCATE (matrix_b_rs)
-            IF (matrix_a%do_batched == 0) THEN
-               CALL dbcsr_tas_destroy(matrix_a_rep)
-               DEALLOCATE (matrix_a_rep)
-            ENDIF
-            CALL dbcsr_copy(matrix_c_rs%matrix, matrix_c_mm)
+            CALL redistribute_and_sum(matrix_c_mm, matrix_c_rs%matrix)
          ENDIF
 
          IF (PRESENT(filter_eps)) CALL dbcsr_tas_filter(matrix_c_rs, filter_eps)
