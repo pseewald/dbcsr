@@ -109,6 +109,12 @@ MODULE dbcsr_tensor_types
       INTEGER                                 :: nproc
    END TYPE
 
+   TYPE dbcsr_t_contraction_storage
+      INTEGER, DIMENSION(2) :: pdims
+      REAL(real_8), DIMENSION(2) :: pdims_avg
+      INTEGER :: ibatch
+   END TYPE
+
    TYPE dbcsr_t_type
       TYPE(dbcsr_tas_type), POINTER        :: matrix_rep => NULL()
       TYPE(nd_to_2d_mapping)               :: nd_index_blk
@@ -134,12 +140,6 @@ MODULE dbcsr_tensor_types
       TYPE(array_list)              :: nd_dist
       ! lightweight reference counting for communicators:
       INTEGER, POINTER :: refcount => NULL()
-   END TYPE
-
-   TYPE dbcsr_t_contraction_storage
-      INTEGER, DIMENSION(2) :: pdims
-      REAL(real_8), DIMENSION(2) :: pdims_avg
-      INTEGER :: ibatch
    END TYPE
 
    ! tas matrix distribution function object for one matrix index
