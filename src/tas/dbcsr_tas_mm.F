@@ -677,7 +677,7 @@ CONTAINS
 
       CALL mp_comm_free(mp_comm_mm)
 
-      CALL dbcsr_tas_get_split_info(dbcsr_tas_info(matrix_c), mp_comm=mp_comm, mp_comm_group=mp_comm_group)
+      CALL dbcsr_tas_get_split_info(dbcsr_tas_info(matrix_c_rep), mp_comm=mp_comm, mp_comm_group=mp_comm_group)
 
       IF (PRESENT(split_opt)) THEN
          SELECT CASE (max_mm_dim)
