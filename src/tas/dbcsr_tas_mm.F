@@ -350,11 +350,12 @@ CONTAINS
             IF (matrix_c%do_batched == 2) THEN
                ! sum to previous merged partial results
                CALL dbcsr_tas_merge(matrix_c%mm_storage%store_batched%matrix, &
-                                    matrix_c%mm_storage%store_batched_repl, summation=.TRUE.)
+                                    matrix_c%mm_storage%store_batched_repl, move_data=.TRUE.)
                CALL dbcsr_tas_destroy(matrix_c%mm_storage%store_batched_repl)
                DEALLOCATE (matrix_c%mm_storage%store_batched_repl)
 
-               CALL dbcsr_tas_reshape(matrix_c%mm_storage%store_batched, matrix_c_rs, summation=.TRUE., move_data=.TRUE.)
+               CALL dbcsr_tas_reshape(matrix_c%mm_storage%store_batched, matrix_c, summation=.TRUE., &
+                                      transposed=matrix_c%mm_storage%batched_trans, move_data=.TRUE.)
                CALL dbcsr_tas_destroy(matrix_c%mm_storage%store_batched)
                DEALLOCATE (matrix_c%mm_storage%store_batched)
             ENDIF
