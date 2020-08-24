@@ -566,12 +566,12 @@ CONTAINS
       TYPE(dbcsr_t_type), POINTER                    :: tensor_contr_1, tensor_contr_2, tensor_contr_3
       TYPE(dbcsr_t_type), TARGET                     :: tensor_algn_1, tensor_algn_2, tensor_algn_3
       TYPE(dbcsr_t_type), POINTER                    :: tensor_crop_1, tensor_crop_2
-      TYPE(dbcsr_t_type), POINTER                    :: tensor_small
+      TYPE(dbcsr_t_type), POINTER                    :: tensor_small, tensor_large
 
       INTEGER(int_8), DIMENSION(:, :), ALLOCATABLE  :: result_index_2d
       LOGICAL                                        :: assert_stmt, tensors_remapped
       INTEGER                                        :: data_type, max_mm_dim, max_tensor, mp_comm, &
-                                                        iblk, nblk, unit_nr_prv
+                                                        iblk, nblk, unit_nr_prv, ref_tensor
       INTEGER, DIMENSION(SIZE(contract_1))           :: contract_1_mod
       INTEGER, DIMENSION(SIZE(notcontract_1))        :: notcontract_1_mod
       INTEGER, DIMENSION(SIZE(contract_2))           :: contract_2_mod
@@ -595,7 +595,8 @@ CONTAINS
       LOGICAL                                        :: do_crop_1, do_crop_2, do_write_3, nodata_3, do_batched, pgrid_changed, &
                                                         pgrid_changed_any, do_change_pgrid
       TYPE(dbcsr_tas_split_info)                     :: split_opt
-      INTEGER, DIMENSION(2) :: pdims_2d_opt
+      INTEGER, DIMENSION(2) :: pdims_2d_opt, pdims_2d, pcoord_2d
+      LOGICAL, DIMENSION(2) :: periods_2d
 
       NULLIFY (tensor_contr_1, tensor_contr_2, tensor_contr_3, tensor_crop_1, tensor_crop_2, &
                tensor_small)
@@ -773,12 +774,18 @@ CONTAINS
 
          CALL reshape_mm_compatible(tensor_algn_1, tensor_algn_3, tensor_contr_1, tensor_contr_3, &
                                     contract_1_mod, notcontract_1_mod, map_2_mod, map_1_mod, &
-                                    trans_1, trans_3, new_1, new_3, nodata2=nodata_3, optimize_dist=optimize_dist, &
+                                    trans_1, trans_3, new_1, new_3, ref_tensor, nodata2=nodata_3, optimize_dist=optimize_dist, &
                                     move_data_1=move_data_1, unit_nr=unit_nr_prv)
 
          CALL reshape_mm_small(tensor_algn_2, contract_2_mod, notcontract_2_mod, tensor_contr_2, trans_2, &
                                new_2, move_data=move_data_2, unit_nr=unit_nr_prv)
 
+         SELECT CASE(ref_tensor)
+         CASE(1)
+            tensor_large => tensor_contr_1
+         CASE(2)
+            tensor_large => tensor_contr_3
+         END SELECT
          tensor_small => tensor_contr_2
 
       CASE (2)
@@ -800,13 +807,19 @@ CONTAINS
 
          CALL reshape_mm_compatible(tensor_algn_1, tensor_algn_2, tensor_contr_1, tensor_contr_2, &
                                     notcontract_1_mod, contract_1_mod, notcontract_2_mod, contract_2_mod, &
-                                    trans_1, trans_2, new_1, new_2, optimize_dist=optimize_dist, &
+                                    trans_1, trans_2, new_1, new_2, ref_tensor, optimize_dist=optimize_dist, &
                                     move_data_1=move_data_1, move_data_2=move_data_2, unit_nr=unit_nr_prv)
          CALL invert_transpose_flag(trans_1)
 
          CALL reshape_mm_small(tensor_algn_3, map_1_mod, map_2_mod, tensor_contr_3, trans_3, &
                                new_3, nodata=nodata_3, unit_nr=unit_nr_prv)
 
+         SELECT CASE(ref_tensor)
+         CASE(1)
+            tensor_large => tensor_contr_1
+         CASE(2)
+            tensor_large => tensor_contr_2
+         END SELECT
          tensor_small => tensor_contr_3
 
       CASE (3)
@@ -827,7 +840,7 @@ CONTAINS
 
          CALL reshape_mm_compatible(tensor_algn_2, tensor_algn_3, tensor_contr_2, tensor_contr_3, &
                                     contract_2_mod, notcontract_2_mod, map_1_mod, map_2_mod, &
-                                    trans_2, trans_3, new_2, new_3, nodata2=nodata_3, optimize_dist=optimize_dist, &
+                                    trans_2, trans_3, new_2, new_3, ref_tensor, nodata2=nodata_3, optimize_dist=optimize_dist, &
                                     move_data_1=move_data_2, unit_nr=unit_nr_prv)
 
          CALL invert_transpose_flag(trans_2)
@@ -836,6 +849,12 @@ CONTAINS
          CALL reshape_mm_small(tensor_algn_1, notcontract_1_mod, contract_1_mod, tensor_contr_1, &
                                trans_1, new_1, move_data=move_data_1, unit_nr=unit_nr_prv)
 
+         SELECT CASE(ref_tensor)
+         CASE(1)
+            tensor_large => tensor_contr_2
+         CASE(2)
+            tensor_large => tensor_contr_3
+         END SELECT
          tensor_small => tensor_contr_1
 
       END SELECT
@@ -935,13 +954,18 @@ CONTAINS
                          "Internal process grid optimization disabled because tensors are not in contraction-compatible format")
       ENDIF
 
+      CALL mp_environ(tensor_large%pgrid%mp_comm_2d, 2, pdims_2d, pcoord_2d, periods_2d)
+
       do_change_pgrid = .FALSE.
       IF ((.NOT. tensors_remapped) .AND. do_batched) THEN
          ASSOCIATE (storage => tensor_small%contraction_storage)
-            CALL update_contraction_storage(storage, split_opt%mp_comm)
+            do_change_pgrid = update_contraction_storage(storage, split_opt%mp_comm, pdims_2d)
 
-            pdims_2d_opt = storage%pdims
-            do_change_pgrid = .TRUE.
+            IF(do_change_pgrid) THEN
+               pdims_2d_opt = storage%pdims
+            ELSE
+               pdims_2d_opt = pdims_2d
+            ENDIF
          END ASSOCIATE
 
       ENDIF
@@ -1093,7 +1117,8 @@ CONTAINS
    END SUBROUTINE
 
    SUBROUTINE reshape_mm_compatible(tensor1, tensor2, tensor1_out, tensor2_out, ind1_free, ind1_linked, &
-                                    ind2_free, ind2_linked, trans1, trans2, new1, new2, nodata1, nodata2, move_data_1, &
+                                    ind2_free, ind2_linked, trans1, trans2, new1, new2, ref_tensor, &
+                                    nodata1, nodata2, move_data_1, &
                                     move_data_2, optimize_dist, unit_nr)
       !! Prepare tensor for contraction: redistribute to a 2d format which can be contracted by
       !! matrix multiplication. This routine reshapes the two largest of the three tensors. Redistribution
@@ -1117,6 +1142,7 @@ CONTAINS
       LOGICAL, INTENT(OUT)                        :: new1, new2
          !! whether a new tensor 1 was created
          !! whether a new tensor 2 was created
+      INTEGER, INTENT(OUT) :: ref_tensor
       LOGICAL, INTENT(IN), OPTIONAL               :: nodata1, nodata2
          !! don't copy data of tensor 1
          !! don't copy data of tensor 2
@@ -1127,7 +1153,7 @@ CONTAINS
          !! experimental: optimize distribution
       INTEGER, INTENT(IN), OPTIONAL               :: unit_nr
          !! output unit
-      INTEGER                                     :: ref_tensor, compat1, compat1_old, compat2, compat2_old, &
+      INTEGER                                     :: compat1, compat1_old, compat2, compat2_old, &
                                                      comm_2d, unit_nr_prv
       TYPE(array_list)                            :: dist_list
       INTEGER, DIMENSION(:), ALLOCATABLE          :: mp_dims
@@ -1410,11 +1436,13 @@ CONTAINS
 
    END SUBROUTINE
 
-   SUBROUTINE update_contraction_storage(storage, mp_comm_2d)
+   FUNCTION update_contraction_storage(storage, mp_comm_2d, pdims) RESULT(do_change_pgrid)
       TYPE(dbcsr_t_contraction_storage), INTENT(INOUT) :: storage
       INTEGER, INTENT(IN) :: mp_comm_2d
-      INTEGER, DIMENSION(2) :: dims, coor
+      INTEGER, DIMENSION(2), INTENT(IN) :: pdims
+      INTEGER, DIMENSION(2) :: dims, coor, pdims_min, pdims_max
       LOGICAL, DIMENSION(2) :: periods
+      LOGICAL :: do_change_pgrid
 
       CALL mp_environ(mp_comm_2d, 2, dims, coor, periods)
       storage%ibatch = storage%ibatch + 1
@@ -1423,9 +1451,13 @@ CONTAINS
       storage%pdims_avg(:) = (REAL(storage%pdims_avg, real_8)*REAL(storage%ibatch - 1, real_8) + REAL(dims, real_8)) &
                              /REAL(storage%ibatch, real_8)
 
-      CALL pdims_realtoint(dims(1)*dims(2), storage%pdims_avg, storage%pdims)
 
-   END SUBROUTINE
+      CALL pdims_realtoint(dims(1)*dims(2), storage%pdims_avg, storage%pdims, pdims_min, pdims_max)
+
+      do_change_pgrid = .TRUE.
+      IF(pdims(1) > pdims_min(1) .AND. pdims(1) < pdims_max(1)) do_change_pgrid = .FALSE.
+
+   END FUNCTION
 
    FUNCTION compat_map(nd_index, compat_ind)
       !! Check if 2d index is compatible with tensor index
@@ -2030,19 +2062,23 @@ CONTAINS
 
    END SUBROUTINE
 
-   SUBROUTINE pdims_realtoint(nproc, pdims_real, pdims_int)
+   SUBROUTINE pdims_realtoint(nproc, pdims_real, pdims_int, pdims_min, pdims_max)
       INTEGER, INTENT(IN) :: nproc
       REAL(real_8), DIMENSION(2), INTENT(IN) :: pdims_real
-      INTEGER, DIMENSION(2), INTENT(OUT) :: pdims_int
-      pdims_int(1) = nearest_divisor(nproc, pdims_real(1))
+      INTEGER, DIMENSION(2), INTENT(OUT) :: pdims_int, pdims_min, pdims_max
+      CALL nearest_divisor(nproc, pdims_real(1), pdims_min(1), pdims_max(1), pdims_int(1))
       pdims_int(2) = nproc/pdims_int(1)
       DBCSR_ASSERT(pdims_int(1)*pdims_int(2) == nproc)
+      pdims_min(2) = nproc/pdims_min(1)
+      DBCSR_ASSERT(pdims_min(1)*pdims_min(2) == nproc)
+      pdims_max(2) = nproc/pdims_max(1)
+      DBCSR_ASSERT(pdims_max(1)*pdims_max(2) == nproc)
    END SUBROUTINE
 
-   FUNCTION nearest_divisor(n, div_approx)
+   SUBROUTINE nearest_divisor(n, div_approx, div_min, div_max, div_near)
       INTEGER, INTENT(IN) :: n
       REAL(real_8), INTENT(IN) :: div_approx
-      INTEGER :: div_min, div_max, nearest_divisor
+      INTEGER :: div_min, div_max, div_near
 
       div_min = FLOOR(div_approx)
       div_min = MAX(1, div_min)
@@ -2058,11 +2094,11 @@ CONTAINS
       ENDDO
 
       IF (div_approx/REAL(div_min, real_8) < REAL(div_max, real_8)/div_approx) THEN
-         nearest_divisor = div_min
+         div_near = div_min
       ELSE
-         nearest_divisor = div_max
+         div_near = div_max
       ENDIF
 
-   END FUNCTION
+   END SUBROUTINE
 
 END MODULE
