@@ -470,6 +470,10 @@ CONTAINS
 
          CALL convert_to_new_pgrid(mp_comm_mm, matrix_a_rs%matrix, matrix_a_mm, optimize_pgrid=opt_pgrid, move_data=move_a)
 
+         ! keep communicators alive even after releasing TAS matrices (communicator management does not work between DBCSR and TAS)
+         info_a = dbcsr_tas_info(matrix_a_rs)
+         CALL dbcsr_tas_info_hold(info_a)
+
          IF (new_a) THEN
             CALL dbcsr_tas_destroy(matrix_a_rs)
             DEALLOCATE (matrix_a_rs)
@@ -477,12 +481,18 @@ CONTAINS
          CALL convert_to_new_pgrid(mp_comm_mm, matrix_b_rep%matrix, matrix_b_mm, optimize_pgrid=opt_pgrid, &
                                    move_data=matrix_b%do_batched == 0)
 
+         info_b = dbcsr_tas_info(matrix_b_rep)
+         CALL dbcsr_tas_info_hold(info_b)
+
          IF (matrix_b%do_batched == 0) THEN
             CALL dbcsr_tas_destroy(matrix_b_rep)
             DEALLOCATE (matrix_b_rep)
          ENDIF
 
          CALL convert_to_new_pgrid(mp_comm_mm, matrix_c_rs%matrix, matrix_c_mm, nodata=nodata_3, optimize_pgrid=opt_pgrid)
+
+         info_c = dbcsr_tas_info(matrix_c_rs)
+         CALL dbcsr_tas_info_hold(info_c)
 
          SELECT CASE (tr_case)
          CASE (dbcsr_no_transpose)
@@ -500,6 +510,9 @@ CONTAINS
 
             CALL timestop(handle2)
          END SELECT
+
+         nze_c = dbcsr_get_nze(matrix_c_mm)
+
          ! todo: don't redistribute if not necessary
          IF (.NOT. new_c) THEN
             CALL redistribute_and_sum(matrix_c_mm, matrix_c_rs%matrix, alpha=beta)
@@ -538,12 +551,21 @@ CONTAINS
          ENDIF
 
          CALL convert_to_new_pgrid(mp_comm_mm, matrix_a_rs%matrix, matrix_a_mm, optimize_pgrid=opt_pgrid, move_data=move_a)
+
+         ! keep communicators alive even after releasing TAS matrices (communicator management does not work between DBCSR and TAS)
+         info_a = dbcsr_tas_info(matrix_a_rs)
+         CALL dbcsr_tas_info_hold(info_a)
+
          IF (new_a) THEN
             CALL dbcsr_tas_destroy(matrix_a_rs)
             DEALLOCATE (matrix_a_rs)
          ENDIF
 
          CALL convert_to_new_pgrid(mp_comm_mm, matrix_b_rs%matrix, matrix_b_mm, optimize_pgrid=opt_pgrid, move_data=move_b)
+
+         info_b = dbcsr_tas_info(matrix_b_rs)
+         CALL dbcsr_tas_info_hold(info_b)
+
          IF (new_b) THEN
             CALL dbcsr_tas_destroy(matrix_b_rs)
             DEALLOCATE (matrix_b_rs)
@@ -551,11 +573,16 @@ CONTAINS
 
          CALL convert_to_new_pgrid(mp_comm_mm, matrix_c_rep%matrix, matrix_c_mm, nodata=nodata_3, optimize_pgrid=opt_pgrid)
 
+         info_c = dbcsr_tas_info(matrix_c_rep)
+         CALL dbcsr_tas_info_hold(info_c)
+
          CALL timeset(routineN//"_mm_2", handle2)
          CALL dbcsr_multiply(transa=transa_prv, transb=transb_prv, alpha=alpha, matrix_a=matrix_a_mm, &
                              matrix_b=matrix_b_mm, beta=beta, matrix_c=matrix_c_mm, &
                              filter_eps=filter_eps_prv/REAL(nsplit, KIND=real_8), retain_sparsity=retain_sparsity, flop=flop)
          CALL timestop(handle2)
+
+         nze_c = dbcsr_get_nze(matrix_c_mm)
 
          CALL redistribute_and_sum(matrix_c_mm, matrix_c_rep%matrix, alpha=beta)
 
@@ -602,6 +629,10 @@ CONTAINS
          CALL convert_to_new_pgrid(mp_comm_mm, matrix_a_rep%matrix, matrix_a_mm, optimize_pgrid=opt_pgrid, &
                                    move_data=matrix_a%do_batched == 0)
 
+         ! keep communicators alive even after releasing TAS matrices (communicator management does not work between DBCSR and TAS)
+         info_a = dbcsr_tas_info(matrix_a_rep)
+         CALL dbcsr_tas_info_hold(info_a)
+
          IF (matrix_a%do_batched == 0) THEN
             CALL dbcsr_tas_destroy(matrix_a_rep)
             DEALLOCATE (matrix_a_rep)
@@ -609,11 +640,17 @@ CONTAINS
 
          CALL convert_to_new_pgrid(mp_comm_mm, matrix_b_rs%matrix, matrix_b_mm, optimize_pgrid=opt_pgrid, move_data=move_b)
 
+         info_b = dbcsr_tas_info(matrix_b_rs)
+         CALL dbcsr_tas_info_hold(info_b)
+
          IF (new_b) THEN
             CALL dbcsr_tas_destroy(matrix_b_rs)
             DEALLOCATE (matrix_b_rs)
          ENDIF
          CALL convert_to_new_pgrid(mp_comm_mm, matrix_c_rs%matrix, matrix_c_mm, nodata=nodata_3, optimize_pgrid=opt_pgrid)
+
+         info_c = dbcsr_tas_info(matrix_c_rs)
+         CALL dbcsr_tas_info_hold(info_c)
 
          SELECT CASE (tr_case)
          CASE (dbcsr_no_transpose)
@@ -629,6 +666,8 @@ CONTAINS
                                 filter_eps=filter_eps_prv, retain_sparsity=retain_sparsity, flop=flop)
             CALL timestop(handle2)
          END SELECT
+
+         nze_c = dbcsr_get_nze(matrix_c_mm)
 
          IF (.NOT. new_c) THEN
             CALL redistribute_and_sum(matrix_c_mm, matrix_c_rs%matrix, alpha=beta)
@@ -649,15 +688,14 @@ CONTAINS
 
       CALL mp_comm_free(mp_comm_mm)
 
-      CALL dbcsr_tas_get_split_info(dbcsr_tas_info(matrix_c), mp_comm=mp_comm)
+      CALL dbcsr_tas_get_split_info(info_c, mp_comm=mp_comm)
 
       IF (PRESENT(split_opt)) THEN
          SELECT CASE (max_mm_dim)
          CASE (1, 3)
-            nze_c = dbcsr_tas_get_nze_total(matrix_c_rs)
+            CALL mp_sum(nze_c, mp_comm)
          CASE (2)
-            nze_c = dbcsr_get_nze(matrix_c_rep%matrix)
-            CALL dbcsr_tas_get_split_info(dbcsr_tas_info(matrix_c_rep), mp_comm_group=mp_comm_group)
+            CALL dbcsr_tas_get_split_info(info_c, mp_comm_group=mp_comm_group)
             CALL mp_sum(nze_c, mp_comm_group)
             CALL mp_max(nze_c, mp_comm)
          END SELECT
@@ -710,6 +748,10 @@ CONTAINS
          WRITE (unit_nr_prv, '(A,1X,A,1X,A,1X,A,1X,A,1X,A)') "TAS MATRIX MULTIPLICATION DONE"
          WRITE (unit_nr_prv, '(A)') repeat("-", 80)
       ENDIF
+
+      CALL dbcsr_tas_release_info(info_a)
+      CALL dbcsr_tas_release_info(info_b)
+      CALL dbcsr_tas_release_info(info_c)
 
       CALL timestop(handle)
 
