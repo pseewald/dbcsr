@@ -677,7 +677,7 @@ CONTAINS
 
       CALL mp_comm_free(mp_comm_mm)
 
-      CALL dbcsr_tas_get_split_info(dbcsr_tas_info(matrix_c_rep), mp_comm=mp_comm, mp_comm_group=mp_comm_group)
+      CALL dbcsr_tas_get_split_info(dbcsr_tas_info(matrix_c), mp_comm=mp_comm)
 
       IF (PRESENT(split_opt)) THEN
          SELECT CASE (max_mm_dim)
@@ -685,6 +685,7 @@ CONTAINS
             nze_c = dbcsr_tas_get_nze_total(matrix_c_rs)
          CASE (2)
             nze_c = dbcsr_get_nze(matrix_c_rep%matrix)
+            CALL dbcsr_tas_get_split_info(dbcsr_tas_info(matrix_c_rep), mp_comm_group=mp_comm_group)
             CALL mp_sum(nze_c, mp_comm_group)
             CALL mp_max(nze_c, mp_comm)
          END SELECT
