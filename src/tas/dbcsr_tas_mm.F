@@ -1582,10 +1582,10 @@ CONTAINS
 
       matrix%do_batched = state
       SELECT CASE (state)
-      CASE (0, 1, 2)
+      CASE (0, 1)
          ! reset to default
          matrix%dist%info%strict_split(1) = matrix%dist%info%strict_split(2)
-      CASE (3)
+      CASE (2, 3)
          matrix%dist%info%strict_split(1) = .TRUE.
       CASE DEFAULT
          DBCSR_ABORT("should not happen")
