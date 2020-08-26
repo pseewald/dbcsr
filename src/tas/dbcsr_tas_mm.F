@@ -520,9 +520,9 @@ CONTAINS
          nze_c = dbcsr_get_nze(matrix_c_mm)
 
          IF (.NOT. new_c) THEN
-            CALL redistribute_and_sum(matrix_c_mm, matrix_c_rs%matrix, local_copy=opt_pgrid, alpha=beta)
+            CALL redistribute_and_sum(matrix_c_mm, matrix_c_rs%matrix, local_copy=.NOT. opt_pgrid, alpha=beta)
          ELSE
-            CALL redistribute_and_sum(matrix_c_mm, matrix_c_rs%matrix, local_copy=opt_pgrid)
+            CALL redistribute_and_sum(matrix_c_mm, matrix_c_rs%matrix, local_copy=.NOT. opt_pgrid)
          ENDIF
 
          CALL dbcsr_release(matrix_c_mm)
@@ -594,7 +594,7 @@ CONTAINS
 
          nze_c = dbcsr_get_nze(matrix_c_mm)
 
-         CALL redistribute_and_sum(matrix_c_mm, matrix_c_rep%matrix, local_copy=opt_pgrid, alpha=beta)
+         CALL redistribute_and_sum(matrix_c_mm, matrix_c_rep%matrix, local_copy=.NOT. opt_pgrid, alpha=beta)
 
          CALL dbcsr_release(matrix_c_mm)
 
@@ -685,9 +685,9 @@ CONTAINS
          nze_c = dbcsr_get_nze(matrix_c_mm)
 
          IF (.NOT. new_c) THEN
-            CALL redistribute_and_sum(matrix_c_mm, matrix_c_rs%matrix, local_copy=opt_pgrid, alpha=beta)
+            CALL redistribute_and_sum(matrix_c_mm, matrix_c_rs%matrix, local_copy=.NOT. opt_pgrid, alpha=beta)
          ELSE
-            CALL redistribute_and_sum(matrix_c_mm, matrix_c_rs%matrix, local_copy=opt_pgrid)
+            CALL redistribute_and_sum(matrix_c_mm, matrix_c_rs%matrix, local_copy=.NOT. opt_pgrid)
          ENDIF
 
          CALL dbcsr_release(matrix_c_mm)
@@ -781,10 +781,10 @@ CONTAINS
       IF (PRESENT(local_copy)) THEN
          local_copy_prv = local_copy
       ELSE
-         local_copy = .FALSE.
+         local_copy_prv = .FALSE.
       ENDIF
 
-      IF (.NOT. local_copy) THEN
+      IF (.NOT. local_copy_prv) THEN
          CALL dbcsr_create(matrix_tmp, matrix_out)
          CALL dbcsr_redistribute(matrix_in, matrix_tmp)
          CALL dbcsr_add(matrix_out, matrix_tmp, alpha_scalar=alpha)
