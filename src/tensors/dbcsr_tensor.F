@@ -961,7 +961,9 @@ CONTAINS
       IF ((.NOT. tensors_remapped) .AND. do_batched) THEN
          ASSOCIATE (storage => tensor_small%contraction_storage)
             DBCSR_ASSERT(storage%static)
-            do_change_pgrid = update_contraction_storage(storage, split_opt%mp_comm, pdims_2d, unit_nr_prv)
+            do_change_pgrid = &
+               update_contraction_storage(storage, split_opt, &
+               dbcsr_tas_info(tensor_small%matrix_rep), unit_nr_prv)
             pdims_2d_opt = storage%pdims
          END ASSOCIATE
       ENDIF
@@ -1435,17 +1437,23 @@ CONTAINS
 
    END SUBROUTINE
 
-   FUNCTION update_contraction_storage(storage, mp_comm_2d, pdims, unit_nr) RESULT(do_change_pgrid)
+   FUNCTION update_contraction_storage(storage, split_opt, split, unit_nr) RESULT(do_change_pgrid)
       TYPE(dbcsr_t_contraction_storage), INTENT(INOUT) :: storage
-      INTEGER, INTENT(IN) :: mp_comm_2d
-      INTEGER, DIMENSION(2), INTENT(IN) :: pdims
+      TYPE(dbcsr_tas_split_info), INTENT(IN)           :: split_opt
+      TYPE(dbcsr_tas_split_info), INTENT(IN)           :: split
       INTEGER, INTENT(IN) :: unit_nr
-      INTEGER, DIMENSION(2) :: pdims_opt, coor
+      INTEGER, DIMENSION(2) :: pdims_opt, coor, pdims
       LOGICAL, DIMENSION(2) :: periods
       LOGICAL :: do_change_pgrid
       REAL(kind=real_8) :: pdims_ratio_opt, change_criterion, pdims_ratio
+      INTEGER :: nsplit_opt, nsplit
 
-      CALL mp_environ(mp_comm_2d, 2, pdims_opt, coor, periods)
+      nsplit_opt = split_opt%ngroup
+      nsplit = split%ngroup
+
+      CALL mp_environ(split_opt%mp_comm, 2, pdims_opt, coor, periods)
+      CALL mp_environ(split%mp_comm, 2, pdims, coor, periods)
+
       storage%ibatch = storage%ibatch + 1
 
       pdims_ratio_opt = REAL(pdims_opt(1), real_8)/pdims_opt(2)
@@ -1453,23 +1461,27 @@ CONTAINS
 
       storage%pdims_ratio_avg = (storage%pdims_ratio_avg*REAL(storage%ibatch - 1, real_8) + pdims_ratio_opt) &
                                 /REAL(storage%ibatch, real_8)
+      storage%nsplit_avg = (REAL(storage%nsplit_avg,real_8)*REAL(storage%ibatch - 1, real_8) + REAL(nsplit_opt, real_8)) &
+                                /REAL(storage%ibatch, real_8)
 
-      do_change_pgrid = .TRUE.
-
+      ! check for process grid dimensions
       change_criterion = SQRT(MAX(pdims_ratio/storage%pdims_ratio_avg, storage%pdims_ratio_avg/pdims_ratio))
 
       do_change_pgrid = .FALSE.
+      IF (change_criterion > default_nsplit_accept_ratio) do_change_pgrid = .TRUE.
+
+      ! check for split factor
+      change_criterion = MAX(REAL(nsplit,real_8)/storage%nsplit_avg, REAL(storage%nsplit_avg,real_8)/nsplit)
       IF (change_criterion > default_nsplit_accept_ratio) do_change_pgrid = .TRUE.
 
       storage%pdims = pdims_opt
 
       IF (unit_nr > 0) THEN
          print *, "DEBUG PGRID START"
-         PRINT *, "current opt", pdims_opt
-         PRINT *, "current", pdims
-         PRINT *, "avg", storage%pdims_ratio_avg
-         PRINT *, "actual", storage%pdims
+         PRINT *, "pdims ratio avg, opt, current", storage%pdims_ratio_avg, pdims_ratio
+         PRINT *, "split factor avg, opt, current", storage%nsplit_avg, nsplit_opt, nsplit
          PRINT *, "ibatch", storage%ibatch
+         PRINT *, "change?", do_change_pgrid
       ENDIF
 
    END FUNCTION
@@ -1974,6 +1986,7 @@ CONTAINS
       ENDIF
       tensor%contraction_storage%pdims = 0
       tensor%contraction_storage%pdims_ratio_avg = 0.0_real_8
+      tensor%contraction_storage%nsplit_avg = 0.0_real_8
       tensor%contraction_storage%ibatch = 0
 
 #:for ndim in range(1, maxdim+1)

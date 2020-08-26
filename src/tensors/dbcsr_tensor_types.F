@@ -112,6 +112,7 @@ MODULE dbcsr_tensor_types
    TYPE dbcsr_t_contraction_storage
       INTEGER, DIMENSION(2) :: pdims
       REAL(real_8) :: pdims_ratio_avg
+      REAL(real_8) :: nsplit_avg
       INTEGER :: ibatch
       TYPE(array_list) :: batch_ranges
       LOGICAL :: static

@@ -39,7 +39,7 @@ MODULE dbcsr_tas_mm
       dbcsr_tas_merge, dbcsr_tas_replicate, dbcsr_tas_reshape
    USE dbcsr_tas_split, ONLY: &
       rowsplit, colsplit, dbcsr_tas_get_split_info, dbcsr_tas_create_split, dbcsr_tas_mp_comm, &
-      dbcsr_tas_release_info, accept_pgrid_dims, dbcsr_tas_info_hold
+      dbcsr_tas_release_info, accept_pgrid_dims, dbcsr_tas_info_hold, default_nsplit_accept_ratio
    USE dbcsr_tas_util, ONLY: &
       swap, invert_transpose_flag, array_eq, dbcsr_mp_environ
    USE dbcsr_types, ONLY: &
@@ -1130,6 +1130,8 @@ CONTAINS
       CLASS(dbcsr_tas_rowcol_data), ALLOCATABLE  :: rbsize, cbsize
       CHARACTER(LEN=*), PARAMETER                :: routineN = 'change_split', &
                                                     routineP = moduleN//':'//routineN
+      !REAL(kind=real_8)                          :: change_split_criterion
+
       NULLIFY (matrix_out)
 
       is_new = .TRUE.
@@ -1162,6 +1164,8 @@ CONTAINS
 
       CALL dbcsr_tas_get_split_info(split_info, nsplit=nsplit_new)
 
+      !change_split_criterion = MAX(REAL(nsplit_old, real_8)/nsplit_new, REAL(nsplit_new, real_8)/nsplit_old)
+      !IF (change_split_criterion <= default_nsplit_accept_ratio .AND. split_rc == split_rowcol) THEN
       IF (nsplit_old == nsplit_new .AND. split_rc == split_rowcol) THEN
          matrix_out => matrix_in
          is_new = .FALSE.
@@ -1624,10 +1628,10 @@ CONTAINS
 
       matrix%do_batched = state
       SELECT CASE (state)
-      CASE (0, 1)
+      CASE (0)
          ! reset to default
          matrix%dist%info%strict_split(1) = matrix%dist%info%strict_split(2)
-      CASE (2, 3)
+      CASE (1, 2, 3)
          matrix%dist%info%strict_split(1) = .TRUE.
       CASE DEFAULT
          DBCSR_ABORT("should not happen")
