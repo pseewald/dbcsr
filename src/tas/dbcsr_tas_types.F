@@ -28,7 +28,8 @@ MODULE dbcsr_tas_types
       dbcsr_tas_distribution_type, &
       dbcsr_tas_iterator, &
       dbcsr_tas_split_info, &
-      dbcsr_tas_type
+      dbcsr_tas_type, &
+      dbcsr_tas_mm_storage
 
    ! info on MPI Cartesian grid that is split on MPI subgroups.
    ! info on distribution of matrix rows / columns to different subgroups.

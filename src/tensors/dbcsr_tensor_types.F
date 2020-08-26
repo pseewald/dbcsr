@@ -31,7 +31,7 @@ MODULE dbcsr_tensor_types
       dbcsr_tas_get_num_blocks, dbcsr_tas_get_num_blocks_total, dbcsr_tas_get_data_size, dbcsr_tas_get_nze, &
       dbcsr_tas_get_nze_total, dbcsr_tas_clear, dbcsr_tas_get_data_type
    USE dbcsr_tas_types, ONLY: &
-      dbcsr_tas_type, dbcsr_tas_distribution_type, dbcsr_tas_split_info
+      dbcsr_tas_type, dbcsr_tas_distribution_type, dbcsr_tas_split_info, dbcsr_tas_mm_storage
    USE dbcsr_tas_mm, ONLY: dbcsr_tas_set_batched_state
    USE dbcsr_tensor_index, ONLY: &
       get_2d_indices_tensor, get_nd_indices_pgrid, create_nd_to_2d_mapping, destroy_nd_to_2d_mapping, &
@@ -1601,15 +1601,21 @@ CONTAINS
    SUBROUTINE dbcsr_t_copy_contraction_storage(tensor_in, tensor_out)
       TYPE(dbcsr_t_type), INTENT(IN) :: tensor_in
       TYPE(dbcsr_t_type), INTENT(INOUT) :: tensor_out
+      TYPE(dbcsr_t_contraction_storage), ALLOCATABLE :: tensor_storage_tmp
+      TYPE(dbcsr_tas_mm_storage), ALLOCATABLE :: tas_storage_tmp
 
       IF (tensor_in%matrix_rep%do_batched > 0) THEN
+         ALLOCATE (tas_storage_tmp, SOURCE=tensor_in%matrix_rep%mm_storage)
          ! transfer data for batched contraction
          IF (ALLOCATED(tensor_out%matrix_rep%mm_storage)) DEALLOCATE (tensor_out%matrix_rep%mm_storage)
-         ALLOCATE (tensor_out%matrix_rep%mm_storage, SOURCE=tensor_in%matrix_rep%mm_storage)
+         CALL move_alloc(tas_storage_tmp, tensor_out%matrix_rep%mm_storage)
          CALL dbcsr_tas_set_batched_state(tensor_out%matrix_rep, tensor_in%matrix_rep%do_batched)
       ENDIF
+      IF (ALLOCATED(tensor_in%contraction_storage)) THEN
+         ALLOCATE (tensor_storage_tmp, SOURCE=tensor_in%contraction_storage)
+      ENDIF
       IF (ALLOCATED(tensor_out%contraction_storage)) DEALLOCATE (tensor_out%contraction_storage)
-      IF (ALLOCATED(tensor_in%contraction_storage)) ALLOCATE (tensor_out%contraction_storage, SOURCE=tensor_in%contraction_storage)
+      IF (ALLOCATED(tensor_storage_tmp)) CALL move_alloc(tensor_storage_tmp, tensor_out%contraction_storage)
 
    END SUBROUTINE
 

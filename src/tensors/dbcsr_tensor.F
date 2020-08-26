@@ -781,10 +781,10 @@ CONTAINS
          CALL reshape_mm_small(tensor_algn_2, contract_2_mod, notcontract_2_mod, tensor_contr_2, trans_2, &
                                new_2, move_data=move_data_2, unit_nr=unit_nr_prv)
 
-         SELECT CASE(ref_tensor)
-         CASE(1)
+         SELECT CASE (ref_tensor)
+         CASE (1)
             tensor_large => tensor_contr_1
-         CASE(2)
+         CASE (2)
             tensor_large => tensor_contr_3
          END SELECT
          tensor_small => tensor_contr_2
@@ -815,10 +815,10 @@ CONTAINS
          CALL reshape_mm_small(tensor_algn_3, map_1_mod, map_2_mod, tensor_contr_3, trans_3, &
                                new_3, nodata=nodata_3, unit_nr=unit_nr_prv)
 
-         SELECT CASE(ref_tensor)
-         CASE(1)
+         SELECT CASE (ref_tensor)
+         CASE (1)
             tensor_large => tensor_contr_1
-         CASE(2)
+         CASE (2)
             tensor_large => tensor_contr_2
          END SELECT
          tensor_small => tensor_contr_3
@@ -850,10 +850,10 @@ CONTAINS
          CALL reshape_mm_small(tensor_algn_1, notcontract_1_mod, contract_1_mod, tensor_contr_1, &
                                trans_1, new_1, move_data=move_data_1, unit_nr=unit_nr_prv)
 
-         SELECT CASE(ref_tensor)
-         CASE(1)
+         SELECT CASE (ref_tensor)
+         CASE (1)
             tensor_large => tensor_contr_2
-         CASE(2)
+         CASE (2)
             tensor_large => tensor_contr_3
          END SELECT
          tensor_small => tensor_contr_1
@@ -987,15 +987,9 @@ CONTAINS
       ENDIF
 
       ! transfer contraction storage
-      IF(ALLOCATED(tensor_1%contraction_storage)) DEALLOCATE(tensor_1%contraction_storage)
-      IF(ALLOCATED(tensor_2%contraction_storage)) DEALLOCATE(tensor_2%contraction_storage)
-      IF(ALLOCATED(tensor_3%contraction_storage)) DEALLOCATE(tensor_3%contraction_storage)
-      IF(ALLOCATED(tensor_contr_1%contraction_storage)) &
-         ALLOCATE(tensor_1%contraction_storage, SOURCE=tensor_contr_1%contraction_storage)
-      IF(ALLOCATED(tensor_contr_2%contraction_storage)) &
-         ALLOCATE(tensor_2%contraction_storage, SOURCE=tensor_contr_2%contraction_storage)
-      IF(ALLOCATED(tensor_contr_3%contraction_storage)) &
-         ALLOCATE(tensor_3%contraction_storage, SOURCE=tensor_contr_3%contraction_storage)
+      CALL dbcsr_t_copy_contraction_storage(tensor_contr_1, tensor_1)
+      CALL dbcsr_t_copy_contraction_storage(tensor_contr_2, tensor_2)
+      CALL dbcsr_t_copy_contraction_storage(tensor_contr_3, tensor_3)
 
       IF (unit_nr_prv /= 0) THEN
          IF (new_3 .AND. do_write_3) CALL dbcsr_t_write_tensor_info(tensor_3, unit_nr_prv, full_info=log_verbose)
@@ -1461,15 +1455,14 @@ CONTAINS
       storage%pdims_avg(:) = (REAL(storage%pdims_avg, real_8)*REAL(storage%ibatch - 1, real_8) + REAL(dims, real_8)) &
                              /REAL(storage%ibatch, real_8)
 
-
       CALL pdims_realtoint(dims(1)*dims(2), storage%pdims_avg, pdims_mean, pdims_min, pdims_max)
 
       do_change_pgrid = .TRUE.
-      IF(pdims(1) >= pdims_min(1) .AND. pdims(1) <= pdims_max(1)) do_change_pgrid = .FALSE.
+      IF (pdims(1) >= pdims_min(1) .AND. pdims(1) <= pdims_max(1)) do_change_pgrid = .FALSE.
 
       storage%pdims = dims
 
-      IF(unit_nr>0) THEN
+      IF (unit_nr > 0) THEN
          print *, "DEBUG PGRID START"
          PRINT *, "current opt", dims
          PRINT *, "current", pdims
@@ -1659,7 +1652,6 @@ CONTAINS
       CALL dbcsr_t_get_mapping_info(tensor_in%nd_index_blk, map1_2d=map1_2d, map2_2d=map2_2d)
       order_prv = dbcsr_t_inverse_order([map1_2d, map2_2d])
       CALL dbcsr_t_permute_index(tensor_in, tensor_out, order=order_prv)
-
 
       IF (PRESENT(order)) order = order_prv
 
@@ -1965,20 +1957,20 @@ CONTAINS
       static_range = .TRUE.
 #:for idim in range(1, maxdim+1)
       IF (ndims_tensor(tensor) >= ${idim}$) THEN
-         IF(PRESENT(batch_range_${idim}$)) THEN
-            ALLOCATE(batch_range_prv_${idim}$, SOURCE=batch_range_${idim}$)
+         IF (PRESENT(batch_range_${idim}$)) THEN
+            ALLOCATE (batch_range_prv_${idim}$, SOURCE=batch_range_${idim}$)
             static_range = .FALSE.
          ELSE
-            ALLOCATE(batch_range_prv_${idim}$(2))
-            batch_range_prv_${idim}$(1) = 1
-            batch_range_prv_${idim}$(2) = tdims(${idim}$) + 1
+            ALLOCATE (batch_range_prv_${idim}$ (2))
+            batch_range_prv_${idim}$ (1) = 1
+            batch_range_prv_${idim}$ (2) = tdims(${idim}$) + 1
          ENDIF
       ENDIF
 #:endfor
 
       ALLOCATE (tensor%contraction_storage)
       tensor%contraction_storage%static = static_range
-      IF(static_range) THEN
+      IF (static_range) THEN
          CALL dbcsr_tas_batched_mm_init(tensor%matrix_rep)
       ENDIF
       tensor%contraction_storage%pdims = 0
@@ -1988,7 +1980,7 @@ CONTAINS
 #:for ndim in range(1, maxdim+1)
       IF (ndims_tensor(tensor) == ${ndim}$) THEN
          CALL create_array_list(tensor%contraction_storage%batch_ranges, ${ndim}$, &
-            ${varlist("batch_range_prv", nmax=ndim)}$)
+                                ${varlist("batch_range_prv", nmax=ndim)}$)
       ENDIF
 #:endfor
 
@@ -2006,7 +1998,7 @@ CONTAINS
 
       do_write = .FALSE.
 
-      IF(tensor%contraction_storage%static) THEN
+      IF (tensor%contraction_storage%static) THEN
          CALL dbcsr_tas_batched_mm_finalize(tensor%matrix_rep)
          IF (tensor%matrix_rep%do_batched > 0) THEN
             IF (tensor%matrix_rep%mm_storage%batched_out) do_write = .TRUE.
@@ -2068,7 +2060,7 @@ CONTAINS
 #:for idim in range(1, maxdim+1)
       IF (ndims_tensor(tensor) >= ${idim}$) THEN
          mem_aware(${idim}$) = PRESENT(batch_range_${idim}$)
-         IF(mem_aware(${idim}$)) nbatch(${idim}$) = SIZE(batch_range_${idim}$) - 1
+         IF (mem_aware(${idim}$)) nbatch(${idim}$) = SIZE(batch_range_${idim}$) - 1
       ENDIF
 #:endfor
 
@@ -2080,12 +2072,12 @@ CONTAINS
          CALL get_ith_array(tensor%blk_sizes, ${idim}$, bs_${idim}$)
          ALLOCATE (dist_${idim}$ (tdims(${idim}$)))
          IF (mem_aware(${idim}$)) THEN
-            DO ibatch=1,nbatch(${idim}$)
-               ind1 = batch_range_${idim}$(ibatch)
-               ind2 = batch_range_${idim}$(ibatch+1)-1
-               batch_size = ind2-ind1+1
+            DO ibatch = 1, nbatch(${idim}$)
+               ind1 = batch_range_${idim}$ (ibatch)
+               ind2 = batch_range_${idim}$ (ibatch + 1) - 1
+               batch_size = ind2 - ind1 + 1
                CALL dbcsr_t_default_distvec(batch_size, pdims(${idim}$), &
-                  bs_${idim}$(ind1:ind2), dist_${idim}$(ind1:ind2))
+                                            bs_${idim}$ (ind1:ind2), dist_${idim}$ (ind1:ind2))
             ENDDO
          ELSE
             CALL dbcsr_t_default_distvec(tdims(${idim}$), pdims(${idim}$), bs_${idim}$, dist_${idim}$)
@@ -2108,8 +2100,8 @@ CONTAINS
          CALL dbcsr_t_copy(tensor, t_tmp, move_data=.TRUE.)
       ENDIF
 
-      IF(ALLOCATED(tensor%contraction_storage)) &
-         ALLOCATE(t_tmp%contraction_storage, SOURCE=tensor%contraction_storage)
+      IF (ALLOCATED(tensor%contraction_storage)) &
+         ALLOCATE (t_tmp%contraction_storage, SOURCE=tensor%contraction_storage)
 
       CALL dbcsr_t_destroy(tensor)
       tensor = t_tmp
@@ -2144,12 +2136,12 @@ CONTAINS
       CALL dbcsr_t_get_mapping_info(tensor%pgrid%nd_index_grid, map1_2d=map1, map2_2d=map2)
       CALL blk_dims_tensor(tensor, dims)
       pgrid = dbcsr_t_nd_mp_comm(mp_comm, map1, map2, pdims_2d=pdims, tdims=dims, nsplit=nsplit, dimsplit=dimsplit)
-      IF(ALLOCATED(tensor%contraction_storage)) THEN
+      IF (ALLOCATED(tensor%contraction_storage)) THEN
 #:for ndim in range(1, maxdim+1)
          IF (ndims_tensor(tensor) == ${ndim}$) THEN
             CALL get_arrays(tensor%contraction_storage%batch_ranges, ${varlist("batch_range", nmax=ndim)}$)
             CALL dbcsr_t_change_pgrid(tensor, pgrid, ${varlist("batch_range", nmax=ndim)}$, &
-               nodata=nodata, pgrid_changed=pgrid_changed,  unit_nr=unit_nr)
+                                      nodata=nodata, pgrid_changed=pgrid_changed, unit_nr=unit_nr)
          ENDIF
 #:endfor
       ELSE
@@ -2165,10 +2157,10 @@ CONTAINS
       INTEGER, DIMENSION(2), INTENT(OUT) :: pdims_int, pdims_min, pdims_max
       INTEGER, DIMENSION(2) :: ind
 
-      IF(pdims_real(1) > pdims_real(2)) THEN
-         ind=[2,1]
+      IF (pdims_real(1) > pdims_real(2)) THEN
+         ind = [2, 1]
       ELSE
-         ind=[1,2]
+         ind = [1, 2]
       ENDIF
 
       CALL nearest_divisor(nproc, pdims_real(ind(1)), pdims_min(1), pdims_max(1), pdims_int(1))
