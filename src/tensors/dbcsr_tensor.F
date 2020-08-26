@@ -61,7 +61,7 @@ MODULE dbcsr_tensor
    USE dbcsr_tensor_reshape, ONLY: &
       dbcsr_t_reshape
    USE dbcsr_tas_split, ONLY: &
-      dbcsr_tas_mp_comm, rowsplit, colsplit, dbcsr_tas_info_hold, dbcsr_tas_release_info
+      dbcsr_tas_mp_comm, rowsplit, colsplit, dbcsr_tas_info_hold, dbcsr_tas_release_info, default_nsplit_accept_ratio
    USE dbcsr_data_types, ONLY: &
       dbcsr_scalar_type
    USE dbcsr_tensor_split, ONLY: &
@@ -1440,36 +1440,35 @@ CONTAINS
       INTEGER, INTENT(IN) :: mp_comm_2d
       INTEGER, DIMENSION(2), INTENT(IN) :: pdims
       INTEGER, INTENT(IN) :: unit_nr
-      INTEGER, DIMENSION(2) :: dims, coor, pdims_mean, pdims_min, pdims_max
+      INTEGER, DIMENSION(2) :: pdims_opt, coor
       LOGICAL, DIMENSION(2) :: periods
       LOGICAL :: do_change_pgrid
+      REAL(kind=real_8) :: pdims_ratio_opt, change_criterion, pdims_ratio
 
-      ! todo: sort opt process grid dimensions [p1,p2] with p1 < p2
-      ! and criterion should be not mean but most balanced dimensions within range p1 in [pmin, pmax]
-      ! with pmin >= p1 and pmax next higher (oom to be avoided!)
-
-      CALL mp_environ(mp_comm_2d, 2, dims, coor, periods)
+      CALL mp_environ(mp_comm_2d, 2, pdims_opt, coor, periods)
       storage%ibatch = storage%ibatch + 1
 
-      ! running average of optimal process grid dimensions over the iterations of a batched contraction
-      storage%pdims_avg(:) = (REAL(storage%pdims_avg, real_8)*REAL(storage%ibatch - 1, real_8) + REAL(dims, real_8)) &
-                             /REAL(storage%ibatch, real_8)
+      pdims_ratio_opt = REAL(pdims_opt(1), real_8)/pdims_opt(2)
+      pdims_ratio = REAL(pdims(1), real_8)/pdims(2)
 
-      CALL pdims_realtoint(dims(1)*dims(2), storage%pdims_avg, pdims_mean, pdims_min, pdims_max)
+      storage%pdims_ratio_avg = (storage%pdims_ratio_avg*REAL(storage%ibatch - 1, real_8) + pdims_ratio_opt) &
+                                /REAL(storage%ibatch, real_8)
 
       do_change_pgrid = .TRUE.
-      IF (pdims(1) >= pdims_min(1) .AND. pdims(1) <= pdims_max(1)) do_change_pgrid = .FALSE.
 
-      storage%pdims = dims
+      change_criterion = SQRT(MAX(pdims_ratio/storage%pdims_ratio_avg, storage%pdims_ratio_avg/pdims_ratio))
+
+      do_change_pgrid = .FALSE.
+      IF (change_criterion > default_nsplit_accept_ratio) do_change_pgrid = .TRUE.
+
+      storage%pdims = pdims_opt
 
       IF (unit_nr > 0) THEN
          print *, "DEBUG PGRID START"
-         PRINT *, "current opt", dims
+         PRINT *, "current opt", pdims_opt
          PRINT *, "current", pdims
-         PRINT *, "avg", storage%pdims_avg
+         PRINT *, "avg", storage%pdims_ratio_avg
          PRINT *, "actual", storage%pdims
-         PRINT *, "min", pdims_min
-         PRINT *, "max", pdims_max
          PRINT *, "ibatch", storage%ibatch
       ENDIF
 
@@ -1974,7 +1973,7 @@ CONTAINS
          CALL dbcsr_tas_batched_mm_init(tensor%matrix_rep)
       ENDIF
       tensor%contraction_storage%pdims = 0
-      tensor%contraction_storage%pdims_avg = 0.0_real_8
+      tensor%contraction_storage%pdims_ratio_avg = 0.0_real_8
       tensor%contraction_storage%ibatch = 0
 
 #:for ndim in range(1, maxdim+1)
