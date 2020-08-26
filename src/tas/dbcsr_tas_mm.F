@@ -39,7 +39,7 @@ MODULE dbcsr_tas_mm
       dbcsr_tas_merge, dbcsr_tas_replicate, dbcsr_tas_reshape
    USE dbcsr_tas_split, ONLY: &
       rowsplit, colsplit, dbcsr_tas_get_split_info, dbcsr_tas_create_split, dbcsr_tas_mp_comm, &
-      dbcsr_tas_release_info, accept_pgrid_dims, dbcsr_tas_info_hold, default_nsplit_accept_ratio_1
+      dbcsr_tas_release_info, accept_pgrid_dims, dbcsr_tas_info_hold
    USE dbcsr_tas_util, ONLY: &
       swap, invert_transpose_flag, array_eq, dbcsr_mp_environ
    USE dbcsr_types, ONLY: &
@@ -707,7 +707,7 @@ CONTAINS
          SELECT CASE (max_mm_dim)
          CASE (1, 3)
             CALL mp_sum(nze_c, mp_comm)
-         CASE(2)
+         CASE (2)
             CALL dbcsr_tas_get_split_info(info_c, mp_comm=mp_comm, mp_comm_group=mp_comm_group)
             CALL mp_sum(nze_c, mp_comm_group)
             CALL mp_max(nze_c, mp_comm)
@@ -1449,7 +1449,7 @@ CONTAINS
          DBCSR_ABORT("")
       END SELECT
 
-      nsplit = MIN(numnodes, NINT(REAL(max_nze, real_8)/(REAL(min_nze,real_8)*s_opt_factor)))
+      nsplit = MIN(numnodes, NINT(REAL(max_nze, real_8)/(REAL(min_nze, real_8)*s_opt_factor)))
       IF (nsplit == 0) nsplit = 1
 
    END FUNCTION
