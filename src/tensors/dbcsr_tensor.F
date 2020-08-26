@@ -963,7 +963,7 @@ CONTAINS
             DBCSR_ASSERT(storage%static)
             do_change_pgrid = &
                update_contraction_storage(storage, split_opt, &
-               dbcsr_tas_info(tensor_small%matrix_rep), unit_nr_prv)
+               dbcsr_tas_info(tensor_large%matrix_rep), unit_nr_prv)
             pdims_2d_opt = storage%pdims
          END ASSOCIATE
       ENDIF
@@ -1476,13 +1476,16 @@ CONTAINS
 
       storage%pdims = pdims_opt
 
-      IF (unit_nr > 0) THEN
-         print *, "DEBUG PGRID START"
-         PRINT *, "pdims ratio avg, opt, current", storage%pdims_ratio_avg, pdims_ratio
-         PRINT *, "split factor avg, opt, current", storage%nsplit_avg, nsplit_opt, nsplit
-         PRINT *, "ibatch", storage%ibatch
-         PRINT *, "change?", do_change_pgrid
-      ENDIF
+      !IF (unit_nr > 0) THEN
+      !   print *, "DEBUG PGRID START"
+      !   PRINT *, "pdims opt", pdims_opt
+      !   PRINT *, "pdims current", pdims
+      !   PRINT *, "split opt, current", nsplit_opt, nsplit
+      !   PRINT *, "pdims ratio avg, opt, current", storage%pdims_ratio_avg, pdims_ratio_opt, pdims_ratio
+      !   PRINT *, "split factor avg, opt, current", storage%nsplit_avg, nsplit_opt, nsplit
+      !   PRINT *, "ibatch", storage%ibatch
+      !   PRINT *, "change?", do_change_pgrid
+      !ENDIF
 
    END FUNCTION
 
