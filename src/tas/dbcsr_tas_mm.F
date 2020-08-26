@@ -251,19 +251,12 @@ CONTAINS
       nze_b = dbcsr_tas_get_nze_total(matrix_b)
 
       IF (.NOT. simple_split_prv) THEN
+         CALL dbcsr_tas_result_index(transa, transb, transc, matrix_a, matrix_b, matrix_c, filter_eps, &
+                                     blk_ind=result_index, nze=nze_c, retain_sparsity=retain_sparsity)
 
          IF (PRESENT(result_index)) THEN
-            CALL dbcsr_tas_result_index(transa, transb, transc, matrix_a, matrix_b, matrix_c, filter_eps, &
-                                        blk_ind=result_index, nze=nze_c, retain_sparsity=retain_sparsity)
             CALL timestop(handle)
             RETURN
-         ENDIF
-
-         IF (matrix_c%do_batched == 0) THEN
-            CALL dbcsr_tas_result_index(transa, transb, transc, matrix_a, matrix_b, matrix_c, filter_eps, &
-                                        blk_ind=result_index, nze=nze_c, retain_sparsity=retain_sparsity)
-         ELSE
-            nze_c = dbcsr_tas_nfullrows_total(matrix_c)*dbcsr_tas_nfullcols_total(matrix_c)
          ENDIF
 
          max_mm_dim = MAXLOC(dims, 1)
@@ -599,16 +592,7 @@ CONTAINS
          CALL dbcsr_release(matrix_a_mm)
          CALL dbcsr_release(matrix_b_mm)
 
-         IF (matrix_c%do_batched == 0) THEN
-            CALL dbcsr_tas_get_split_info(info_c, mp_comm=mp_comm, mp_comm_group=mp_comm_group)
-            nze_c = dbcsr_get_nze(matrix_c_mm)
-            CALL mp_sum(nze_c, mp_comm_group)
-            CALL mp_max(nze_c, mp_comm)
-         ELSE
-            ! we don't know the final occupancy of the result matrix with batched contraction so
-            ! we assume it's dense
-            nze_c = dbcsr_nfullrows_total(matrix_c_mm)*dbcsr_nfullcols_total(matrix_c_mm)
-         ENDIF
+         nze_c = dbcsr_get_nze(matrix_c_mm)
 
          CALL redistribute_and_sum(matrix_c_mm, matrix_c_rep%matrix, local_copy=opt_pgrid, alpha=beta)
 
@@ -723,6 +707,10 @@ CONTAINS
          SELECT CASE (max_mm_dim)
          CASE (1, 3)
             CALL mp_sum(nze_c, mp_comm)
+         CASE(2)
+            CALL dbcsr_tas_get_split_info(info_c, mp_comm=mp_comm, mp_comm_group=mp_comm_group)
+            CALL mp_sum(nze_c, mp_comm_group)
+            CALL mp_max(nze_c, mp_comm)
          END SELECT
          nsplit_opt = split_factor_estimate(max_mm_dim, nze_a, nze_b, nze_c, numproc)
          ! ideally we should rederive the split factor from the actual sparsity of C, but
@@ -1443,6 +1431,9 @@ CONTAINS
          !! number of MPI ranks
       INTEGER                                     :: nsplit
       INTEGER(KIND=int_8)                         :: max_nze, min_nze
+      REAL(real_8) :: s_opt_factor
+
+      s_opt_factor = 3.0_real_8
 
       SELECT CASE (max_mm_dim)
       CASE (1)
@@ -1458,7 +1449,7 @@ CONTAINS
          DBCSR_ABORT("")
       END SELECT
 
-      nsplit = MIN(numnodes, NINT(REAL(max_nze, real_8)/min_nze))
+      nsplit = MIN(numnodes, NINT(REAL(max_nze, real_8)/(REAL(min_nze,real_8)*s_opt_factor)))
       IF (nsplit == 0) nsplit = 1
 
    END FUNCTION
