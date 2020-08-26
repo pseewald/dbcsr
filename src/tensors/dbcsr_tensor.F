@@ -2181,7 +2181,7 @@ CONTAINS
       REAL(real_8), INTENT(IN) :: div_approx
       INTEGER :: div_min, div_max, div_near
 
-      div_min = CEILING(div_approx)
+      div_min = FLOOR(div_approx)
       div_min = MAX(1, div_min)
       div_max = div_min + 1
       div_max = MIN(n, div_max)
