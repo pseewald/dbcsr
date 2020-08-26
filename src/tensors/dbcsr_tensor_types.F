@@ -113,6 +113,8 @@ MODULE dbcsr_tensor_types
       INTEGER, DIMENSION(2) :: pdims
       REAL(real_8), DIMENSION(2) :: pdims_avg
       INTEGER :: ibatch
+      TYPE(array_list) :: batch_ranges
+      LOGICAL :: static
    END TYPE
 
    TYPE dbcsr_t_type

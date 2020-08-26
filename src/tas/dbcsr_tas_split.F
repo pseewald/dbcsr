@@ -239,6 +239,7 @@ CONTAINS
       ENDIF
 
       lb = CEILING(REAL(nsplit, real_8)/nsplit_accept_ratio)
+      !ub = nsplit ! todo: adapt ub to avoid memory overhead
       ub = FLOOR(REAL(nsplit, real_8)*nsplit_accept_ratio)
 
       IF (ub < lb) ub = lb

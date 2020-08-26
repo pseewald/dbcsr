@@ -28,7 +28,8 @@ MODULE dbcsr_tas_mm
       dbcsr_tas_get_data_type, dbcsr_tas_info, dbcsr_tas_nblkcols_total, &
       dbcsr_tas_nblkrows_total, dbcsr_tas_filter, dbcsr_tas_get_info, dbcsr_tas_iterator_blocks_left, &
       dbcsr_tas_get_nze_total, dbcsr_tas_reserve_blocks, dbcsr_tas_iterator_start, dbcsr_tas_iterator_next_block, &
-      dbcsr_tas_iterator_stop, dbcsr_tas_copy, dbcsr_tas_get_block_p, dbcsr_tas_clear, dbcsr_tas_get_num_blocks
+      dbcsr_tas_iterator_stop, dbcsr_tas_copy, dbcsr_tas_get_block_p, dbcsr_tas_clear, dbcsr_tas_get_num_blocks, &
+      dbcsr_tas_nfullrows_total, dbcsr_tas_nfullcols_total
    USE dbcsr_tas_types, ONLY: &
       dbcsr_tas_distribution_type, dbcsr_tas_split_info, dbcsr_tas_type, dbcsr_tas_iterator
    USE dbcsr_tas_global, ONLY: &
@@ -56,7 +57,7 @@ MODULE dbcsr_tas_mm
    USE dbcsr_transformations, ONLY: dbcsr_redistribute
    USE dbcsr_dist_methods, ONLY: dbcsr_distribution_new
    USE dbcsr_methods, ONLY: &
-      dbcsr_mp_release, dbcsr_release, dbcsr_distribution_release, dbcsr_get_nze
+      dbcsr_mp_release, dbcsr_release, dbcsr_distribution_release, dbcsr_get_nze, dbcsr_nfullrows_total, dbcsr_nfullcols_total
 #include "base/dbcsr_base_uses.f90"
 
    IMPLICIT NONE
@@ -250,11 +251,19 @@ CONTAINS
       nze_b = dbcsr_tas_get_nze_total(matrix_b)
 
       IF (.NOT. simple_split_prv) THEN
-         CALL dbcsr_tas_result_index(transa, transb, transc, matrix_a, matrix_b, matrix_c, filter_eps, &
-                                     blk_ind=result_index, nze=nze_c, retain_sparsity=retain_sparsity)
+
          IF (PRESENT(result_index)) THEN
+            CALL dbcsr_tas_result_index(transa, transb, transc, matrix_a, matrix_b, matrix_c, filter_eps, &
+                                        blk_ind=result_index, nze=nze_c, retain_sparsity=retain_sparsity)
             CALL timestop(handle)
             RETURN
+         ENDIF
+
+         IF(matrix_c%do_batched == 0) THEN
+            CALL dbcsr_tas_result_index(transa, transb, transc, matrix_a, matrix_b, matrix_c, filter_eps, &
+                                        blk_ind=result_index, nze=nze_c, retain_sparsity=retain_sparsity)
+         ELSE
+            nze_c = dbcsr_tas_nfullrows_total(matrix_c)*dbcsr_tas_nfullcols_total(matrix_c)
          ENDIF
 
          max_mm_dim = MAXLOC(dims, 1)
@@ -512,14 +521,18 @@ CONTAINS
             CALL timestop(handle2)
          END SELECT
 
+         CALL dbcsr_release(matrix_a_mm)
+         CALL dbcsr_release(matrix_b_mm)
+
          nze_c = dbcsr_get_nze(matrix_c_mm)
 
-         ! todo: don't redistribute if not necessary
          IF (.NOT. new_c) THEN
             CALL redistribute_and_sum(matrix_c_mm, matrix_c_rs%matrix, alpha=beta)
          ELSE
             CALL redistribute_and_sum(matrix_c_mm, matrix_c_rs%matrix)
          ENDIF
+
+         CALL dbcsr_release(matrix_c_mm)
 
          IF (PRESENT(filter_eps)) CALL dbcsr_tas_filter(matrix_c_rs, filter_eps)
 
@@ -583,9 +596,23 @@ CONTAINS
                              filter_eps=filter_eps_prv/REAL(nsplit, KIND=real_8), retain_sparsity=retain_sparsity, flop=flop)
          CALL timestop(handle2)
 
-         nze_c = dbcsr_get_nze(matrix_c_mm)
+         CALL dbcsr_release(matrix_a_mm)
+         CALL dbcsr_release(matrix_b_mm)
+
+         IF(matrix_c%do_batched == 0) THEN
+            CALL dbcsr_tas_get_split_info(info_c, mp_comm=mp_comm, mp_comm_group=mp_comm_group)
+            nze_c = dbcsr_get_nze(matrix_c_mm)
+            CALL mp_sum(nze_c, mp_comm_group)
+            CALL mp_max(nze_c, mp_comm)
+         ELSE
+            ! we don't know the final occupancy of the result matrix with batched contraction so
+            ! we assume it's dense
+            nze_c = dbcsr_nfullrows_total(matrix_c_mm)*dbcsr_nfullcols_total(matrix_c_mm)
+         ENDIF
 
          CALL redistribute_and_sum(matrix_c_mm, matrix_c_rep%matrix, alpha=beta)
+
+         CALL dbcsr_release(matrix_c_mm)
 
          IF (unit_nr_prv /= 0) THEN
             CALL dbcsr_tas_write_dist(matrix_c_rep, unit_nr_prv, full_info=log_verbose)
@@ -668,6 +695,9 @@ CONTAINS
             CALL timestop(handle2)
          END SELECT
 
+         CALL dbcsr_release(matrix_a_mm)
+         CALL dbcsr_release(matrix_b_mm)
+
          nze_c = dbcsr_get_nze(matrix_c_mm)
 
          IF (.NOT. new_c) THEN
@@ -676,16 +706,14 @@ CONTAINS
             CALL redistribute_and_sum(matrix_c_mm, matrix_c_rs%matrix)
          ENDIF
 
+         CALL dbcsr_release(matrix_c_mm)
+
          IF (PRESENT(filter_eps)) CALL dbcsr_tas_filter(matrix_c_rs, filter_eps)
 
          IF (unit_nr_prv /= 0) THEN
             CALL dbcsr_tas_write_dist(matrix_c_rs, unit_nr_prv)
          ENDIF
       END SELECT
-
-      CALL dbcsr_release(matrix_a_mm)
-      CALL dbcsr_release(matrix_b_mm)
-      CALL dbcsr_release(matrix_c_mm)
 
       CALL mp_comm_free(mp_comm_mm)
 
@@ -695,10 +723,6 @@ CONTAINS
          SELECT CASE (max_mm_dim)
          CASE (1, 3)
             CALL mp_sum(nze_c, mp_comm)
-         CASE (2)
-            CALL dbcsr_tas_get_split_info(info_c, mp_comm_group=mp_comm_group)
-            CALL mp_sum(nze_c, mp_comm_group)
-            CALL mp_max(nze_c, mp_comm)
          END SELECT
          nsplit_opt = split_factor_estimate(max_mm_dim, nze_a, nze_b, nze_c, numproc)
          ! ideally we should rederive the split factor from the actual sparsity of C, but
