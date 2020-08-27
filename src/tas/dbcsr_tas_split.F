@@ -364,6 +364,10 @@ CONTAINS
 
       CALL dbcsr_tas_create_split_rows_or_cols(split_info, mp_comm, nsplit_opt, igroup, split_rowcol, own_comm=own_comm)
 
+      IF (nsplit > 0) THEN
+         ALLOCATE (split_info%ngroup_opt, SOURCE=nsplit)
+      ENDIF
+
       CALL timestop(handle)
 
    END SUBROUTINE
@@ -440,6 +444,8 @@ CONTAINS
       ENDIF
 
       split_info%pdims = 0
+
+      IF (ALLOCATED(split_info%ngroup_opt)) DEALLOCATE (split_info%ngroup_opt)
    END SUBROUTINE
 
    SUBROUTINE dbcsr_tas_info_hold(split_info)

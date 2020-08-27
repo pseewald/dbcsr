@@ -42,6 +42,7 @@ MODULE dbcsr_tas_types
       INTEGER :: pgrid_split_size ! how many process rows/cols in subgroups
       INTEGER :: group_size ! group size (how many cores) of subgroups
       INTEGER :: mp_comm_group ! sub communicator
+      INTEGER, ALLOCATABLE :: ngroup_opt ! optimal number of groups (split factor)
       LOGICAL, DIMENSION(2) :: strict_split = [.FALSE., .FALSE.]
       ! if .true., split factor should not be modified (2 parameters for current and general settings)
       INTEGER, POINTER :: refcount => NULL() ! lightweight reference counting for communicators

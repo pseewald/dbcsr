@@ -58,6 +58,7 @@ MODULE dbcsr_tas_mm
    USE dbcsr_dist_methods, ONLY: dbcsr_distribution_new
    USE dbcsr_methods, ONLY: &
       dbcsr_mp_release, dbcsr_release, dbcsr_distribution_release, dbcsr_get_nze, dbcsr_nfullrows_total, dbcsr_nfullcols_total
+   USE dbcsr_config, ONLY: dbcsr_cfg
 #include "base/dbcsr_base_uses.f90"
 
    IMPLICIT NONE
@@ -1437,7 +1438,7 @@ CONTAINS
       INTEGER(KIND=int_8)                         :: max_nze, min_nze
       REAL(real_8) :: s_opt_factor
 
-      s_opt_factor = 3.0_real_8
+      s_opt_factor = dbcsr_cfg%tas_split_factor
 
       SELECT CASE (max_mm_dim)
       CASE (1)
@@ -1453,7 +1454,7 @@ CONTAINS
          DBCSR_ABORT("")
       END SELECT
 
-      nsplit = MIN(numnodes, NINT(REAL(max_nze, real_8)/(REAL(min_nze, real_8)*s_opt_factor)))
+      nsplit = INT(MIN(INT(numnodes, KIND=int_8), NINT(REAL(max_nze, real_8)/(REAL(min_nze, real_8)*s_opt_factor), KIND=int_8)))
       IF (nsplit == 0) nsplit = 1
 
    END FUNCTION
