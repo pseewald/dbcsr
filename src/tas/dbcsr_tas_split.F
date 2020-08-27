@@ -47,7 +47,8 @@ MODULE dbcsr_tas_split
       rowsplit, &
       world_to_group_proc_map, &
       accept_pgrid_dims, &
-      default_nsplit_accept_ratio
+      default_nsplit_accept_ratio, &
+      default_pdims_accept_ratio
 
    CHARACTER(len=*), PARAMETER, PRIVATE :: moduleN = 'dbcsr_tas_split'
 

@@ -61,7 +61,8 @@ MODULE dbcsr_tensor
    USE dbcsr_tensor_reshape, ONLY: &
       dbcsr_t_reshape
    USE dbcsr_tas_split, ONLY: &
-      dbcsr_tas_mp_comm, rowsplit, colsplit, dbcsr_tas_info_hold, dbcsr_tas_release_info, default_nsplit_accept_ratio
+      dbcsr_tas_mp_comm, rowsplit, colsplit, dbcsr_tas_info_hold, dbcsr_tas_release_info, default_nsplit_accept_ratio, &
+      default_pdims_accept_ratio, dbcsr_tas_create_split
    USE dbcsr_data_types, ONLY: &
       dbcsr_scalar_type
    USE dbcsr_tensor_split, ONLY: &
@@ -572,7 +573,7 @@ CONTAINS
       INTEGER(int_8), DIMENSION(:, :), ALLOCATABLE  :: result_index_2d
       LOGICAL                                        :: assert_stmt, tensors_remapped
       INTEGER                                        :: data_type, max_mm_dim, max_tensor, mp_comm, &
-                                                        iblk, nblk, unit_nr_prv, ref_tensor
+                                                        iblk, nblk, unit_nr_prv, ref_tensor, mp_comm_opt
       INTEGER, DIMENSION(SIZE(contract_1))           :: contract_1_mod
       INTEGER, DIMENSION(SIZE(notcontract_1))        :: notcontract_1_mod
       INTEGER, DIMENSION(SIZE(contract_2))           :: contract_2_mod
@@ -594,10 +595,11 @@ CONTAINS
       INTEGER, DIMENSION(2, ndims_tensor(tensor_1)) :: bounds_t1
       INTEGER, DIMENSION(2, ndims_tensor(tensor_2)) :: bounds_t2
       LOGICAL                                        :: do_crop_1, do_crop_2, do_write_3, nodata_3, do_batched, pgrid_changed, &
-                                                        pgrid_changed_any, do_change_pgrid
-      TYPE(dbcsr_tas_split_info)                     :: split_opt
-      INTEGER, DIMENSION(2) :: pdims_2d_opt, pdims_2d, pcoord_2d
+                                                        pgrid_changed_any, do_change_pgrid(2)
+      TYPE(dbcsr_tas_split_info)                     :: split_opt, split, split_opt_avg
+      INTEGER, DIMENSION(2) :: pdims_2d_opt, pdims_2d, pcoord_2d, pdims_sub, pdims_sub_opt
       LOGICAL, DIMENSION(2) :: periods_2d
+      REAL(real_8) :: pdim_ratio, pdim_ratio_opt
 
       NULLIFY (tensor_contr_1, tensor_contr_2, tensor_contr_3, tensor_crop_1, tensor_crop_2, &
                tensor_small)
@@ -957,15 +959,36 @@ CONTAINS
 
       CALL mp_environ(tensor_large%pgrid%mp_comm_2d, 2, pdims_2d, pcoord_2d, periods_2d)
 
-      do_change_pgrid = .FALSE.
+      do_change_pgrid(:) = .FALSE.
       IF ((.NOT. tensors_remapped) .AND. do_batched) THEN
          ASSOCIATE (storage => tensor_small%contraction_storage)
             DBCSR_ASSERT(storage%static)
-            do_change_pgrid = &
+            split = dbcsr_tas_info(tensor_large%matrix_rep)
+            do_change_pgrid(:) = &
                update_contraction_storage(storage, split_opt, &
-                                          dbcsr_tas_info(tensor_large%matrix_rep), unit_nr_prv)
-            pdims_2d_opt = storage%pdims
+                                          split, unit_nr_prv)
+
+            IF(ANY(do_change_pgrid)) THEN
+               mp_comm_opt = dbcsr_tas_mp_comm(tensor_small%pgrid%mp_comm_2d, split_opt%split_rowcol, NINT(storage%nsplit_avg))
+               CALL dbcsr_tas_create_split(split_opt_avg, mp_comm_opt, split_opt%split_rowcol, &
+                                           NINT(storage%nsplit_avg), own_comm=.TRUE.)
+               CALL mp_environ(split_opt_avg%mp_comm, 2, pdims_2d_opt, pcoord_2d, periods_2d)
+            ENDIF
+
          END ASSOCIATE
+
+         IF(do_change_pgrid(1) .AND. .NOT. do_change_pgrid(2)) THEN
+            ! check if new grid has better subgrid, if not there is no need to change process grid
+            CALL mp_environ(split_opt_avg%mp_comm_group, 2, pdims_sub_opt, pcoord_2d, periods_2d)
+            CALL mp_environ(split%mp_comm_group, 2, pdims_sub, pcoord_2d, periods_2d)
+
+            pdim_ratio = MAXVAL(REAL(pdims_sub, real_8))/MINVAL(pdims_sub)
+            pdim_ratio_opt = MAXVAL(REAL(pdims_sub_opt, real_8))/MINVAL(pdims_sub_opt)
+            IF(pdim_ratio/pdim_ratio_opt <= default_pdims_accept_ratio**2) THEN
+               do_change_pgrid(1) = .FALSE.
+               CALL dbcsr_tas_release_info(split_opt_avg)
+            ENDIF
+         ENDIF
       ENDIF
 
       IF (unit_nr_prv /= 0) THEN
@@ -1038,17 +1061,17 @@ CONTAINS
          WRITE (unit_nr_prv, '(A)') repeat("-", 80)
       ENDIF
 
-      IF (do_change_pgrid) THEN
+      IF (ANY(do_change_pgrid)) THEN
          pgrid_changed_any = .FALSE.
          SELECT CASE (max_mm_dim)
          CASE (1)
             CALL dbcsr_t_change_pgrid_2d(tensor_1, tensor_1%pgrid%mp_comm_2d, pdims=pdims_2d_opt, &
-                                         nsplit=split_opt%ngroup, dimsplit=split_opt%split_rowcol, &
+                                         nsplit=split_opt_avg%ngroup, dimsplit=split_opt_avg%split_rowcol, &
                                          pgrid_changed=pgrid_changed, &
                                          unit_nr=unit_nr_prv)
             IF (pgrid_changed) pgrid_changed_any = .TRUE.
             CALL dbcsr_t_change_pgrid_2d(tensor_3, tensor_3%pgrid%mp_comm_2d, pdims=pdims_2d_opt, &
-                                         nsplit=split_opt%ngroup, dimsplit=split_opt%split_rowcol, &
+                                         nsplit=split_opt_avg%ngroup, dimsplit=split_opt_avg%split_rowcol, &
                                          pgrid_changed=pgrid_changed, &
                                          unit_nr=unit_nr_prv)
             IF (pgrid_changed) pgrid_changed_any = .TRUE.
@@ -1059,12 +1082,12 @@ CONTAINS
             ENDIF
          CASE (2)
             CALL dbcsr_t_change_pgrid_2d(tensor_1, tensor_1%pgrid%mp_comm_2d, pdims=pdims_2d_opt, &
-                                         nsplit=split_opt%ngroup, dimsplit=split_opt%split_rowcol, &
+                                         nsplit=split_opt_avg%ngroup, dimsplit=split_opt_avg%split_rowcol, &
                                          pgrid_changed=pgrid_changed, &
                                          unit_nr=unit_nr_prv)
             IF (pgrid_changed) pgrid_changed_any = .TRUE.
             CALL dbcsr_t_change_pgrid_2d(tensor_2, tensor_2%pgrid%mp_comm_2d, pdims=pdims_2d_opt, &
-                                         nsplit=split_opt%ngroup, dimsplit=split_opt%split_rowcol, &
+                                         nsplit=split_opt_avg%ngroup, dimsplit=split_opt_avg%split_rowcol, &
                                          pgrid_changed=pgrid_changed, &
                                          unit_nr=unit_nr_prv)
             IF (pgrid_changed) pgrid_changed_any = .TRUE.
@@ -1075,12 +1098,12 @@ CONTAINS
             ENDIF
          CASE (3)
             CALL dbcsr_t_change_pgrid_2d(tensor_2, tensor_2%pgrid%mp_comm_2d, pdims=pdims_2d_opt, &
-                                         nsplit=split_opt%ngroup, dimsplit=split_opt%split_rowcol, &
+                                         nsplit=split_opt_avg%ngroup, dimsplit=split_opt_avg%split_rowcol, &
                                          pgrid_changed=pgrid_changed, &
                                          unit_nr=unit_nr_prv)
             IF (pgrid_changed) pgrid_changed_any = .TRUE.
             CALL dbcsr_t_change_pgrid_2d(tensor_3, tensor_3%pgrid%mp_comm_2d, pdims=pdims_2d_opt, &
-                                         nsplit=split_opt%ngroup, dimsplit=split_opt%split_rowcol, &
+                                         nsplit=split_opt_avg%ngroup, dimsplit=split_opt_avg%split_rowcol, &
                                          pgrid_changed=pgrid_changed, &
                                          unit_nr=unit_nr_prv)
             IF (pgrid_changed) pgrid_changed_any = .TRUE.
@@ -1090,6 +1113,7 @@ CONTAINS
                ENDIF
             ENDIF
          END SELECT
+         CALL dbcsr_tas_release_info(split_opt_avg)
       ENDIF
 
       CALL dbcsr_tas_release_info(split_opt)
@@ -1442,9 +1466,9 @@ CONTAINS
       TYPE(dbcsr_tas_split_info), INTENT(IN)           :: split_opt
       TYPE(dbcsr_tas_split_info), INTENT(IN)           :: split
       INTEGER, INTENT(IN) :: unit_nr
-      INTEGER, DIMENSION(2) :: pdims_opt, coor, pdims
+      INTEGER, DIMENSION(2) :: pdims_opt, coor, pdims, pdims_sub
       LOGICAL, DIMENSION(2) :: periods
-      LOGICAL :: do_change_pgrid
+      LOGICAL, DIMENSION(2) :: do_change_pgrid
       REAL(kind=real_8) :: pdims_ratio_opt, change_criterion, pdims_ratio
       INTEGER :: nsplit_opt, nsplit
 
@@ -1467,17 +1491,16 @@ CONTAINS
          pdims_ratio = REAL(pdims(2), real_8)/pdims(1)
       END SELECT
 
-      ! check for process grid dimensions
-      change_criterion = MAX(storage%nsplit_avg/pdims_ratio, pdims_ratio/storage%nsplit_avg)
+      do_change_pgrid(:) = .FALSE.
 
-      do_change_pgrid = .FALSE.
-      IF (change_criterion > default_nsplit_accept_ratio) do_change_pgrid = .TRUE.
+      ! check for process grid dimensions
+      CALL mp_environ(split%mp_comm_group, 2, pdims_sub, coor, periods)
+      change_criterion = MAXVAL(REAL(pdims_sub, real_8))/MINVAL(pdims_sub)
+      IF( change_criterion > default_pdims_accept_ratio**2) do_change_pgrid(1) = .TRUE.
 
       ! check for split factor
       change_criterion = MAX(REAL(nsplit, real_8)/storage%nsplit_avg, REAL(storage%nsplit_avg, real_8)/nsplit)
-      IF (change_criterion > default_nsplit_accept_ratio) do_change_pgrid = .TRUE.
-
-      storage%pdims = pdims_opt
+      IF (change_criterion > default_nsplit_accept_ratio) do_change_pgrid(2) = .TRUE.
 
       IF (unit_nr > 0) THEN
          print *, "DEBUG PGRID START"
@@ -1988,7 +2011,6 @@ CONTAINS
       IF (static_range) THEN
          CALL dbcsr_tas_batched_mm_init(tensor%matrix_rep)
       ENDIF
-      tensor%contraction_storage%pdims = 0
       tensor%contraction_storage%nsplit_avg = 0.0_real_8
       tensor%contraction_storage%ibatch = 0
 
