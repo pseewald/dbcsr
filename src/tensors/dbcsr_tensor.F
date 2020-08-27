@@ -2036,10 +2036,10 @@ CONTAINS
       do_write = .FALSE.
 
       IF (tensor%contraction_storage%static) THEN
-         CALL dbcsr_tas_batched_mm_finalize(tensor%matrix_rep)
          IF (tensor%matrix_rep%do_batched > 0) THEN
             IF (tensor%matrix_rep%mm_storage%batched_out) do_write = .TRUE.
          ENDIF
+         CALL dbcsr_tas_batched_mm_finalize(tensor%matrix_rep)
       ENDIF
 
       IF (do_write .AND. unit_nr_prv /= 0) THEN
