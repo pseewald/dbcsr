@@ -123,6 +123,35 @@ CONTAINS
          INTENT(IN), OPTIONAL                        :: bounds
          !! crop tensor data: start and end index for each tensor dimension
       INTEGER, INTENT(IN), OPTIONAL                  :: unit_nr
+      INTEGER :: handle
+
+      CALL timeset("dbcsr_t_total", handle)
+      CALL dbcsr_t_copy_expert(tensor_in, tensor_out, order, summation, bounds, move_data, unit_nr)
+      CALL timestop(handle)
+   END SUBROUTINE
+
+   SUBROUTINE dbcsr_t_copy_expert(tensor_in, tensor_out, order, summation, bounds, move_data, unit_nr)
+      !! Copy tensor data.
+      !! Redistributes tensor data according to distributions of target and source tensor.
+      !! Permutes tensor index according to `order` argument (if present).
+      !! Source and target tensor formats are arbitrary as long as the following requirements are met:
+      !! * source and target tensors have the same rank and the same sizes in each dimension in terms
+      !!   of tensor elements (block sizes don't need to be the same).
+      !!   If `order` argument is present, sizes must match after index permutation.
+      !! OR
+      !! * target tensor is not yet created, in this case an exact copy of source tensor is returned.
+
+      TYPE(dbcsr_t_type), INTENT(INOUT), TARGET      :: tensor_in, tensor_out
+         !! Source
+         !! Target
+      INTEGER, DIMENSION(ndims_tensor(tensor_in)), &
+         INTENT(IN), OPTIONAL                        :: order
+         !! Permutation of target tensor index. Exact same convention as order argument of RESHAPE intrinsic
+      LOGICAL, INTENT(IN), OPTIONAL                  :: summation, move_data
+      INTEGER, DIMENSION(2, ndims_tensor(tensor_in)), &
+         INTENT(IN), OPTIONAL                        :: bounds
+         !! crop tensor data: start and end index for each tensor dimension
+      INTEGER, INTENT(IN), OPTIONAL                  :: unit_nr
 
       TYPE(dbcsr_t_type), POINTER                    :: in_tmp_1, in_tmp_2, &
                                                         in_tmp_3, out_tmp_1
@@ -497,7 +526,7 @@ CONTAINS
 
       INTEGER                     :: handle
 
-      CALL timeset(routineN, handle)
+      CALL timeset("dbcsr_t_total", handle)
       CALL dbcsr_t_contract_expert(alpha, tensor_1, tensor_2, beta, tensor_3, &
                                    contract_1, notcontract_1, &
                                    contract_2, notcontract_2, &
@@ -573,7 +602,8 @@ CONTAINS
       INTEGER(int_8), DIMENSION(:, :), ALLOCATABLE  :: result_index_2d
       LOGICAL                                        :: assert_stmt, tensors_remapped
       INTEGER                                        :: data_type, max_mm_dim, max_tensor, mp_comm, &
-                                                        iblk, nblk, unit_nr_prv, ref_tensor, mp_comm_opt
+                                                        iblk, nblk, unit_nr_prv, ref_tensor, mp_comm_opt, &
+                                                        handle
       INTEGER, DIMENSION(SIZE(contract_1))           :: contract_1_mod
       INTEGER, DIMENSION(SIZE(notcontract_1))        :: notcontract_1_mod
       INTEGER, DIMENSION(SIZE(contract_2))           :: contract_2_mod
@@ -586,7 +616,7 @@ CONTAINS
       INTEGER                                        :: occ_1, occ_2
       INTEGER, DIMENSION(:), ALLOCATABLE             :: dims1, dims2, dims3
 
-      CHARACTER(LEN=*), PARAMETER :: routineN = 'dbcsr_t_contract_expert', &
+      CHARACTER(LEN=*), PARAMETER :: routineN = 'dbcsr_t_contract', &
                                      routineP = moduleN//':'//routineN
       CHARACTER(LEN=1), DIMENSION(:), ALLOCATABLE    :: indchar1, indchar2, indchar3, indchar1_mod, &
                                                         indchar2_mod, indchar3_mod
@@ -603,6 +633,8 @@ CONTAINS
 
       NULLIFY (tensor_contr_1, tensor_contr_2, tensor_contr_3, tensor_crop_1, tensor_crop_2, &
                tensor_small)
+
+      CALL timeset(routineN, handle)
 
       DBCSR_ASSERT(tensor_1%valid)
       DBCSR_ASSERT(tensor_2%valid)
@@ -690,6 +722,8 @@ CONTAINS
             CALL dbcsr_t_destroy(tensor_crop_2)
             DEALLOCATE (tensor_crop_2)
          ENDIF
+
+         CALL timestop(handle)
          RETURN
       ENDIF
 
@@ -923,6 +957,7 @@ CONTAINS
          CALL dbcsr_t_destroy(tensor_algn_2)
          CALL dbcsr_t_destroy(tensor_algn_3)
 
+         CALL timestop(handle)
          RETURN
       ENDIF
 
@@ -1005,7 +1040,7 @@ CONTAINS
       IF (new_3) THEN
          ! need redistribute if we created new tensor for tensor 3
          CALL dbcsr_t_scale(tensor_algn_3, beta)
-         CALL dbcsr_t_copy(tensor_contr_3, tensor_algn_3, summation=.TRUE., move_data=.TRUE.)
+         CALL dbcsr_t_copy_expert(tensor_contr_3, tensor_algn_3, summation=.TRUE., move_data=.TRUE.)
          IF (PRESENT(filter_eps)) CALL dbcsr_t_filter(tensor_algn_3, filter_eps)
          ! tensor_3 automatically has correct data because tensor_algn_3 contains a matrix
          ! pointer to data of tensor_3
@@ -1117,6 +1152,8 @@ CONTAINS
       ENDIF
 
       CALL dbcsr_tas_release_info(split_opt)
+
+      CALL timestop(handle)
 
    END SUBROUTINE
 
@@ -1664,7 +1701,7 @@ CONTAINS
          nodata_prv = .FALSE.
       ENDIF
 
-      IF (.NOT. nodata_prv) CALL dbcsr_t_copy(tensor_in, tensor_out, move_data=move_data)
+      IF (.NOT. nodata_prv) CALL dbcsr_t_copy_expert(tensor_in, tensor_out, move_data=move_data)
       CALL dbcsr_t_distribution_destroy(dist)
 
       CALL timestop(handle)
@@ -2132,9 +2169,9 @@ CONTAINS
       CALL dbcsr_t_distribution_destroy(dist)
 
       IF (PRESENT(nodata)) THEN
-         IF (.NOT. nodata) CALL dbcsr_t_copy(tensor, t_tmp, move_data=.TRUE.)
+         IF (.NOT. nodata) CALL dbcsr_t_copy_expert(tensor, t_tmp, move_data=.TRUE.)
       ELSE
-         CALL dbcsr_t_copy(tensor, t_tmp, move_data=.TRUE.)
+         CALL dbcsr_t_copy_expert(tensor, t_tmp, move_data=.TRUE.)
       ENDIF
 
       IF (ALLOCATED(tensor%contraction_storage)) &

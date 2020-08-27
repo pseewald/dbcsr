@@ -112,7 +112,8 @@ CONTAINS
       INTEGER, DIMENSION(2)                      :: pdims, pcoord, pcoord_sub, pdims_sub
       INTEGER(KIND=int_8), DIMENSION(3)          :: dims
       INTEGER                                    :: max_mm_dim, data_type, mp_comm, comm_tmp, &
-                                                    handle, handle2, unit_nr_prv, nsplit, nsplit_opt, numproc, numproc_sub, iproc, &
+                                                    handle, handle2, handle3, handle4, &
+                                                    unit_nr_prv, nsplit, nsplit_opt, numproc, numproc_sub, iproc, &
                                                     mp_comm_group, mp_comm_mm, split_rc, split_a, split_b, split_c, &
                                                     mp_comm_opt, batched_repl, max_mm_dim_batched, nsplit_batched
       CHARACTER(LEN=1)                           :: tr_case, transa_prv, transb_prv, transc_prv
@@ -127,6 +128,7 @@ CONTAINS
       TYPE(dbcsr_type)                           :: matrix_a_mm, matrix_b_mm, matrix_c_mm
 
       CALL timeset(routineN, handle)
+      CALL timeset("dbcsr_tas_total", handle2)
 
       NULLIFY (matrix_b_rs, matrix_a_rs, matrix_c_rs)
 
@@ -256,6 +258,7 @@ CONTAINS
                                      blk_ind=result_index, nze=nze_c, retain_sparsity=retain_sparsity)
 
          IF (PRESENT(result_index)) THEN
+            CALL timestop(handle2)
             CALL timestop(handle)
             RETURN
          ENDIF
@@ -498,22 +501,24 @@ CONTAINS
          info_c = dbcsr_tas_info(matrix_c_rs)
          CALL dbcsr_tas_info_hold(info_c)
 
+         CALL timeset("dbcsr_tas_dbcsr", handle4)
          SELECT CASE (tr_case)
          CASE (dbcsr_no_transpose)
-            CALL timeset(routineN//"_mm_1N", handle2)
+            CALL timeset("dbcsr_tas_mm_1N", handle3)
 
             CALL dbcsr_multiply(transa=dbcsr_no_transpose, transb=dbcsr_no_transpose, alpha=alpha, &
                                 matrix_a=matrix_a_mm, matrix_b=matrix_b_mm, beta=beta, matrix_c=matrix_c_mm, &
                                 filter_eps=filter_eps_prv, retain_sparsity=retain_sparsity, flop=flop)
-            CALL timestop(handle2)
+            CALL timestop(handle3)
          CASE (dbcsr_transpose)
-            CALL timeset(routineN//"_mm_1T", handle2)
+            CALL timeset("dbcsr_tas_mm_1T", handle3)
             CALL dbcsr_multiply(transa=dbcsr_transpose, transb=dbcsr_no_transpose, alpha=alpha, &
                                 matrix_a=matrix_b_mm, matrix_b=matrix_a_mm, beta=beta, matrix_c=matrix_c_mm, &
                                 filter_eps=filter_eps_prv, retain_sparsity=retain_sparsity, flop=flop)
 
-            CALL timestop(handle2)
+            CALL timestop(handle3)
          END SELECT
+         CALL timestop(handle4)
 
          CALL dbcsr_release(matrix_a_mm)
          CALL dbcsr_release(matrix_b_mm)
@@ -584,11 +589,13 @@ CONTAINS
          info_c = dbcsr_tas_info(matrix_c_rep)
          CALL dbcsr_tas_info_hold(info_c)
 
-         CALL timeset(routineN//"_mm_2", handle2)
+         CALL timeset("dbcsr_tas_dbcsr", handle4)
+         CALL timeset("dbcsr_tas_mm_2", handle3)
          CALL dbcsr_multiply(transa=transa_prv, transb=transb_prv, alpha=alpha, matrix_a=matrix_a_mm, &
                              matrix_b=matrix_b_mm, beta=beta, matrix_c=matrix_c_mm, &
                              filter_eps=filter_eps_prv/REAL(nsplit, KIND=real_8), retain_sparsity=retain_sparsity, flop=flop)
-         CALL timestop(handle2)
+         CALL timestop(handle3)
+         CALL timestop(handle4)
 
          CALL dbcsr_release(matrix_a_mm)
          CALL dbcsr_release(matrix_b_mm)
@@ -665,20 +672,22 @@ CONTAINS
          info_c = dbcsr_tas_info(matrix_c_rs)
          CALL dbcsr_tas_info_hold(info_c)
 
+         CALL timeset("dbcsr_tas_dbcsr", handle4)
          SELECT CASE (tr_case)
          CASE (dbcsr_no_transpose)
-            CALL timeset(routineN//"_mm_3N", handle2)
+            CALL timeset("dbcsr_tas_mm_3N", handle3)
             CALL dbcsr_multiply(transa=dbcsr_no_transpose, transb=dbcsr_no_transpose, alpha=alpha, &
                                 matrix_a=matrix_a_mm, matrix_b=matrix_b_mm, beta=beta, matrix_c=matrix_c_mm, &
                                 filter_eps=filter_eps_prv, retain_sparsity=retain_sparsity, flop=flop)
-            CALL timestop(handle2)
+            CALL timestop(handle3)
          CASE (dbcsr_transpose)
-            CALL timeset(routineN//"_mm_3T", handle2)
+            CALL timeset("dbcsr_tas_mm_3T", handle3)
             CALL dbcsr_multiply(transa=dbcsr_no_transpose, transb=dbcsr_transpose, alpha=alpha, &
                                 matrix_a=matrix_b_mm, matrix_b=matrix_a_mm, beta=beta, matrix_c=matrix_c_mm, &
                                 filter_eps=filter_eps_prv, retain_sparsity=retain_sparsity, flop=flop)
-            CALL timestop(handle2)
+            CALL timestop(handle3)
          END SELECT
+         CALL timestop(handle4)
 
          CALL dbcsr_release(matrix_a_mm)
          CALL dbcsr_release(matrix_b_mm)
@@ -767,6 +776,7 @@ CONTAINS
       CALL dbcsr_tas_release_info(info_b)
       CALL dbcsr_tas_release_info(info_c)
 
+      CALL timestop(handle2)
       CALL timestop(handle)
 
    END SUBROUTINE
