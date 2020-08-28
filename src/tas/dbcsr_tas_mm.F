@@ -1608,6 +1608,9 @@ CONTAINS
 
    SUBROUTINE dbcsr_tas_batched_mm_finalize(matrix)
       TYPE(dbcsr_tas_type), INTENT(INOUT) :: matrix
+      INTEGER :: handle
+
+      CALL timeset("dbcsr_tas_total", handle)
 
       IF (matrix%do_batched == 0) RETURN
       ASSOCIATE (storage => matrix%mm_storage)
@@ -1630,6 +1633,8 @@ CONTAINS
 
       DEALLOCATE (matrix%mm_storage)
       CALL dbcsr_tas_set_batched_state(matrix, 0)
+
+      CALL timestop(handle)
 
    END SUBROUTINE
 
