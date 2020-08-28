@@ -2066,8 +2066,9 @@ CONTAINS
       TYPE(dbcsr_t_type), INTENT(INOUT) :: tensor
       INTEGER, INTENT(IN), OPTIONAL :: unit_nr
       LOGICAL :: do_write
-      INTEGER :: unit_nr_prv
+      INTEGER :: unit_nr_prv, handle
 
+      CALL timeset("dbcsr_t_total", handle)
       unit_nr_prv = prep_output_unit(unit_nr)
 
       do_write = .FALSE.
@@ -2090,6 +2091,7 @@ CONTAINS
 
       CALL destroy_array_list(tensor%contraction_storage%batch_ranges)
       DEALLOCATE (tensor%contraction_storage)
+      CALL timestop(handle)
 
    END SUBROUTINE
 
